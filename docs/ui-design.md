@@ -10,17 +10,17 @@
 ## Page review (from the 2026-09-24 audit)
 | Page | Works | Needs work |
 |---|---|---|
-| Landing | Clear value prop, CTA, feature cards | Narrow content column with empty space on wide screens; small low-contrast subtext; 2 of 3 features "Coming soon"; dead Log in / Sign Up; no "how it works", product shot or proof; hero hidden until JS animates |
-| Home | — | Fake stats and activity; oversized empty cards; wrong icons (Users = Home, BarChart = Settings); different header from other pages; unreachable from Landing |
+| Landing | Clear value prop, CTA, feature cards | Narrow content column with empty space on wide screens; small low-contrast subtext; 2 of 3 features "Coming soon"; no "how it works", product shot or proof; hero hidden until JS animates |
+| Home | Honest empty state and planned-feature labels (2026-09-25); focus-visible outlines; no horizontal scroll at 360px | Different header from other pages; unreachable from Landing; nothing personal to show until accounts and saved roadmaps exist |
 | Quiz | Best screen: focused card, progress, accessible slider | Dim disabled CTA; no keyboard shortcuts; answers lost on refresh; no time-remaining hint |
-| Results | Rich cards, compare, regenerate, share, states | Copied letter loader clashes with the style; hover-only tooltip on "None of these"; compare hidden behind a mode toggle; fake share link; PDF is a screenshot of a dark page; "Try again" reloads the page |
-| Dashboard | Readiness rings look good | Contradicting % numbers; 2 of 3 tabs "Coming soon"; dead Save / Mark buttons; no way to switch career or go back to results |
+| Results | Rich cards, compare, regenerate, share, states | Copied letter loader clashes with the style; hover-only tooltip on "None of these"; compare hidden behind a mode toggle; PDF is a screenshot of a dark page; "Try again" reloads the page |
+| Dashboard | Readiness rings look good | Contradicting % numbers; 2 of 3 tabs "Coming soon"; no way to switch career or go back to results |
 
 ## Consistency problems
-- Three product names (PathwayAI / RoadmapAI / roadmap-ai). Four different header implementations.
-- Two button systems (`uiverseBtn` + `ghostBtn` vs `primaryBtn`).
+- Two product names (PathwayAI in the UI, "roadmap-ai" in the tab title). Three different header implementations (Landing, Home, Dashboard).
+- One button system in use (`uiverseBtn` + `ghostBtn`); `primaryBtn` styles are left over in `index.css` but no component uses them since the `/app/*` shell was deleted.
 - Three loader styles (letter wave, orb, shimmer).
-- Three theme mechanisms that all render black.
+- Two theme mechanisms (`ThemeGate` + per-page body classes) that both render black.
 - Only 8 CSS variables; about 130 raw colour literals.
 
 ## Accessibility gaps

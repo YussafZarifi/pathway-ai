@@ -21,15 +21,15 @@ How this project is likely to be perceived, and what increases its portfolio val
 - A clear, relevant problem (career guidance for students entering tech).
 
 ## What hurts impressions (fix first)
-1. **Simulated AI:** `ResumeAnalyzer.jsx` returns `Math.random()` scores labelled as AI feedback. It reads as dishonest. Delete it or build it for real.
-2. **Fake dashboard data** on `/home`.
-3. **No git history.** Reviewers check commit history first.
-4. **Default Vite README** (now replaced), "roadmap-ai" tab title, Vite favicon, three brand names.
-5. **Dead buttons** (Settings, Upgrade, Log in, Sign Up, Save Roadmap, Mark as In Progress, fake Copy Link).
+1. ~~**Simulated AI** (`ResumeAnalyzer.jsx` random score)~~ — deleted 2026-09-25.
+2. ~~**Fake dashboard data** on `/home`~~ — replaced by an honest empty state 2026-09-25.
+3. ~~**No git history.**~~ — repo initialized 2026-09-25 with small, explained commits. Not yet pushed to GitHub (ROADMAP N-2).
+4. **Default Vite README** (now replaced), "roadmap-ai" tab title, Vite favicon.
+5. ~~**Dead buttons** and fake Copy Link~~ — removed 2026-09-25.
 6. **Not deployable:** hard-coded localhost, no live demo.
 7. **No tests or CI.**
 8. **Visible bugs:** "Roadmap 100%" after one step; progress leaking between careers.
-9. **About 40% dead code** in the repo.
+9. ~~**About 40% dead code** in the repo~~ — unreachable files deleted 2026-09-25; some dead CSS rules remain in `index.css`.
 
 ## How to reach production quality
 1. Git + clean commits + GitHub repo with description, topics and a pinned live URL.

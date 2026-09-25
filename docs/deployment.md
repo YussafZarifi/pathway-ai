@@ -5,7 +5,7 @@
 1. The frontend fetches a hard-coded `http://127.0.0.1:8000` (`Results.jsx`).
 2. Backend CORS only allows `http://localhost:5173`.
 3. AI endpoints have no rate limiting or auth, so a public URL exposes the Gemini quota.
-4. No git repo, CI, Dockerfile or environment separation.
+4. No CI, Dockerfile or environment separation. (Git was initialized on 2026-09-25 with a root `.gitignore` that excludes `backend/.env`.)
 
 ### How it runs today (local only)
 ```bash

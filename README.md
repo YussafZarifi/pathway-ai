@@ -26,14 +26,14 @@
 - **AI roadmap** — up to 5 actionable steps, each with a time estimate, tasks and learning resources.
 - **Progress dashboard** — interactive timeline (expand steps, mark done/undo) plus Career Readiness, Employability and Momentum meters with a top recommendation.
 - **Export** — download results as PDF or print.
+- **Home hub (`/home`)** — an honest starting page: quiz entry point, an empty "Your roadmaps" state (nothing is saved until accounts exist) and clearly labelled planned features.
 - **Local activity tracking** — events, metrics and progress stored in the browser (`localStorage`).
 
 ### 🟡 Partially implemented
-- **Sharing** — PDF and print work; "Copy link" produces a URL that doesn't resolve yet.
 - **Progress tracking** — works within a session, but isn't scoped per roadmap and roadmaps aren't persisted (known bugs, see [`docs/technical-debt.md`](docs/technical-debt.md)).
 
 ### 🗺️ Planned
-- Accounts and saved roadmaps (PostgreSQL)
+- Accounts and saved roadmaps (PostgreSQL), shareable roadmap links
 - Resume analysis and skill-gap detection
 - AI career coach (chat)
 - Streaming generation, grounded resources and real salary data
@@ -163,11 +163,11 @@ roadmap-ai/
 │   └── requirements.txt
 ├── frontend/
 │   └── src/
-│       ├── pages/           # Landing, Home, Quiz, Results, Dashboard (+ unrouted drafts)
-│       ├── components/      # RoadmapTimeline, RadialMeter, CareerCompareModal, ShareModal, ThemeGate…
+│       ├── pages/           # Landing, Home, Quiz, Results, Dashboard
+│       ├── components/      # RoadmapTimeline, RadialMeter, CareerCompareModal, ShareModal, ThemeGate
 │       ├── lib/             # trackingEngine, scoringEngine
 │       ├── data/            # quiz questions, tracking schema, career details
-│       └── styles/
+│       └── index.css        # global styles
 ├── docs/                    # architecture, API, AI, design, decisions (ADRs)…
 ├── CLAUDE.md                # project memory for AI-assisted development
 ├── ROADMAP.md

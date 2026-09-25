@@ -50,8 +50,8 @@ flowchart TB
 - No data ownership: the roadmap exists only in router state.
 - Progress is global, not per roadmap (keys collide across careers).
 - Hard-coded origins/URLs prevent any deployment.
-- Three competing theme mechanisms (`ThemeGate`, per-page `useEffect` body classes, `DashboardLayout`).
-- Two dashboard designs: the routed tabbed `/dashboard`, and an unrouted `/app/*` shell (`AppShell`, `DashboardLayout`, `DashboardHome`).
+- Two competing theme mechanisms (`ThemeGate` and per-page `useEffect` body classes).
+- ~~Two dashboard designs~~ — resolved 2026-09-25 (ADR-010): the unrouted `/app/*` shell was deleted; the tabbed `/dashboard` is the roadmap view and `/home` is the future signed-in hub.
 - The backend is an open proxy to a paid API.
 
 ## Target architecture (🗺️)

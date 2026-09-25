@@ -1,7 +1,7 @@
 # CLAUDE.md — PathwayAI (repo: `roadmap-ai`)
 
 > Permanent project memory. Read this first in every session. Then read `SESSION.md` (latest state) and `ROADMAP.md` (what's next).
-> Last updated: 2026-09-24 (initial audit + documentation session; no application code changed yet).
+> Last updated: 2026-09-25 (git initialized; fake data, dead buttons and unreachable code removed; `/home` rebuilt as an honest empty state).
 
 ---
 
@@ -14,21 +14,22 @@
 - **Target users:** high-school and university students, bootcamp / self-taught learners, career switchers moving into tech. Likely Canada-first (owner is targeting Canadian employers — consider CAD salaries, EN/FR).
 - **Dual purpose:** it is also the owner's **flagship portfolio project**. Recruiter perception matters (see `docs/recruiter-notes.md`).
 
-Naming: the product brand is **PathwayAI**. The repo/folder is `roadmap-ai`. `Sidebar.jsx` says "RoadmapAI" and `index.html` title says "roadmap-ai" — both are inconsistencies to fix, not alternative names.
+Naming: the product brand is **PathwayAI**. The repo/folder is `roadmap-ai`. The `index.html` title says "roadmap-ai" — an inconsistency to fix, not an alternative name.
 
 ## 2. Current status (truthful snapshot)
 
 | Area | Status |
 |---|---|
 | Quiz → AI career matches → AI roadmap → dashboard | **Implemented** (the only complete flow) |
-| Career compare modal, regenerate, share modal (PDF via html2pdf, print) | **Implemented** (share "Copy Link" is fake — `/share/:slug` route doesn't exist) |
+| Career compare modal, regenerate, "Save Your Results" modal (PDF via html2pdf, print) | **Implemented** (fake "Copy Link" removed 2026-09-25; shareable links are planned) |
 | Roadmap step completion + readiness/momentum scores | **Partially implemented** (localStorage only; progress bugs — see §10) |
-| Resume Analyzer | **Not implemented.** `pages/ResumeAnalyzer.jsx` exists but is unrouted and produces a `Math.random()` score — must never be shipped as-is |
-| AI Coach / Chatbot | **Not implemented** (placeholder page + "Coming soon" tab) |
-| Auth / accounts | **Not implemented** (Log in / Sign Up buttons are non-functional) |
+| Resume Analyzer | **Not implemented.** The simulated `ResumeAnalyzer.jsx` (random score) was deleted 2026-09-25. Shown only as "Planned" / "Coming soon" |
+| AI Coach / Chatbot | **Not implemented** ("Coming soon" tab on `/dashboard`, "Planned" card on `/home`) |
+| Auth / accounts | **Not implemented** (no login UI is shown; the dead Log in / Sign Up buttons were removed 2026-09-25) |
 | Database / server persistence | **Not implemented** |
-| `/home` page | Exists but shows **hard-coded fake stats and activity**; not linked from Landing |
-| Tests, CI, Docker, deployment, git history | **None** (directory is not yet a git repository) |
+| `/home` page | **Partially implemented:** honest empty-state hub (quiz CTA, "No saved roadmaps yet", planned-feature cards). Future signed-in dashboard (ADR-010). Not linked from Landing |
+| Git | **Initialized 2026-09-25** on `main` with a root `.gitignore` (excludes `backend/.env`). Not pushed to a remote yet |
+| Tests, CI, Docker, deployment | **None** |
 
 ## 3. Architecture (current)
 
@@ -49,7 +50,7 @@ No database, no auth, no queue, no cache. Details: `docs/architecture.md`.
 
 ## 4. Tech stack
 
-- **Frontend:** React 19.2, Vite 7, React Router 7 (`BrowserRouter`), framer-motion 12, lucide-react, html2pdf.js (lazy-imported). Plain JavaScript (no TypeScript). ESLint 9 flat config. Plain CSS (`src/index.css` ~3,900 lines + `src/styles/dashboard.css`).
+- **Frontend:** React 19.2, Vite 7, React Router 7 (`BrowserRouter`), framer-motion 12, lucide-react, html2pdf.js (lazy-imported). Plain JavaScript (no TypeScript). ESLint 9 flat config. Plain CSS (`src/index.css` ~3,760 lines; the only stylesheet).
 - **Backend:** Python, FastAPI 0.128, Uvicorn, Pydantic 2, `google-genai`, python-dotenv. (`openai` is in requirements.txt but unused.)
 - **AI:** Gemini 2.5 Flash-Lite via prompt-and-parse JSON.
 - **Storage:** browser localStorage only.
@@ -66,21 +67,18 @@ roadmap-ai/
 │   └── .env                   GEMINI_API_KEY (secret — never commit)
 ├── frontend/
 │   ├── index.html  vite.config.js  eslint.config.js  package.json
-│   ├── public/assets/         coach.jpg resume.jpg roadmap.jpg (UNUSED)
+│   ├── public/                vite.svg (placeholder favicon)
 │   └── src/
-│       ├── main.jsx  App.jsx  index.css  App.css(empty)
-│       ├── pages/        Landing, Home, Quiz, Results, Dashboard  (routed)
-│       │                 DashboardLayout, DashboardHome, Coach, Roadmap, ResumeAnalyzer (UNROUTED / dead)
-│       ├── components/   ThemeGate, RadialMeter, RoadmapTimeline, CareerCompareModal, ShareModal (used)
-│       │                 AppShell, Sidebar, Topbar, GeneratingLoader (UNUSED)
-│       ├── lib/          trackingEngine.js, scoringEngine.js (used); exportPdf.js, matchCareers.js (UNUSED)
-│       ├── data/         questions.js, trackingSchema.js, careerDetails.js (used); careers.js (UNUSED, pre-pivot)
-│       └── styles/       dashboard.css (almost entirely unused)
-├── .venv/  backend/.venv/     Python virtualenvs (two — consolidate)
-└── .vite/                     stray Vite cache at repo root
+│       ├── main.jsx  App.jsx  index.css (only stylesheet, ~3,760 lines)
+│       ├── pages/        Landing, Home, Quiz, Results, Dashboard  (all routed)
+│       ├── components/   ThemeGate, RadialMeter, RoadmapTimeline, CareerCompareModal, ShareModal
+│       ├── lib/          trackingEngine.js, scoringEngine.js
+│       └── data/         questions.js, trackingSchema.js, careerDetails.js
+├── .gitignore                 root ignore file (secrets, venvs, node_modules, caches)
+└── .venv/  backend/.venv/     Python virtualenvs (two — consolidate; both git-ignored)
 ```
 
-Routes (`App.jsx`): `/` Landing · `/home` Home · `/quiz` Quiz · `/results` Results · `/dashboard` Dashboard. No 404 route. Components link to `/app/*`, `/login`, `/signup`, `/profile`, `/share/*` — **none exist**.
+Routes (`App.jsx`): `/` Landing · `/home` Home · `/quiz` Quiz · `/results` Results · `/dashboard` Dashboard. No 404 route. No component links to a non-existent route any more (cleaned 2026-09-25).
 
 ## 6. Coding standards (summary — full version in `docs/coding-standards.md`)
 
@@ -111,7 +109,7 @@ Output parsed with `json.loads` after manual code-fence stripping. No response s
 
 ## 9. Important design decisions (see `docs/decisions.md` for ADRs)
 
-- ADR-001 React + Vite SPA · ADR-002 FastAPI backend as an AI proxy (keeps key server-side) · ADR-003 Gemini Flash-Lite (cheap/fast) · ADR-004 localStorage persistence (MVP, no accounts) · ADR-005 tech-only career scope (pivot from general careers) · ADR-006 plain CSS · ADR-007 router state as data transport · ADR-008 client-side tracking/scoring engines · ADR-009 docs-as-memory (update CLAUDE/ROADMAP/SESSION/decisions every session).
+- ADR-001 React + Vite SPA · ADR-002 FastAPI backend as an AI proxy (keeps key server-side) · ADR-003 Gemini Flash-Lite (cheap/fast) · ADR-004 localStorage persistence (MVP, no accounts) · ADR-005 tech-only career scope (pivot from general careers) · ADR-006 plain CSS · ADR-007 router state as data transport · ADR-008 client-side tracking/scoring engines · ADR-009 docs-as-memory (update CLAUDE/ROADMAP/SESSION/decisions every session) · ADR-010 one dashboard: keep `/dashboard`, keep `/home` as the future signed-in hub, delete the `/app/*` shell.
 
 ## 10. Known limitations & bugs (top items — full list in `docs/technical-debt.md`)
 
@@ -122,16 +120,16 @@ Output parsed with `json.loads` after manual code-fence stripping. No response s
 5. Quiz text input logs one tracking event per keystroke, from inside a state updater.
 6. Hard-coded `http://127.0.0.1:8000` and CORS `http://localhost:5173` → not deployable.
 7. Open, unauthenticated, un-rate-limited AI proxy; raw exception text returned; user answers printed to logs.
-8. Fake data: `/home` stats, `ResumeAnalyzer` random score, fake share link, dead buttons (Settings, Upgrade, Save Roadmap, Mark as In Progress, Log in, Sign Up).
+8. ~~Fake data and dead buttons~~ — fixed 2026-09-25. Remaining honesty gap: Employability/Momentum scores mostly measure app engagement (TD-29).
 9. Invalid nested interactive HTML (checkbox inside button in Results; links inside button in RoadmapTimeline).
-10. No tests, no CI, no git history, 21 ESLint errors (≈8 are false positives from missing JSX-uses-vars rule).
+10. No tests, no CI, not pushed to a remote; 17 ESLint errors (most are `motion` false positives from the missing jsx-uses-vars rule).
 
 ## 11. Current priorities (in order)
 
-1. `git init` + root `.gitignore` (must exclude `backend/.env`, `.venv`, `node_modules`, `.vite`, `dist`).
-2. Remove fake data / dead code; hide unbuilt features honestly.
-3. Env-based API URL + CORS; single API client.
-4. Fix progress bugs; persist roadmaps per career.
+1. ~~`git init` + root `.gitignore`~~ ✅ 2026-09-25 — next: push to a private GitHub repo (N-2).
+2. ~~Remove fake data / dead code; hide unbuilt features honestly~~ ✅ 2026-09-25.
+3. Env-based API URL + CORS; single API client (N-5, N-6).
+4. Fix progress bugs; persist roadmaps per career (N-7).
 5. Gemini structured output + Pydantic validation; backend hardening (rate limit, input schema, safe errors, no PII logs).
 6. Tests + CI, then deploy.
 See `ROADMAP.md` → *Next Sprint*.
@@ -147,9 +145,9 @@ See `ROADMAP.md` → *Next Sprint*.
 
 ## 13. Features
 
-**Implemented:** landing page · 8-question animated quiz (choice / slider / text) · AI career matches (3) with match %, salary, growth, skills, reason · expand card · compare 2–3 careers · regenerate · "none of these" → retake · AI roadmap generation · dashboard timeline with expandable steps, resources, tasks, mark done/undo · readiness / employability / momentum meters + top recommendation banner · PDF download & print of results · localStorage event/metric/progress tracking.
+**Implemented:** landing page · honest `/home` hub (empty state) · 8-question animated quiz (choice / slider / text) · AI career matches (3) with match %, salary, growth, skills, reason · expand card · compare 2–3 careers · regenerate · "none of these" → retake · AI roadmap generation · dashboard timeline with expandable steps, resources, tasks, mark done/undo · readiness / employability / momentum meters + top recommendation banner · PDF download & print of results · localStorage event/metric/progress tracking.
 
-**Partially implemented:** share (PDF/print work; link is fake) · progress tracking (buggy, not per-roadmap) · `/home` hub (fake data) · theming (three competing mechanisms).
+**Partially implemented:** progress tracking (buggy, not per-roadmap) · `/home` hub (no personal data until accounts exist) · theming (two competing mechanisms).
 
 **Planned (not built):** accounts & auth · Postgres persistence · real resume analyzer + skill-gap · AI coach chat with memory/tool-calling · streaming · RAG / grounded resources & salaries · shareable public roadmaps · tests/CI/deploy · observability · i18n (EN/FR). See `docs/future-features.md`.
 
@@ -166,4 +164,5 @@ See `ROADMAP.md` → *Next Sprint*.
 - Start: read `CLAUDE.md` → `SESSION.md` → `ROADMAP.md`.
 - **End of every coding session: update `CLAUDE.md`, `ROADMAP.md`, `SESSION.md`, and `docs/decisions.md`** (add an ADR for any significant architectural change). Update other `docs/*` files when the area they describe changes.
 - Keep docs truthful: clearly separate *Implemented / Partially implemented / Planned*. Never describe planned work as existing.
+- Git: small, single-concern commits with conventional prefixes; explain every deleted file in its commit message. Run `git check-ignore backend/.env` before any broad `git add`.
 - Commands: frontend `cd frontend && npm install && npm run dev` (lint: `npm run lint`, build: `npm run build`); backend `cd backend && pip install -r requirements.txt && uvicorn main:app --reload --port 8000`.

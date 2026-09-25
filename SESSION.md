@@ -4,69 +4,62 @@
 
 ---
 
-## Current session — 2026-09-24 · Repository audit + documentation
+## Current session — 2026-09-25 · Version control + honesty cleanup
 
-### What was done
-- **Complete repository audit.** Read every source file (frontend ~2,700 lines JS/JSX + ~4,000 lines CSS; backend 179 lines), plus config and dependencies. Ran ESLint (21 errors, 1 warning) and a production build (succeeds; main JS 413 KB / 131 KB gzip; html2pdf lazy chunk 975 KB). Viewed the live app in Chrome at desktop width.
-- **Created the project documentation set:** `CLAUDE.md`, `README.md`, `ROADMAP.md`, `SESSION.md`, `docs/*` (14 files).
-- **No application code was changed.**
+### Goal (approved by owner)
+ROADMAP N-1 (git) + N-3 (fake data / dead code) + N-4 (dead buttons). Owner changes to the plan: **keep `/home`** and turn it into an honest empty-state hub (future signed-in dashboard); **delete the `/app/*` layout** and anything unreachable after confirming it's unused; small, logical commits, with every deletion explained in its commit message.
 
-### Summary of findings
-The only complete feature is quiz → AI career matches → AI roadmap → dashboard, and it works and looks polished. Surrounding it: about 40% dead or unrouted code, fake data (Home stats, random resume score), non-functional buttons, no persistence beyond localStorage, no auth, no tests, no CI, no git history, and a backend that is an open, unvalidated Gemini proxy. Audit scores (out of 10): complexity 3, UI/UX 5.5, code quality 3.5, architecture 3, scalability 2, originality 4, AI 3, production readiness 1.5.
+### What was done (commits on `main`)
+| Commit | Change |
+|---|---|
+| `07bca25` | `git init`, root `.gitignore`. Confirmed `backend/.env`, both `.venv`s, `node_modules`, `.vite`, `__pycache__` ignored with `git check-ignore`, and grepped the staged files for API-key patterns (only the README placeholder matched) **before** the baseline commit. |
+| `2375759` | Deleted the unrouted `/app/*` shell: `AppShell`, `Sidebar`, `Topbar`, `DashboardLayout`, `DashboardHome`, `Coach`, `styles/dashboard.css` (+ its import in `main.jsx`). |
+| `e0c40f1` | Deleted the simulated `ResumeAnalyzer.jsx` (`Math.random()` score). |
+| `aaa8c6e` | Deleted legacy `Roadmap.jsx`, `GeneratingLoader`, `lib/exportPdf.js`, `lib/matchCareers.js`, `data/careers.js`, `App.css`, `public/assets/*.jpg`. |
+| `058d07a` | Rebuilt `/home`: no stats/activity/achievements; "Your roadmaps" empty state; quiz card is a real `<button>`; Resume Analyzer / AI Coach are non-interactive "Planned" cards; `NavLink` nav; removed dead auth/profile/settings/footer links; fixed layout width bug and mobile overflow. |
+| `b1edc7f` | Landing: dead Log in / Sign Up → one working "Take the quiz" button. |
+| `d8354b3` | Dashboard timeline: removed dead "Save Roadmap" / "Mark as In Progress". |
+| `f76ff22` | Results share modal: removed the fake "Copy Link" (pointed at a non-existent `/share/*`) and the "create a free account" prompt; now "Save Your Results" (PDF + print). |
+| _(docs)_ | CLAUDE.md, ROADMAP.md, SESSION.md, README.md, ADR-010, and updates to `docs/*`. |
 
-### Strengths
-- Polished quiz UX (accessible custom slider over a real range input, animated transitions).
-- Results page: match badges, expandable cards, compare modal, regenerate, loading/error/empty states, `AbortController`.
-- Well-intentioned tracking schema with validation and a documented scoring formula.
-- html2pdf lazy-loaded. Coherent dark visual style.
+Also deleted the untracked, empty root `.vite/` cache (not part of git).
 
-### Weaknesses
-- Fake or simulated features, dead buttons, three brand names.
-- No persistence, auth, tests, CI, deploy, README (until today), or git.
-- AI integration is prompt-and-parse with no schema, validation, grounding, streaming or evals.
-- One 3,900-line CSS file, three competing theme mechanisms, poor a11y (modals, focus, reduced motion).
+Before deleting anything, I built an import map from `App.jsx` and grepped every candidate across `src/`, `index.html` and the config files. Nothing that was deleted was referenced by reachable code.
 
-### Known bugs (verified in code)
-1. Dashboard "Roadmap" ring counts only touched steps → 100% after 1 of 5 (`Dashboard.jsx:82`, `scoringEngine.js:88`).
-2. Progress keys `roadmap_step_${index}` aren't scoped per career → progress leaks between roadmaps (`RoadmapTimeline.jsx:11,33`).
-3. Roadmap isn't persisted; opening `/dashboard` directly redirects to `/quiz`.
-4. `ThemeGate` removes `theme-landing` that `Landing` and `Home` add (verified: body class is `theme-aurora` on `/`).
-5. Quiz text input logs an event per keystroke, from inside a state updater (`Quiz.jsx:62-65`).
-6. `resumeQuality` (0–40) compared against `< 60` → unreachable branch (`scoringEngine.js:327-333`).
-7. `CAREER_DETAILS[career.title]` rarely matches AI titles → "Career Overview" rarely renders (`Results.jsx:440`).
-8. Invalid nested interactive HTML: checkbox in button (`Results.jsx:467`); links in button (`RoadmapTimeline.jsx:100-146`).
-9. `Roadmap.jsx` renders `resource.title` but the API returns `resource.name` (dead file).
-10. The Landing hero depends on JS animation to become visible (`opacity: 0` initial) → blank if JS is slow or fails, and hurts LCP.
+### Verification
+- `npm run build` passes after every commit.
+- `npm run lint`: **17 errors, 1 warning** (was 21). No new errors; `Home.jsx` is now lint-clean. The remaining ones are `motion` false positives and existing unused imports (N-13).
+- `/home` checked in Chrome at 1440px and in 360/375/390/785px iframes: no horizontal scroll, the quiz card navigates to `/quiz`, the planned cards aren't focusable, and there are no console errors. The Landing header was checked at desktop and 375px.
+- **Not verified live:** the Results share modal and the Dashboard timeline after the button removals. Both need the backend and a Gemini call to reach. The changes only remove JSX, and build and lint pass.
 
-### Technical debt
-See `docs/technical-debt.md` (grouped Critical → Low).
+### Open issues / notes
+- Not pushed to a remote yet (N-2).
+- The Landing hero is still invisible until JS animation runs (TD-32). It showed up blank in the iframe checks.
+- `index.css` still contains dead rules from deleted components (`.roadmapStats`, `.primaryBtn`, three `.comingSoonBadge` definitions) → N-14.
+- The Dashboard still reads a `resume_score` metric. No shipped code writes it now, so the resume meter never shows and the employability resume component is always 0 (TD-29).
+- `/home` is still reachable only by URL (N-15, after N-7).
+- Git warns that LF will be replaced by CRLF on checkout. Consider adding a `.gitattributes` (`* text=auto eol=lf`) before collaborators or CI arrive.
 
 ### Current blockers
-- **Not a git repository**, and there is no root `.gitignore` → risk of committing `backend/.env` (contains a real key) on first `git add .`.
-- **Not deployable:** hard-coded `http://127.0.0.1:8000` (frontend) and CORS `http://localhost:5173` (backend).
-- **Unsafe to deploy publicly:** no rate limiting or auth on AI endpoints.
-
-### Top priorities
-1. `git init` + root `.gitignore` (exclude `.env`, `.venv`, `node_modules`, `.vite`, `dist`, `__pycache__`).
-2. Remove fake data and dead code; hide unbuilt features honestly.
-3. Env-based config (`VITE_API_URL`, `ALLOWED_ORIGINS`) + single API client.
-4. Fix progress bugs 1–3; persist roadmaps per career.
-5. Gemini structured output + Pydantic validation; backend hardening.
+- **Not deployable:** hard-coded `http://127.0.0.1:8000` and CORS `http://localhost:5173` (N-5).
+- **Unsafe to deploy publicly:** open, un-rate-limited AI proxy; raw errors returned; answers logged (N-9).
 
 ### Next recommended task
-**ROADMAP N-1 + N-2:** initialize git with a safe root `.gitignore` (verify `backend/.env` is ignored *before* the first commit), then make an initial commit of the current state so all future changes are reviewable. Then N-3 (remove fake data/dead code) as the first real code change.
+**N-5 + N-6: env-based config and a single API client.** Add `VITE_API_URL` and `ALLOWED_ORIGINS`, commit `.env.example` files, and create `src/lib/api.js` to replace the three duplicated fetches in `Results.jsx`. This removes the first deployment blocker and is small. Push to a private GitHub repo first (N-2, ~5 min) so the work is backed up.
 
 ### Open questions (for the owner)
-1. Keep `/home` as a logged-in hub (after auth), or delete it and use `/dashboard` as the hub?
-2. Which dashboard design wins: the tabbed `/dashboard` or the unrouted `/app/*` shell (`AppShell` + `DashboardLayout`)?
+1. ~~Keep `/home`?~~ → Kept as the future signed-in hub (ADR-010).
+2. ~~Which dashboard design wins?~~ → Tabbed `/dashboard`; `/app/*` deleted (ADR-010).
 3. Target market: Canada-first (CAD salaries, EN/FR) or US?
 4. Database/auth preference: Supabase (fast) vs self-managed Postgres + FastAPI JWT (more to show)?
 5. Deploy target: Render, Fly.io, Vercel + Render, or something else?
 6. Stay on Gemini, or add a provider abstraction? (`openai` is in requirements but unused.)
 7. TypeScript migration now (before the codebase grows) or later?
 8. Should the "Employability/Momentum" scores stay? They currently measure app engagement, not employability.
+9. GitHub repo name and visibility: `roadmap-ai` or `pathway-ai`? Private until when?
 
 ---
 
 ## History
+- 2026-09-25 — Git initialized; fake data, dead buttons and unreachable code removed; `/home` rebuilt as an honest empty state (8 commits + docs).
 - 2026-09-24 — Initial audit and documentation. No code changes.

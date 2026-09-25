@@ -47,7 +47,7 @@ fastapi 0.128, uvicorn 0.40, pydantic 2.12, google-genai 2.25, python-dotenv, ht
 - No auth or rate limiting → anyone who can reach the server can spend the Gemini quota.
 - Prompt injection through the free-text `curious_fields` answer and the `career` string.
 - No input size limits.
-- `.env` holds a real key and there's no root `.gitignore` yet.
+- `.env` holds a real key. It is excluded by the root `.gitignore` (added 2026-09-25); keep it that way, and add a committed `.env.example` (ROADMAP N-5).
 
 ## Planned structure (🗺️)
 ```

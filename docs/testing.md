@@ -2,7 +2,7 @@
 
 ## Current state
 **No automated tests exist.** No test runner is installed in either project. Quality checks available today:
-- `npm run lint` (ESLint 9): currently 21 errors and 1 warning.
+- `npm run lint` (ESLint 9): 17 errors and 1 warning as of 2026-09-25 (was 21). Most remaining errors are `motion` false positives from the missing `jsx-uses-vars` rule, plus real unused imports (ROADMAP N-13).
 - `npm run build`: passes.
 - Manual testing in the browser.
 

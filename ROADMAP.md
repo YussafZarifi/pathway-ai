@@ -19,6 +19,9 @@
 | C-6 | Share modal: PDF download (lazy html2pdf) + print | pre-2026-09 |
 | C-7 | localStorage tracking engine (events/metrics/progress) + scoring engine | pre-2026-09 |
 | C-8 | Full repository audit + project documentation set | 2026-09-24 |
+| C-9 | (was N-1) `git init` on `main` + root `.gitignore`; `backend/.env` verified ignored before the baseline commit | 2026-09-25 |
+| C-10 | (was N-3) Removed simulated `ResumeAnalyzer`, the `/app/*` shell, legacy pages/helpers/data/images, `dashboard.css`, `App.css`, root `.vite/`; `/home` kept and rebuilt as an honest empty-state hub (ADR-010) | 2026-09-25 |
+| C-11 | (was N-4) Removed dead buttons: Landing Log in/Sign Up, Save Roadmap, Mark as In Progress, fake Copy Link + account prompt (Settings/Upgrade went with the `/app/*` shell) | 2026-09-25 |
 
 ## 🔄 In Progress
 
@@ -28,10 +31,7 @@ _Nothing in progress._
 
 | ID | Task | Priority | Effort | Impact |
 |---|---|---|---|---|
-| N-1 | `git init` + root `.gitignore` (verify `backend/.env` ignored before first commit); initial commit | P0 | XS | ★★★ |
-| N-2 | Push to GitHub (private until cleanup done) | P0 | XS | ★★★ |
-| N-3 | Remove fake data & simulated AI: Home stats/activity, `ResumeAnalyzer` random score; delete dead files (`AppShell`, `Sidebar`, `Topbar`, `GeneratingLoader`, `DashboardLayout`, `DashboardHome`, `Coach`, `Roadmap.jsx`, `exportPdf.js`, `matchCareers.js`, `careers.js`, unused CSS, unused images, root `.vite/`) — or decide to keep specific ones (see SESSION open questions) | P0 | S | ★★★ |
-| N-4 | Remove/disable dead buttons (Settings, Upgrade, Log in, Sign Up, Save Roadmap, Mark as In Progress, fake Copy Link) | P0 | S | ★★★ |
+| N-2 | Push to GitHub (private first; cleanup is done, so it can go public once README screenshots exist) | P0 | XS | ★★★ |
 | N-5 | Env config: `VITE_API_URL` (frontend), `ALLOWED_ORIGINS` (backend); `.env.example` files | P0 | S | ★★★ |
 | N-6 | Single API client `src/lib/api.js` (base URL, timeout, typed errors); dedupe 3 fetches in `Results.jsx` | P1 | S | ★★ |
 | N-7 | Fix progress bugs: scope keys per roadmap ID, compute % from roadmap length, persist roadmaps per career in localStorage; `/dashboard` loads last roadmap | P0 | M | ★★★ |
@@ -40,7 +40,9 @@ _Nothing in progress._
 | N-10 | Fix `ThemeGate`/page theme conflict — single theme mechanism | P2 | S | ★ |
 | N-11 | Fix per-keystroke tracking + side effect in state updater (`Quiz.jsx`) | P2 | XS | ★ |
 | N-12 | Brand consistency: `<title>`, favicon, meta/OG tags, "PathwayAI" everywhere | P1 | XS | ★★ |
-| N-13 | ESLint: add JSX-uses-vars (eslint-plugin-react) and fix real errors → 0 errors | P2 | S | ★★ |
+| N-13 | ESLint: add JSX-uses-vars (eslint-plugin-react) and fix real errors → 0 errors (17 left as of 2026-09-25) | P2 | S | ★★ |
+| N-14 | Prune dead CSS left in `index.css` by deleted components (e.g. `.roadmapStats`, `.primaryBtn`, `.comingSoonBadge` defined three times) | P3 | S | ★ |
+| N-15 | Link `/home` from Landing/Dashboard once it shows something useful (after N-7) | P3 | XS | ★ |
 
 ## 🚀 Future Features — Production baseline & persistence (≈ 2–3 weeks)
 

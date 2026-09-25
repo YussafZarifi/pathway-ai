@@ -15,6 +15,7 @@ ADR-001 to ADR-008 were **reconstructed on 2026-09-24** from the existing code d
 | ADR-007 | React Router state as cross-page data transport | Accepted · to be superseded |
 | ADR-008 | Client-side tracking and scoring engines | Accepted · under review |
 | ADR-009 | Project documentation as persistent memory | Accepted |
+| ADR-010 | One dashboard: keep `/dashboard`, keep `/home` as the future signed-in hub, delete the `/app/*` shell | Accepted |
 
 ---
 
@@ -71,6 +72,17 @@ ADR-001 to ADR-008 were **reconstructed on 2026-09-24** from the existing code d
 - **Context:** development happens across many AI-assisted sessions; context must survive between them.
 - **Decision:** keep `CLAUDE.md` (project memory), `SESSION.md` (latest session), `ROADMAP.md` (living plan) and `docs/*` (area docs, ADRs, debt register) in the repo. Update `CLAUDE.md`, `ROADMAP.md`, `SESSION.md` and this file at the end of every coding session.
 - **Consequences:** any new session can resume without re-explaining. The docs need discipline to stay accurate, and must always separate implemented, partial and planned work.
+- **Status:** Accepted.
+
+## ADR-010 — One dashboard: keep `/dashboard`, keep `/home` as the future signed-in hub, delete the `/app/*` shell
+- **Date:** 2026-09-25
+- **Context:** the audit found two competing dashboard designs: the routed, tabbed `/dashboard` (roadmap timeline and readiness meters) and an unrouted `/app/*` shell (`AppShell`, `DashboardLayout`, `DashboardHome`, `Coach`, `styles/dashboard.css`) that was never wired into `App.jsx`. `/home` existed but showed hard-coded stats and activity. Keeping unreachable code and fake data hurts honesty and recruiter perception.
+- **Decision:**
+  - `/dashboard` stays the view for the active roadmap.
+  - `/home` is **kept** as the future authenticated user hub. Until accounts and saved roadmaps exist it is an honest empty state: no stats, activity or achievements, only real entry points and features clearly labelled "Planned".
+  - The `/app/*` shell and every other unreachable file are **deleted**. Git keeps the history.
+- **Alternatives considered:** delete `/home` and use `/dashboard` as the only hub (rejected by the owner: `/home` is the natural home for multiple saved roadmaps after auth); wire up the `/app/*` shell instead (rejected: it duplicated `/dashboard`, carried dead Settings/Upgrade buttons and a third brand name).
+- **Consequences:** one dashboard design and one fewer theme mechanism. `/home` needs real data (auth F-7 + persistence N-7/F-8) before it can show anything personal; it isn't linked from Landing yet. When auth lands, `/home` shows the user's saved roadmaps and `/dashboard` becomes a per-roadmap route (e.g. `/dashboard/:roadmapId`).
 - **Status:** Accepted.
 
 ---
