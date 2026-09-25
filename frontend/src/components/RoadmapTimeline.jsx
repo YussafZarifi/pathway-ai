@@ -173,11 +173,6 @@ export default function RoadmapTimeline({ roadmap, selectedCareer, onProgressCha
           );
         })}
       </div>
-
-      <div className="roadmapActions">
-        <button className="ghostBtn large">Save Roadmap</button>
-        <button className="uiverseBtn large">Mark as In Progress</button>
-      </div>
     </div>
   );
 }

@@ -2512,13 +2512,6 @@ body.theme-landing .trustRow {
   flex-shrink: 0;
 }
 
-.roadmapActions {
-  display: flex;
-  gap: 12px;
-  margin-top: 20px;
-  justify-content: center;
-}
-
 .roadmapEmpty {
   text-align: center;
   padding: 40px;
@@ -2782,8 +2775,7 @@ body.theme-landing .trustRow {
   .shareModalOverlay,
   .resultsHeaderActions,
   .resultsToolbar,
-  .resultsActions,
-  .roadmapActions {
+  .resultsActions {
     display: none !important;
   }
 
