@@ -23,7 +23,7 @@ How this project is likely to be perceived, and what increases its portfolio val
 ## What hurts impressions (fix first)
 1. ~~**Simulated AI** (`ResumeAnalyzer.jsx` random score)~~ — deleted 2026-09-25.
 2. ~~**Fake dashboard data** on `/home`~~ — replaced by an honest empty state 2026-09-25.
-3. ~~**No git history.**~~ — repo initialized 2026-09-25 with small, explained commits. Not yet pushed to GitHub (ROADMAP N-2).
+3. ~~**No git history.**~~ — repo initialized 2026-09-25 with small, explained commits. Pushed to a private GitHub repo on 2026-09-25; it becomes visible to recruiters once made public (ROADMAP F-17).
 4. **Default Vite README** (now replaced), "roadmap-ai" tab title, Vite favicon.
 5. ~~**Dead buttons** and fake Copy Link~~ — removed 2026-09-25.
 6. **Not deployable:** hard-coded localhost, no live demo.

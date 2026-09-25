@@ -1,7 +1,7 @@
 # CLAUDE.md — PathwayAI (repo: `roadmap-ai`)
 
 > Permanent project memory. Read this first in every session. Then read `SESSION.md` (latest state) and `ROADMAP.md` (what's next).
-> Last updated: 2026-09-25 (git initialized; fake data, dead buttons and unreachable code removed; `/home` rebuilt as an honest empty state).
+> Last updated: 2026-09-25 (git initialized and pushed to the private GitHub repo `YussafZarifi/pathway-ai`; fake data, dead buttons and unreachable code removed; `/home` rebuilt as an honest empty state).
 
 ---
 
@@ -28,7 +28,7 @@ Naming: the product brand is **PathwayAI**. The repo/folder is `roadmap-ai`. The
 | Auth / accounts | **Not implemented** (no login UI is shown; the dead Log in / Sign Up buttons were removed 2026-09-25) |
 | Database / server persistence | **Not implemented** |
 | `/home` page | **Partially implemented:** honest empty-state hub (quiz CTA, "No saved roadmaps yet", planned-feature cards). Future signed-in dashboard (ADR-010). Not linked from Landing |
-| Git | **Initialized 2026-09-25** on `main` with a root `.gitignore` (excludes `backend/.env`). Not pushed to a remote yet |
+| Git / GitHub | **Implemented 2026-09-25.** `main` with a root `.gitignore` (excludes `backend/.env`); remote `origin` = https://github.com/YussafZarifi/pathway-ai (**private** — keep it private until the owner decides otherwise). `main` tracks `origin/main` |
 | Tests, CI, Docker, deployment | **None** |
 
 ## 3. Architecture (current)
@@ -122,11 +122,11 @@ Output parsed with `json.loads` after manual code-fence stripping. No response s
 7. Open, unauthenticated, un-rate-limited AI proxy; raw exception text returned; user answers printed to logs.
 8. ~~Fake data and dead buttons~~ — fixed 2026-09-25. Remaining honesty gap: Employability/Momentum scores mostly measure app engagement (TD-29).
 9. Invalid nested interactive HTML (checkbox inside button in Results; links inside button in RoadmapTimeline).
-10. No tests, no CI, not pushed to a remote; 17 ESLint errors (most are `motion` false positives from the missing jsx-uses-vars rule).
+10. No tests, no CI; 17 ESLint errors (most are `motion` false positives from the missing jsx-uses-vars rule).
 
 ## 11. Current priorities (in order)
 
-1. ~~`git init` + root `.gitignore`~~ ✅ 2026-09-25 — next: push to a private GitHub repo (N-2).
+1. ~~`git init` + root `.gitignore` + private GitHub repo~~ ✅ 2026-09-25.
 2. ~~Remove fake data / dead code; hide unbuilt features honestly~~ ✅ 2026-09-25.
 3. Env-based API URL + CORS; single API client (N-5, N-6).
 4. Fix progress bugs; persist roadmaps per career (N-7).
@@ -164,5 +164,5 @@ See `ROADMAP.md` → *Next Sprint*.
 - Start: read `CLAUDE.md` → `SESSION.md` → `ROADMAP.md`.
 - **End of every coding session: update `CLAUDE.md`, `ROADMAP.md`, `SESSION.md`, and `docs/decisions.md`** (add an ADR for any significant architectural change). Update other `docs/*` files when the area they describe changes.
 - Keep docs truthful: clearly separate *Implemented / Partially implemented / Planned*. Never describe planned work as existing.
-- Git: small, single-concern commits with conventional prefixes; explain every deleted file in its commit message. Run `git check-ignore backend/.env` before any broad `git add`.
+- Git: small, single-concern commits with conventional prefixes; explain every deleted file in its commit message. Run `git check-ignore backend/.env` before any broad `git add`. Remote: `origin` → private `YussafZarifi/pathway-ai`; push `main` only when the owner asks. Never change the repo's visibility.
 - Commands: frontend `cd frontend && npm install && npm run dev` (lint: `npm run lint`, build: `npm run build`); backend `cd backend && pip install -r requirements.txt && uvicorn main:app --reload --port 8000`.

@@ -22,6 +22,7 @@
 | C-9 | (was N-1) `git init` on `main` + root `.gitignore`; `backend/.env` verified ignored before the baseline commit | 2026-09-25 |
 | C-10 | (was N-3) Removed simulated `ResumeAnalyzer`, the `/app/*` shell, legacy pages/helpers/data/images, `dashboard.css`, `App.css`, root `.vite/`; `/home` kept and rebuilt as an honest empty-state hub (ADR-010) | 2026-09-25 |
 | C-11 | (was N-4) Removed dead buttons: Landing Log in/Sign Up, Save Roadmap, Mark as In Progress, fake Copy Link + account prompt (Settings/Upgrade went with the `/app/*` shell) | 2026-09-25 |
+| C-12 | (was N-2) Pushed full history to the **private** GitHub repo `YussafZarifi/pathway-ai`; `main` tracks `origin/main` (placeholder README commits from repo creation replaced with `--force-with-lease`) | 2026-09-25 |
 
 ## 🔄 In Progress
 
@@ -31,7 +32,6 @@ _Nothing in progress._
 
 | ID | Task | Priority | Effort | Impact |
 |---|---|---|---|---|
-| N-2 | Push to GitHub (private first; cleanup is done, so it can go public once README screenshots exist) | P0 | XS | ★★★ |
 | N-5 | Env config: `VITE_API_URL` (frontend), `ALLOWED_ORIGINS` (backend); `.env.example` files | P0 | S | ★★★ |
 | N-6 | Single API client `src/lib/api.js` (base URL, timeout, typed errors); dedupe 3 fetches in `Results.jsx` | P1 | S | ★★ |
 | N-7 | Fix progress bugs: scope keys per roadmap ID, compute % from roadmap length, persist roadmaps per career in localStorage; `/dashboard` loads last roadmap | P0 | M | ★★★ |
@@ -49,6 +49,7 @@ _Nothing in progress._
 | ID | Task | Priority | Effort | Impact |
 |---|---|---|---|---|
 | F-1 | Deploy frontend + backend (live URL in README) | P1 | M | ★★★ |
+| F-17 | Make the GitHub repo public (owner decision) once README screenshots, env config and backend hardening are done | P1 | XS | ★★★ |
 | F-2 | Tests: Vitest (tracking/scoring engines, components), pytest (API with mocked Gemini) | P1 | L | ★★★ |
 | F-3 | Playwright E2E: quiz → results → dashboard with mocked API | P1 | M | ★★★ |
 | F-4 | GitHub Actions CI: lint, test, build (+ E2E) | P1 | S | ★★★ |
