@@ -1,0 +1,105 @@
+# ROADMAP.md — Living roadmap
+
+> Update at the end of every coding session. Move items between sections, set dates when completed.
+> **Priority:** P0 = blocker/critical · P1 = high · P2 = medium · P3 = nice-to-have
+> **Effort:** XS < 1h · S 1–2h · M ~half day · L 1–3 days · XL multiple days
+> **Recruiter impact:** ★★★ high · ★★ medium · ★ low
+
+---
+
+## ✅ Completed
+
+| ID | Task | Date |
+|---|---|---|
+| C-1 | Quiz (8 questions: choice, slider, text) with animated transitions | pre-2026-09 |
+| C-2 | `POST /api/ai/career` — 3 tech-only career matches via Gemini | pre-2026-09 |
+| C-3 | `POST /api/ai/roadmap` — ≤5-step roadmap via Gemini | pre-2026-09 |
+| C-4 | Results page: match badges, expand, compare modal, regenerate, "none of these" | pre-2026-09 |
+| C-5 | Dashboard: roadmap timeline, mark done/undo, readiness/employability/momentum meters | pre-2026-09 |
+| C-6 | Share modal: PDF download (lazy html2pdf) + print | pre-2026-09 |
+| C-7 | localStorage tracking engine (events/metrics/progress) + scoring engine | pre-2026-09 |
+| C-8 | Full repository audit + project documentation set | 2026-09-24 |
+
+## 🔄 In Progress
+
+_Nothing in progress._
+
+## 🎯 Next Sprint — Foundation (≈ 3–4 days total)
+
+| ID | Task | Priority | Effort | Impact |
+|---|---|---|---|---|
+| N-1 | `git init` + root `.gitignore` (verify `backend/.env` ignored before first commit); initial commit | P0 | XS | ★★★ |
+| N-2 | Push to GitHub (private until cleanup done) | P0 | XS | ★★★ |
+| N-3 | Remove fake data & simulated AI: Home stats/activity, `ResumeAnalyzer` random score; delete dead files (`AppShell`, `Sidebar`, `Topbar`, `GeneratingLoader`, `DashboardLayout`, `DashboardHome`, `Coach`, `Roadmap.jsx`, `exportPdf.js`, `matchCareers.js`, `careers.js`, unused CSS, unused images, root `.vite/`) — or decide to keep specific ones (see SESSION open questions) | P0 | S | ★★★ |
+| N-4 | Remove/disable dead buttons (Settings, Upgrade, Log in, Sign Up, Save Roadmap, Mark as In Progress, fake Copy Link) | P0 | S | ★★★ |
+| N-5 | Env config: `VITE_API_URL` (frontend), `ALLOWED_ORIGINS` (backend); `.env.example` files | P0 | S | ★★★ |
+| N-6 | Single API client `src/lib/api.js` (base URL, timeout, typed errors); dedupe 3 fetches in `Results.jsx` | P1 | S | ★★ |
+| N-7 | Fix progress bugs: scope keys per roadmap ID, compute % from roadmap length, persist roadmaps per career in localStorage; `/dashboard` loads last roadmap | P0 | M | ★★★ |
+| N-8 | Gemini structured output (`response_mime_type` + `response_schema`) + Pydantic request/response models + one retry | P1 | M | ★★★ |
+| N-9 | Backend hardening: rate limit (slowapi), request size/schema for `answers`, generic error messages, remove PII logging, request timeout | P0 | M | ★★★ |
+| N-10 | Fix `ThemeGate`/page theme conflict — single theme mechanism | P2 | S | ★ |
+| N-11 | Fix per-keystroke tracking + side effect in state updater (`Quiz.jsx`) | P2 | XS | ★ |
+| N-12 | Brand consistency: `<title>`, favicon, meta/OG tags, "PathwayAI" everywhere | P1 | XS | ★★ |
+| N-13 | ESLint: add JSX-uses-vars (eslint-plugin-react) and fix real errors → 0 errors | P2 | S | ★★ |
+
+## 🚀 Future Features — Production baseline & persistence (≈ 2–3 weeks)
+
+| ID | Task | Priority | Effort | Impact |
+|---|---|---|---|---|
+| F-1 | Deploy frontend + backend (live URL in README) | P1 | M | ★★★ |
+| F-2 | Tests: Vitest (tracking/scoring engines, components), pytest (API with mocked Gemini) | P1 | L | ★★★ |
+| F-3 | Playwright E2E: quiz → results → dashboard with mocked API | P1 | M | ★★★ |
+| F-4 | GitHub Actions CI: lint, test, build (+ E2E) | P1 | S | ★★★ |
+| F-5 | Dockerfiles + `docker-compose.yml` | P2 | M | ★★ |
+| F-6 | Streaming roadmap generation (SSE) | P1 | L | ★★★ |
+| F-7 | Auth (Supabase/Clerk or FastAPI JWT) | P1 | L | ★★★ |
+| F-8 | PostgreSQL: users, quiz_sessions, roadmaps, roadmap_steps, progress_events (+ migrations) | P1 | L | ★★★ |
+| F-9 | Design-system pass: tokens, type scale, one app shell, one button system, skeleton loaders | P1 | L | ★★ |
+| F-10 | Accessibility: dialog semantics + focus trap + Esc, focus-visible, reduced motion, contrast, fix nested interactive HTML | P1 | M | ★★ |
+| F-11 | Sentry (FE+BE) + structured JSON logging with request IDs | P2 | M | ★★ |
+| F-12 | 404 route + React error boundary | P1 | XS | ★ |
+| F-13 | Real resume analyzer: PDF upload → Gemini multimodal → structured critique vs target career | P1 | L | ★★★ |
+| F-14 | Skill-gap analysis (resume skills vs career skills) feeding the roadmap | P2 | L | ★★★ |
+| F-15 | Shareable public roadmap pages `/r/:slug` | P2 | M | ★★ |
+| F-16 | TypeScript migration + API types generated from FastAPI OpenAPI | P2 | L | ★★ |
+
+## 📦 Backlog
+
+| ID | Task | Priority | Effort |
+|---|---|---|---|
+| B-1 | Quiz keyboard shortcuts (1–9, Enter, ←) + sessionStorage answer persistence | P2 | S |
+| B-2 | Copy roadmap as Markdown | P3 | XS |
+| B-3 | Validate AI URLs (https only), mark external | P1 | XS |
+| B-4 | Toasts instead of `alert()` | P3 | XS |
+| B-5 | Per-step notes and target dates | P2 | M |
+| B-6 | Regenerate single step / adjust difficulty | P2 | M |
+| B-7 | Weekly plan view | P2 | M |
+| B-8 | Response caching keyed by answers hash | P2 | M |
+| B-9 | Server-rendered PDF export (replace html2canvas screenshot) | P3 | M |
+| B-10 | Product analytics (PostHog) replacing the custom event log for funnel metrics | P2 | M |
+| B-11 | Location question + CAD/USD salaries | P2 | S |
+| B-12 | Route-level code splitting (`React.lazy`) | P3 | S |
+| B-13 | Render Landing hero without waiting for JS animation (LCP) | P2 | XS |
+| B-14 | Rethink Employability/Momentum scores (currently measure engagement) | P2 | M |
+| B-15 | Light theme + `prefers-color-scheme` | P3 | M |
+| B-16 | Weekly digest / inactivity nudge emails (background job) | P3 | L |
+| B-17 | Streaks + activity heatmap | P3 | M |
+| B-18 | Prune or cap localStorage event log; stop write-on-read in `getTrackingData` | P2 | S |
+
+## 🌟 Stretch Goals
+
+| ID | Task | Effort | Impact |
+|---|---|---|---|
+| S-1 | AI coach chat with memory + tool calling (read/update roadmap, find resources) | XL | ★★★ |
+| S-2 | RAG over a curated resource catalogue with link-health checks | XL | ★★★ |
+| S-3 | Real job-market data (Job Bank / Adzuna): salaries, demand, skills by city | XL | ★★★ |
+| S-4 | Prompt eval harness (golden profiles, schema/rule checks, LLM-as-judge) in CI | L | ★★★ |
+| S-5 | Mock interview mode (text → voice) with rubric scoring | XL | ★★★ |
+| S-6 | Embeddings-based career similarity | L | ★★ |
+| S-7 | GitHub integration: infer skills, auto-complete steps | XL | ★★ |
+| S-8 | EN/FR internationalization | L | ★★ |
+| S-9 | Admin dashboard: prompt versions, token cost, latency, failure rate, funnel | XL | ★★ |
+| S-10 | Feature flags + prompt A/B testing | L | ★★ |
+| S-11 | OpenTelemetry tracing FE → API → LLM | L | ★★ |
+| S-12 | Offline-capable PWA | L | ★ |
+| S-13 | Mentor/cohort sharing with comments | XL | ★★ |
