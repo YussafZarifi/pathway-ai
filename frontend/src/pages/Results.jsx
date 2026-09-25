@@ -327,7 +327,8 @@ export default function Results() {
             <button
               className="iconBtn"
               onClick={() => setShowShareModal(true)}
-              title="Share or export"
+              title="Download or print"
+              aria-label="Download or print results"
             >
               <Share2 size={20} />
             </button>
@@ -715,8 +716,6 @@ export default function Results() {
         isOpen={showShareModal}
         onClose={() => setShowShareModal(false)}
         selectedCareer={selectedCareer}
-        roadmap={null}
-        answers={answers}
       />
     </div>
   );

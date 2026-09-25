@@ -1,18 +1,8 @@
 import { motion } from "framer-motion";
-import { X, Download, Share2, Copy, Check } from "lucide-react";
-import { useState } from "react";
+import { X, Download, Printer } from "lucide-react";
 
-export default function ShareModal({ isOpen, onClose, selectedCareer, roadmap, answers }) {
-  const [copied, setCopied] = useState(false);
-
+export default function ShareModal({ isOpen, onClose, selectedCareer }) {
   if (!isOpen) return null;
-
-  const handleCopyLink = () => {
-    const shareUrl = `${window.location.origin}/share/${selectedCareer?.toLowerCase().replace(/\s+/g, "-")}`;
-    navigator.clipboard.writeText(shareUrl);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
 
   const handleDownloadPdf = async () => {
     try {
@@ -54,15 +44,15 @@ export default function ShareModal({ isOpen, onClose, selectedCareer, roadmap, a
         onClick={(e) => e.stopPropagation()}
       >
         <div className="shareModalHeader">
-          <h2 className="shareModalTitle">Share Your Results</h2>
-          <button className="shareModalClose" onClick={onClose}>
+          <h2 className="shareModalTitle">Save Your Results</h2>
+          <button className="shareModalClose" onClick={onClose} aria-label="Close">
             <X size={24} />
           </button>
         </div>
 
         <div className="shareModalBody">
           <p className="shareModalSubtitle">
-            Export your career roadmap or share it with others.
+            Save a copy of your career matches.
           </p>
 
           <div className="shareOptions">
@@ -75,31 +65,13 @@ export default function ShareModal({ isOpen, onClose, selectedCareer, roadmap, a
             </button>
 
             <button className="shareOption" onClick={handlePrint}>
-              <Share2 size={24} />
+              <Printer size={24} />
               <div>
                 <h3 className="shareOptionTitle">Print</h3>
                 <p className="shareOptionDesc">Open print dialog for physical copy</p>
               </div>
             </button>
-
-            <button className="shareOption" onClick={handleCopyLink}>
-              {copied ? <Check size={24} /> : <Copy size={24} />}
-              <div>
-                <h3 className="shareOptionTitle">Copy Link</h3>
-                <p className="shareOptionDesc">
-                  {copied ? "Link copied!" : "Copy shareable link (requires account)"}
-                </p>
-              </div>
-            </button>
           </div>
-
-          {!copied && (
-            <div className="shareAuthNote">
-              <p className="shareAuthNoteText">
-                💡 Create a free account to save and access your results anytime.
-              </p>
-            </div>
-          )}
         </div>
       </motion.div>
     </motion.div>
