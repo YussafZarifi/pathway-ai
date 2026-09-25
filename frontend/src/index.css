@@ -586,10 +586,6 @@ body.theme-landing .badge {
   .brand {
     gap: 8px;
   }
-
-  .topActions .ghostBtn {
-    display: none;
-  }
 }
 
 /* ===========================

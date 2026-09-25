@@ -53,8 +53,9 @@ export default function Landing() {
         </div>
 
         <div className="topActions">
-          <button className="ghostBtn">Log in</button>
-          <button className="uiverseBtn">Sign Up</button>
+          <button className="ghostBtn" onClick={() => navigate("/quiz")}>
+            Take the quiz
+          </button>
         </div>
       </header>
 
