@@ -1628,14 +1628,16 @@ body.theme-landing .trustRow {
   flex-direction: column;
   gap: 16px;
   cursor: pointer;
-  transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.25s ease,
-    transform 0.2s ease;
+  transition: background 0.25s ease, border-color 0.25s ease,
+    box-shadow 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .homeFeatureCard:hover {
   background: rgba(255, 255, 255, 0.05);
-  border-color: rgba(168, 85, 247, 0.4);
-  transform: translateY(-3px);
+  border-color: rgba(255, 55, 208, 0.45);
+  box-shadow: 0 20px 60px rgba(255, 55, 208, 0.2);
+  transform: translateY(-6px);
 }
 
 /* Planned (not built) features: informational, not clickable */
@@ -1643,10 +1645,13 @@ body.theme-landing .trustRow {
   cursor: default;
 }
 
-.homeFeatureCard--planned:hover {
-  background: rgba(255, 255, 255, 0.03);
-  border-color: rgba(255, 255, 255, 0.08);
-  transform: none;
+.homeFeatureIcon {
+  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Cards float on hover; the icon lifts a little further for depth */
+.homeFeatureCard:hover .homeFeatureIcon {
+  transform: translateY(-2px) scale(1.06);
 }
 
 .homeFeatureIcon {
@@ -1807,6 +1812,7 @@ body.theme-landing .trustRow {
 
 @media (prefers-reduced-motion: reduce) {
   .homeFeatureCard,
+  .homeFeatureIcon,
   .homePrimaryBtn,
   .homePrimaryBtn svg,
   .homeFeatureLink svg {
@@ -1814,6 +1820,7 @@ body.theme-landing .trustRow {
   }
 
   .homeFeatureCard:hover,
+  .homeFeatureCard:hover .homeFeatureIcon,
   .homePrimaryBtn:hover,
   .homePrimaryBtn:hover svg,
   .homeFeatureCard:hover .homeFeatureLink svg {
