@@ -1,6 +1,13 @@
 import { useEffect } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
-import { House, Map, FileText, MessageSquare, FolderOpen } from "lucide-react";
+import {
+  House,
+  Map,
+  FileText,
+  MessageSquare,
+  FolderOpen,
+  ArrowRight,
+} from "lucide-react";
 
 // Future signed-in hub. Until accounts and saved roadmaps exist it shows an
 // honest empty state: no numbers, activity or achievements that aren't real.
@@ -41,7 +48,7 @@ export default function Home() {
         <section className="homeHero">
           <div className="homeHeroContent">
             <h1 className="homeTitle">
-              Welcome to <span className="homeTitleHighlight">PathwayAI</span>
+              Welcome to <span className="titleGradient">PathwayAI</span>
             </h1>
             <p className="homeSubtitle">
               Answer 8 questions, get three tech careers matched to you, and turn one into a
@@ -49,8 +56,13 @@ export default function Home() {
             </p>
 
             <div className="homeCTA">
-              <button className="uiverseBtn large" onClick={() => navigate("/quiz")}>
+              <button
+                type="button"
+                className="homePrimaryBtn"
+                onClick={() => navigate("/quiz")}
+              >
                 Take the career quiz
+                <ArrowRight size={18} aria-hidden="true" />
               </button>
             </div>
           </div>
@@ -69,7 +81,7 @@ export default function Home() {
               generate one from the quiz, it opens on your dashboard for the current session.
               Saved roadmaps and progress history will appear here once sign-in is available.
             </p>
-            <button className="ghostBtn" onClick={() => navigate("/quiz")}>
+            <button type="button" className="ghostBtn" onClick={() => navigate("/quiz")}>
               Generate a roadmap
             </button>
           </div>
@@ -84,36 +96,39 @@ export default function Home() {
               className="homeFeatureCard"
               onClick={() => navigate("/quiz")}
             >
-              <div className="homeFeatureIcon roadmapsIcon">
-                <Map size={40} aria-hidden="true" />
+              <div className="homeFeatureIcon">
+                <Map size={22} aria-hidden="true" />
               </div>
               <div className="homeFeatureText">
                 <h3 className="homeFeatureTitle">Career matches &amp; roadmap</h3>
                 <p className="homeFeatureSub">
                   Take the quiz to get AI career matches and a learning roadmap
                 </p>
+                <span className="homeFeatureLink">
+                  Start <ArrowRight size={14} aria-hidden="true" />
+                </span>
               </div>
             </button>
 
             <div className="homeFeatureCard homeFeatureCard--planned">
-              <div className="homeFeatureIcon resumeIcon">
-                <FileText size={40} aria-hidden="true" />
+              <div className="homeFeatureIcon">
+                <FileText size={22} aria-hidden="true" />
               </div>
               <div className="homeFeatureText">
                 <h3 className="homeFeatureTitle">Resume Analyzer</h3>
                 <p className="homeFeatureSub">Feedback on your resume for a target career</p>
-                <span className="comingSoonBadge">Planned</span>
+                <span className="homeBadge">Planned</span>
               </div>
             </div>
 
             <div className="homeFeatureCard homeFeatureCard--planned">
-              <div className="homeFeatureIcon coachIcon">
-                <MessageSquare size={40} aria-hidden="true" />
+              <div className="homeFeatureIcon">
+                <MessageSquare size={22} aria-hidden="true" />
               </div>
               <div className="homeFeatureText">
                 <h3 className="homeFeatureTitle">AI Coach</h3>
                 <p className="homeFeatureSub">Ask questions about your roadmap as you go</p>
-                <span className="comingSoonBadge">Planned</span>
+                <span className="homeBadge">Planned</span>
               </div>
             </div>
           </div>
