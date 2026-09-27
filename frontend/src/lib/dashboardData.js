@@ -159,37 +159,37 @@ export function getAchievements({ events, statuses, generatedAt }) {
     {
       id: "quiz",
       label: "Quiz completed",
-      description: "Answered the career quiz",
+      description: "Take the quiz",
       earnedAt: firstTimestamp(events, "quiz_completed"),
     },
     {
       id: "career",
       label: "Career selected",
-      description: "Chose a career to pursue",
+      description: "Pick a career",
       earnedAt: firstTimestamp(events, "career_selected"),
     },
     {
       id: "roadmap",
-      label: "Roadmap created",
-      description: "Generated a learning roadmap",
+      label: "Roadmap ready",
+      description: "Generate one",
       earnedAt: generatedAt || firstTimestamp(events, "roadmap_generated"),
     },
     {
       id: "first-step",
       label: "First step",
-      description: "Completed a roadmap step",
+      description: "Finish a step",
       earnedAt: completions[0] || null,
     },
     {
       id: "halfway",
       label: "Halfway there",
-      description: `Completed ${halfway} of ${total} steps`,
+      description: `${halfway} of ${total} steps`,
       earnedAt: total > 0 && completions.length >= halfway ? completions[halfway - 1] : null,
     },
     {
       id: "complete",
-      label: "Roadmap complete",
-      description: "Completed every step",
+      label: "Finished",
+      description: `All ${total} steps`,
       earnedAt: total > 0 && completions.length === total ? completions[total - 1] : null,
     },
   ];
@@ -198,7 +198,7 @@ export function getAchievements({ events, statuses, generatedAt }) {
 /** A short, state-based message. It describes progress; it never claims pace. */
 export function getMotivation(summary) {
   if (summary.complete) return "Roadmap complete. That's real, finished work.";
-  if (summary.done === 0) return "Every path starts with one step. Yours is below.";
+  if (summary.done === 0) return "Every path starts with one step. Yours is ready.";
   if (summary.percent >= 50) return "Past the halfway point. Keep going.";
   return "Good start. One step at a time.";
 }

@@ -323,10 +323,10 @@ export default function Dashboard() {
         title="Regenerate your roadmap?"
         actions={
           <>
-            <button type="button" className="ghostBtn" onClick={() => setConfirmRegenerate(false)}>
+            <button type="button" className="dashBtn" onClick={() => setConfirmRegenerate(false)}>
               Cancel
             </button>
-            <button type="button" className="uiverseBtn" onClick={regenerate}>
+            <button type="button" className="dashBtn dashBtn--primary" onClick={regenerate}>
               Regenerate
             </button>
           </>
@@ -343,7 +343,7 @@ export default function Dashboard() {
         onClose={() => setPlannedFeature(null)}
         title={plannedFeature ? PLANNED[plannedFeature].title : ""}
         actions={
-          <button type="button" className="ghostBtn" onClick={() => setPlannedFeature(null)}>
+          <button type="button" className="dashBtn" onClick={() => setPlannedFeature(null)}>
             Close
           </button>
         }

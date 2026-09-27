@@ -10,10 +10,10 @@ export default function AccountsSoonDialog({ isOpen, onClose, onTakeQuiz }) {
       title="Accounts are coming soon"
       actions={
         <>
-          <button type="button" className="ghostBtn" onClick={onClose}>
+          <button type="button" className="dashBtn" onClick={onClose}>
             Close
           </button>
-          <button type="button" className="uiverseBtn" onClick={onTakeQuiz}>
+          <button type="button" className="dashBtn dashBtn--primary" onClick={onTakeQuiz}>
             Take the quiz
           </button>
         </>

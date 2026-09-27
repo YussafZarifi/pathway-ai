@@ -21,7 +21,7 @@ function StepStatus({ status, isCurrent }) {
     );
   }
   if (isCurrent) return <span className="stepStatus stepStatus--current">Current</span>;
-  return <span className="stepStatus">Up next</span>;
+  return <span className="srOnly">Not started</span>;
 }
 
 function StepDetails({ step }) {
