@@ -8,6 +8,7 @@ export default function RadialMeter({
   label,
   hero = false,
   suffix = "",
+  ariaLabel,
 }) {
   const gradientId = useId();
   const clamped = Math.max(0, Math.min(100, value ?? 0));
@@ -16,8 +17,13 @@ export default function RadialMeter({
   const offset = circumference * (1 - clamped / 100);
 
   return (
-    <div className={`radialMeter ${hero ? "radialMeter--hero" : ""}`}>
+    <div
+      className={`radialMeter ${hero ? "radialMeter--hero" : ""}`}
+      role={ariaLabel ? "img" : undefined}
+      aria-label={ariaLabel}
+    >
       <svg
+        aria-hidden="true"
         width={size}
         height={size}
         viewBox={`0 0 ${size} ${size}`}
@@ -52,7 +58,7 @@ export default function RadialMeter({
           transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
         />
       </svg>
-      <div className="radialMeterCenter">
+      <div className="radialMeterCenter" aria-hidden={ariaLabel ? "true" : undefined}>
         <span className="radialMeterValue">
           {clamped}
           {suffix}

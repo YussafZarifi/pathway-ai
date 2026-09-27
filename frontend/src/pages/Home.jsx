@@ -1,13 +1,13 @@
 import { useEffect } from "react";
-import { NavLink, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import {
-  House,
   Map,
   FileText,
   MessageSquare,
   FolderOpen,
   ArrowRight,
 } from "lucide-react";
+import AppHeader from "../components/AppHeader";
 
 // Future signed-in hub. Until accounts and saved roadmaps exist it shows an
 // honest empty state: no numbers, activity or achievements that aren't real.
@@ -19,30 +19,9 @@ export default function Home() {
     return () => document.body.classList.remove("theme-landing");
   }, []);
 
-  const navClass = ({ isActive }) => `homeNavItem ${isActive ? "active" : ""}`;
-
   return (
     <div className="homePage">
-      <header className="homeTopbar">
-        <div className="homeBrand">
-          <div className="homeLogo">PA</div>
-          <div>
-            <div className="homeBrandName">PathwayAI</div>
-            <div className="homeBrandTagline">Your Career Hub</div>
-          </div>
-        </div>
-
-        <nav className="homeNav" aria-label="Main">
-          <NavLink to="/home" className={navClass}>
-            <House size={20} aria-hidden="true" />
-            <span>Home</span>
-          </NavLink>
-          <NavLink to="/quiz" className={navClass}>
-            <Map size={20} aria-hidden="true" />
-            <span>Quiz</span>
-          </NavLink>
-        </nav>
-      </header>
+      <AppHeader />
 
       <main className="homeMain">
         <section className="homeHero">

@@ -1,0 +1,78 @@
+import { RefreshCw, RotateCcw, FileText, MessageSquare } from "lucide-react";
+
+function ActionButton({ icon, label, hint, onClick, disabled, soon, tone }) {
+  return (
+    <button
+      type="button"
+      className={`quickAction ${tone ? `quickAction--${tone}` : ""}`}
+      onClick={onClick}
+      disabled={disabled}
+    >
+      <span className="quickActionIcon" aria-hidden="true">
+        {icon}
+      </span>
+      <span className="quickActionText">
+        <span className="quickActionLabel">
+          {label}
+          {soon && <span className="homeBadge">Soon</span>}
+        </span>
+        {hint && <span className="quickActionHint">{hint}</span>}
+      </span>
+    </button>
+  );
+}
+
+export default function QuickActions({
+  canRegenerate,
+  regenerating,
+  error,
+  onRegenerate,
+  onRetakeQuiz,
+  onPlanned,
+}) {
+  return (
+    <section className="dashCard dashRailCard" aria-labelledby="dashActionsTitle">
+      <div className="dashRailHead">
+        <h2 id="dashActionsTitle" className="dashRailTitle">
+          Quick actions
+        </h2>
+      </div>
+
+      <div className="quickActions">
+        <ActionButton
+          icon={<RefreshCw size={17} className={regenerating ? "spin" : ""} />}
+          label={regenerating ? "Regenerating…" : "Regenerate roadmap"}
+          hint={canRegenerate ? "New plan, same career" : "Retake the quiz to enable"}
+          onClick={onRegenerate}
+          disabled={!canRegenerate || regenerating}
+        />
+        <ActionButton
+          icon={<RotateCcw size={17} />}
+          label="Retake quiz"
+          hint="Explore other careers"
+          onClick={onRetakeQuiz}
+        />
+        <ActionButton
+          icon={<FileText size={17} />}
+          label="Resume Analyzer"
+          onClick={() => onPlanned("resume")}
+          soon
+          tone="resume"
+        />
+        <ActionButton
+          icon={<MessageSquare size={17} />}
+          label="AI Coach"
+          onClick={() => onPlanned("coach")}
+          soon
+          tone="coach"
+        />
+      </div>
+
+      {error && (
+        <p className="dashError" role="alert">
+          {error}
+        </p>
+      )}
+    </section>
+  );
+}
