@@ -586,6 +586,26 @@ body.theme-landing .badge {
   .brand {
     gap: 8px;
   }
+
+  .topbar {
+    padding: 16px;
+    gap: 12px;
+  }
+
+  .topbar .brandName {
+    font-size: 18px;
+  }
+
+  .topActions {
+    gap: 8px;
+  }
+
+  .topActions .ghostBtn,
+  .topActions .uiverseBtn {
+    min-width: 0;
+    padding: 10px 12px;
+    font-size: 14px;
+  }
 }
 
 /* ===========================
@@ -2749,6 +2769,69 @@ body.theme-landing .trustRow {
   font-size: 12px;
   color: rgba(255, 255, 255, 0.65);
   margin: 0;
+}
+
+/* ===========================
+   Accounts "coming soon" dialog (Landing)
+ =========================== */
+
+.accountsDialog {
+  width: min(440px, calc(100% - 32px));
+  padding: 0;
+  border-radius: 20px;
+  background: rgba(5, 6, 7, 0.98);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.6);
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.accountsDialog::backdrop {
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(8px);
+}
+
+.accountsDialogContent {
+  padding: 22px 24px 24px;
+}
+
+.accountsDialogHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.accountsDialogTitle {
+  font-size: 20px;
+  font-weight: 800;
+  margin: 0;
+}
+
+.accountsDialogText {
+  font-size: 14px;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.72);
+  margin: 0 0 22px;
+}
+
+.accountsDialogActions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.accountsDialogActions .ghostBtn,
+.accountsDialogActions .uiverseBtn {
+  min-width: 0;
+  padding: 11px 18px;
+}
+
+.accountsDialog button:focus-visible,
+.topActions button:focus-visible {
+  outline: 2px solid #a855f7;
+  outline-offset: 2px;
 }
 
 /* ===========================

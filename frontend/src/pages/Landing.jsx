@@ -1,7 +1,8 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Map, FileText, MessageSquare, Sparkles, ArrowRight } from "lucide-react";
+import AccountsSoonDialog from "../components/AccountsSoonDialog";
 
 const heroContainer = {
   hidden: {},
@@ -38,6 +39,7 @@ const cardItem = {
 
 export default function Landing() {
   const navigate = useNavigate();
+  const [accountsDialogOpen, setAccountsDialogOpen] = useState(false);
 
   useEffect(() => {
     document.body.classList.add("theme-landing");
@@ -53,8 +55,21 @@ export default function Landing() {
         </div>
 
         <div className="topActions">
-          <button className="ghostBtn" onClick={() => navigate("/quiz")}>
-            Take the quiz
+          <button
+            type="button"
+            className="ghostBtn"
+            aria-haspopup="dialog"
+            onClick={() => setAccountsDialogOpen(true)}
+          >
+            Log in
+          </button>
+          <button
+            type="button"
+            className="uiverseBtn"
+            aria-haspopup="dialog"
+            onClick={() => setAccountsDialogOpen(true)}
+          >
+            Sign up
           </button>
         </div>
       </header>
@@ -167,6 +182,12 @@ export default function Landing() {
           </motion.div>
         </section>
       </main>
+
+      <AccountsSoonDialog
+        isOpen={accountsDialogOpen}
+        onClose={() => setAccountsDialogOpen(false)}
+        onTakeQuiz={() => navigate("/quiz")}
+      />
 
       <footer className="footer">
         <span>© {new Date().getFullYear()} PathwayAI</span>
