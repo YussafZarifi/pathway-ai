@@ -60,6 +60,8 @@ Commits: `81d62a3` feat(landing) Log in / Sign up dialog · `d2a484c` docs · `s
 - Dashboard: one roadmap at a time (B-20); Insights are rule-based (B-19); `scoringEngine.js` is now unused by any page (B-14).
 - Quiz answers are stored in `pathwayai_roadmap` for "Regenerate" (same device; TD-41 privacy class).
 
+- **Git:** all of today's work is committed locally on `main`, **19 commits ahead of `origin/main`, not pushed.** The owner declined pushing at the end of the session; push when they ask.
+
 ### Current blockers
 - **Not deployable:** hard-coded `http://127.0.0.1:8000` in `Results.jsx` (×3) and CORS `http://localhost:5173` in `main.py` (N-5).
 - **Unsafe to deploy publicly:** open, un-rate-limited AI proxy; raw exception text returned; user answers logged (N-9).
