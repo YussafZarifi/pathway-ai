@@ -53,7 +53,7 @@ No database, no auth, no queue, no cache. Details: `docs/architecture.md`.
 
 ## 4. Tech stack
 
-- **Frontend:** React 19.2, Vite 7, React Router 7 (`BrowserRouter`), framer-motion 12, lucide-react, html2pdf.js (lazy-imported). Plain JavaScript (no TypeScript). ESLint 9 flat config. Plain CSS (`src/index.css` ~3,760 lines; the only stylesheet).
+- **Frontend:** React 19.2, Vite 7, React Router 7 (`BrowserRouter`), framer-motion 12, lucide-react, html2pdf.js (lazy-imported). Plain JavaScript (no TypeScript). ESLint 9 flat config. Plain CSS (`src/index.css` ~4,400 lines; the only stylesheet).
 - **Backend:** Python, FastAPI 0.128, Uvicorn, Pydantic 2, `google-genai`, python-dotenv. (`openai` is in requirements.txt but unused.)
 - **AI:** Gemini 2.5 Flash-Lite via prompt-and-parse JSON.
 - **Storage:** browser localStorage only.
@@ -74,7 +74,7 @@ roadmap-ai/
 │   ├── index.html  vite.config.js  eslint.config.js  package.json
 │   ├── public/                vite.svg (placeholder favicon)
 │   └── src/
-│       ├── main.jsx  App.jsx  index.css (only stylesheet, ~3,900 lines)
+│       ├── main.jsx  App.jsx  index.css (only stylesheet, ~4,400 lines)
 │       ├── pages/        Landing, Home, Quiz, Results, Dashboard  (all routed)
 │       ├── components/   AppHeader, Dialog, AccountsSoonDialog, ThemeGate, RadialMeter, CareerCompareModal, ShareModal
 │       │   └── dashboard/  DashboardHero, TodayFocus, StatTile, RoadmapStepper, AchievementGrid, InsightsPanel, QuickActions
