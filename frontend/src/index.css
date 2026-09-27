@@ -1628,7 +1628,8 @@ body.theme-landing .trustRow {
   flex-direction: column;
   gap: 16px;
   cursor: pointer;
-  transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+  transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.25s ease,
+    transform 0.2s ease;
 }
 
 .homeFeatureCard:hover {
@@ -1658,11 +1659,30 @@ body.theme-landing .trustRow {
   color: #ffffff;
 }
 
-/* Planned features get a neutral icon so only live ones carry the accent */
-.homeFeatureCard--planned .homeFeatureIcon {
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  color: rgba(255, 255, 255, 0.7);
+/* Per-feature colours, matching the Landing feature cards */
+.homeFeatureIcon--roadmap {
+  background: linear-gradient(135deg, #ff37d0, #a855f7);
+  box-shadow: 0 8px 24px rgba(255, 55, 208, 0.25);
+}
+
+.homeFeatureIcon--resume {
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+  box-shadow: 0 8px 24px rgba(34, 197, 94, 0.3);
+}
+
+.homeFeatureIcon--coach {
+  background: linear-gradient(135deg, #6366f1, #2b05d8);
+  box-shadow: 0 8px 24px rgba(99, 102, 241, 0.35);
+}
+
+.homeFeatureCard--resume:hover {
+  border-color: rgba(34, 197, 94, 0.4);
+  box-shadow: 0 20px 60px rgba(34, 197, 94, 0.15);
+}
+
+.homeFeatureCard--coach:hover {
+  border-color: rgba(99, 102, 241, 0.4);
+  box-shadow: 0 20px 60px rgba(99, 102, 241, 0.18);
 }
 
 .homeFeatureText {

@@ -96,7 +96,7 @@ export default function Home() {
               className="homeFeatureCard"
               onClick={() => navigate("/quiz")}
             >
-              <div className="homeFeatureIcon">
+              <div className="homeFeatureIcon homeFeatureIcon--roadmap">
                 <Map size={22} aria-hidden="true" />
               </div>
               <div className="homeFeatureText">
@@ -110,8 +110,8 @@ export default function Home() {
               </div>
             </button>
 
-            <div className="homeFeatureCard homeFeatureCard--planned">
-              <div className="homeFeatureIcon">
+            <div className="homeFeatureCard homeFeatureCard--planned homeFeatureCard--resume">
+              <div className="homeFeatureIcon homeFeatureIcon--resume">
                 <FileText size={22} aria-hidden="true" />
               </div>
               <div className="homeFeatureText">
@@ -121,8 +121,8 @@ export default function Home() {
               </div>
             </div>
 
-            <div className="homeFeatureCard homeFeatureCard--planned">
-              <div className="homeFeatureIcon">
+            <div className="homeFeatureCard homeFeatureCard--planned homeFeatureCard--coach">
+              <div className="homeFeatureIcon homeFeatureIcon--coach">
                 <MessageSquare size={22} aria-hidden="true" />
               </div>
               <div className="homeFeatureText">
