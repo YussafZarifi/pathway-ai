@@ -30,7 +30,8 @@ There are no response models, and `answers` has no field-level schema or size li
 4. Build an f-string prompt (see `docs/ai-system.md`).
 5. `client.models.generate_content(model="gemini-2.5-flash-lite", contents=prompt)` (blocking; FastAPI runs sync `def` handlers in a threadpool).
 6. Strip code fences with `text.strip("`").replace("json", "", 1)` (fragile), then `json.loads`.
-7. Return the parsed dict unvalidated.
+7. (roadmap only, since 2026-09-26) `add_videos(result, career)` adds `videos`, `video_search_url` and `video_query` to each step via `backend/youtube.py` (YouTube Data API v3, parallel, 5 s timeout, in-memory cache; optional `YOUTUBE_API_KEY`). API failures return `[]`, never an error; logs contain only the exception class because the request URL holds the key.
+8. Return the parsed dict (otherwise unvalidated).
 
 ## Error handling
 - Career: `JSONDecodeError` → 500 with `"Failed to parse AI response: {e}"`; other exceptions → 500 with `"AI generation failed: {e}. Check backend console."` (⚠ leaks internals).

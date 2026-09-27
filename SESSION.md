@@ -4,7 +4,7 @@
 
 ---
 
-## Current session — 2026-09-26 · Landing Log in / Sign up buttons (no auth) + `/home` polish
+## Current session — 2026-09-26 · Landing Log in / Sign up (no auth) · `/home` polish · YouTube videos per roadmap step
 
 ### Goal (owner request)
 Add Log in / Sign up buttons to the Landing page **without building auth**. The owner picked the "honest dialog" option: the buttons open a dialog saying accounts are coming soon.
@@ -15,7 +15,11 @@ Add Log in / Sign up buttons to the Landing page **without building auth**. The 
 3. **`Landing.jsx`:** header "Take the quiz" replaced by **Log in** (`ghostBtn`) and **Sign up** (`uiverseBtn`), both `aria-haspopup="dialog"`. The hero "Get Started" CTA still goes to `/quiz`.
 4. **`index.css`:** dialog styles (matching the Share Modal look), `:focus-visible` rings for header and dialog buttons, and a ≤520px rule that shrinks header padding, button size and brand font so everything fits at 360px.
 5. **`/home` visual polish (owner request, visual only):** aligned sticky header, Landing's ambient glow, gradient title and a real gradient CTA (`.homePrimaryBtn`; the old `.uiverseBtn` rendered grey outside `.page`), uppercase section labels, left-aligned cards with 42px icons and a "Start →" hint on the live card, small `.homeBadge` "Planned" pills, Resume Analyzer / AI Coach cards in the Landing colours (green / indigo gradient icons with glows, tinted hover border), all three cards float on hover (6px lift, tinted glow, icon lifts and scales slightly), planned cards not opacity-dimmed like on Landing (AA contrast), `prefers-reduced-motion`, nav icons hidden ≤420px. Removed `resumeIcon`/`coachIcon`/`roadmapsIcon` classes from the cards because global rules with those names changed icon sizes.
-6. **Docs:** CLAUDE.md, ROADMAP.md (C-13, C-14), `docs/frontend.md`, `docs/ui-design.md`, ADR-011 in `docs/decisions.md`, this file.
+6. **YouTube videos per roadmap step (owner request; owner chose "YouTube API + fallback"):**
+   - Backend: the roadmap prompt asks for a `video_query` search phrase per step (never URLs). New `backend/youtube.py` resolves it to up to 2 real videos via the YouTube Data API v3 (parallel lookups, 5 s timeout, in-memory cache of successes, `safeSearch=strict`, logs only the error class because the URL holds the key). Each step gains `videos[]`, `video_search_url`, `video_query`. New `backend/.env.example`.
+   - Frontend: "Videos" section in each expanded step (thumbnail, title, channel), or a "Search YouTube for this step" link when there are no videos. The step card is no longer a `<button>`: the header is the toggle (`aria-expanded`/`aria-controls`) and links sit outside it, fixing the RoadmapTimeline part of TD-19.
+   - ADR-012. Commits `b27271c` (api), `639da18` (dashboard).
+7. **Docs:** CLAUDE.md, ROADMAP.md (C-13, C-14, C-15), `docs/frontend.md`, `docs/ui-design.md`, `docs/api.md`, `docs/ai-system.md`, `docs/backend.md`, `docs/deployment.md`, `docs/technical-debt.md`, ADR-011 and ADR-012 in `docs/decisions.md`, this file.
 
 Commits: `81d62a3` feat(landing) Log in / Sign up dialog · `d2a484c` docs · `style(home)` visual polish · docs. **Not pushed.**
 
@@ -28,6 +32,9 @@ Commits: `81d62a3` feat(landing) Log in / Sign up dialog · `d2a484c` docs · `s
 | "Take the quiz" | Navigates to `/quiz` |
 | 360px viewport (iframe) | No horizontal scroll (scrollWidth = clientWidth); 16px gap between brand and buttons; dialog fits with side margins |
 | `/home` at 1538px and 360px | All three card icons 42px; no horizontal scroll at 360px (scrollWidth = clientWidth) after hiding nav icons ≤420px |
+| YouTube lookup (mocked API, scratch script) | Real-shape response parsed (HTML entities unescaped, non-video items skipped); no key → `[]` with no request; HTTP 403 → `[]`, logged as `HTTPStatusError` only (key not printed) and not cached; repeated query served from cache; malformed roadmap shapes ignored |
+| Live roadmap request (1 Gemini call, running backend, no YouTube key) | 5 steps, each with a sensible `video_query`, `videos: []` and a working `video_search_url` |
+| Dashboard with injected test roadmap | Step with videos shows 2 cards (thumbnail / play-icon placeholder, clamped title, channel); step without videos shows the search link; 0 interactive elements nested in buttons; clicking a video link doesn't collapse the step |
 | `npm run lint` | 17 errors / 1 warning, identical to before (the Landing error is the known `motion` false positive, TD-35) |
 | `npm run build` | Passes |
 
@@ -36,6 +43,9 @@ Commits: `81d62a3` feat(landing) Log in / Sign up dialog · `d2a484c` docs · `s
 - `ShareModal` and `CareerCompareModal` still lack dialog semantics; ADR-011 suggests moving them to the same native `<dialog>` pattern (F-10).
 - A dev server was already running on :5173 (not started by this session) and was used for testing.
 - Carried over: dead CSS in `index.css` (N-14); Landing hero invisible until JS runs (TD-32); `/home` not linked (N-15); no `.gitattributes` (CRLF warnings).
+
+- **Owner action for real videos:** add `YOUTUBE_API_KEY` to `backend/.env` (Google Cloud Console → enable "YouTube Data API v3" → Credentials → API key, ideally restricted to that API), then restart the backend. Until then every step shows the search link. Free quota ≈ 20 roadmaps/day.
+- Not verified with a real YouTube key (none configured); the response parsing was tested against the documented API shape.
 
 ### Current blockers
 - **Not deployable:** hard-coded `http://127.0.0.1:8000` in `Results.jsx` (×3) and CORS `http://localhost:5173` in `main.py` (N-5).

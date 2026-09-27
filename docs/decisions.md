@@ -17,6 +17,7 @@ ADR-001 to ADR-008 were **reconstructed on 2026-09-24** from the existing code d
 | ADR-009 | Project documentation as persistent memory | Accepted |
 | ADR-010 | One dashboard: keep `/dashboard`, keep `/home` as the future signed-in hub, delete the `/app/*` shell | Accepted |
 | ADR-011 | Entry points for unbuilt features must do something honest when clicked | Accepted |
+| ADR-012 | Roadmap videos come from the YouTube Data API, not the model | Accepted |
 
 ---
 
@@ -92,6 +93,14 @@ ADR-001 to ADR-008 were **reconstructed on 2026-09-24** from the existing code d
 - **Decision:** a visible control for a feature that isn't built must never be dead. It opens an honest explanation instead. For accounts, both header buttons open `AccountsSoonDialog` ("Accounts are coming soon", no account needed, "Take the quiz"). Dialogs use the native `<dialog>` element with `showModal()` for focus trapping, Esc and focus return.
 - **Alternatives considered:** UI-only `/login` and `/signup` pages with a disabled form (rejected for now: more code, and it looks like a working form); disabled buttons with a tooltip (rejected: look unfinished and tooltips are weak on touch).
 - **Consequences:** the "no fake UI" standard is kept while showing planned features. When auth lands (F-7), the buttons are rewired to real routes and the dialog is deleted. `ShareModal` and `CareerCompareModal` should move to the same native `<dialog>` pattern (F-10).
+- **Status:** Accepted.
+
+## ADR-012 — Roadmap videos come from the YouTube Data API, not the model
+- **Date:** 2026-09-26
+- **Context:** the owner wants 1–2 YouTube videos on every roadmap step. An LLM cannot know real video IDs, so model-written YouTube URLs would mostly be broken or wrong (the same problem as invented resource URLs, TD-21) and would reintroduce fake content.
+- **Decision:** the model writes a short search phrase per step (`video_query`). The backend resolves it to up to 2 real videos with the YouTube Data API v3 (`backend/youtube.py`) and returns `videos[]` plus an always-valid `video_search_url`. `YOUTUBE_API_KEY` is optional; without it, or on any API error, the UI shows a "Search YouTube for this step" link.
+- **Alternatives considered:** search links only (no key, always works, but no specific videos or thumbnails); model-picked videos verified through YouTube oEmbed (no key, but most model IDs would fail verification).
+- **Consequences:** a second external API and key. The free quota (10,000 units/day, 100 per search) allows about 20 new roadmaps a day; an in-memory cache helps, and a shared cache (Redis) or persisting videos with saved roadmaps (F-8) will matter at scale. Adds latency of about one YouTube request (lookups run in parallel). Thumbnails load from `i.ytimg.com`. It's the first grounded AI output in the app and a pattern to reuse for resources (TD-21).
 - **Status:** Accepted.
 
 ---

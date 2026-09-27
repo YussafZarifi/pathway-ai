@@ -13,8 +13,9 @@ Prompt structure (`backend/main.py:43-91`):
 ### Workflow 2 — Roadmap (`POST /api/ai/roadmap`)
 Prompt structure (`backend/main.py:132-163`):
 1. "Return STRICT JSON only in this exact shape:" with `career` interpolated **inside the JSON example** plus one example step.
-2. Rules: ≤5 steps; actionable and beginner-friendly; time estimates; 2–3 resources "with valid URLs"; 2–3 tasks; "tailor to user's stage + location if provided" (⚠ the quiz has no location question).
+2. Rules: ≤5 steps; actionable and beginner-friendly; time estimates; 2–3 resources "with valid URLs"; 2–3 tasks; a 3–8 word `video_query` YouTube search phrase ("No URLs"); "tailor to user's stage + location if provided" (⚠ the quiz has no location question).
 3. User answers + chosen career.
+4. **Video enrichment (✅ 2026-09-26, ADR-012):** after parsing, `add_videos()` in `main.py` sends each step's `video_query` to `backend/youtube.py`, which calls the YouTube Data API v3 `search.list` (`type=video`, `maxResults=2`, `safeSearch=strict`) in parallel, with a 5 s timeout and an in-memory cache of successful lookups. The model never produces video URLs; it only chooses the search phrase. Without `YOUTUBE_API_KEY` or on API failure, `videos` is `[]` and the UI shows `video_search_url`. This is a small example of grounding: retrieval from a real source instead of model-invented links.
 
 ### Parsing
 ```python

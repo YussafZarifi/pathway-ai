@@ -14,7 +14,7 @@ cd backend && uvicorn main:app --reload --port 8000
 # frontend
 cd frontend && npm run dev   # :5173
 ```
-Secrets: `backend/.env` → `GEMINI_API_KEY`.
+Secrets: `backend/.env` → `GEMINI_API_KEY`, optional `YOUTUBE_API_KEY` (template: `backend/.env.example`, added 2026-09-26).
 
 ## Target setup (🗺️)
 
@@ -33,6 +33,7 @@ Decision pending (see SESSION.md open questions). Record the choice as an ADR.
 |---|---|---|
 | `GEMINI_API_KEY` | backend | Secret |
 | `GEMINI_MODEL` | backend | Default `gemini-2.5-flash-lite` |
+| `YOUTUBE_API_KEY` | backend | Optional secret. YouTube Data API v3; ~20 roadmaps/day on the free quota. Restrict the key to that API |
 | `ALLOWED_ORIGINS` | backend | Comma-separated frontend origins |
 | `DATABASE_URL` | backend | Once Postgres exists |
 | `REDIS_URL` | backend | Rate limiting and cache |

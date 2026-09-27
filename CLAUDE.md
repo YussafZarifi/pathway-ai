@@ -1,7 +1,7 @@
 # CLAUDE.md — PathwayAI (repo: `roadmap-ai`)
 
 > Permanent project memory. Read this first in every session. Then read `SESSION.md` (latest state) and `ROADMAP.md` (what's next).
-> Last updated: 2026-09-26 (Landing header got Log in / Sign up buttons that open an honest "Accounts are coming soon" dialog, no auth built; `/home` visual polish pass).
+> Last updated: 2026-09-26 (Landing Log in / Sign up → honest "coming soon" dialog, no auth built; `/home` visual polish; real YouTube videos on each roadmap step via the YouTube Data API, ADR-012).
 
 ---
 
@@ -22,6 +22,7 @@ Naming: the product brand is **PathwayAI**. The repo/folder is `roadmap-ai`. The
 |---|---|
 | Quiz → AI career matches → AI roadmap → dashboard | **Implemented** (the only complete flow) |
 | Career compare modal, regenerate, "Save Your Results" modal (PDF via html2pdf, print) | **Implemented** (fake "Copy Link" removed 2026-09-25; shareable links are planned) |
+| YouTube videos per roadmap step | **Implemented 2026-09-26** (ADR-012). Gemini writes a search phrase per step; `backend/youtube.py` fetches up to 2 real videos via the YouTube Data API. Needs the optional `YOUTUBE_API_KEY` in `backend/.env` (**not set yet**: until the owner adds one, every step shows a "Search YouTube for this step" link) |
 | Roadmap step completion + readiness/momentum scores | **Partially implemented** (localStorage only; progress bugs — see §10) |
 | Resume Analyzer | **Not implemented.** The simulated `ResumeAnalyzer.jsx` (random score) was deleted 2026-09-25. Shown only as "Planned" / "Coming soon" |
 | AI Coach / Chatbot | **Not implemented** ("Coming soon" tab on `/dashboard`, "Planned" card on `/home`) |
@@ -45,6 +46,7 @@ FastAPI (backend/main.py, single file, :8000)
   └─ GET  /                                           → health
         │
 Google Gemini  (google-genai, model "gemini-2.5-flash-lite", key from backend/.env GEMINI_API_KEY)
+YouTube Data API v3  (backend/youtube.py, optional YOUTUBE_API_KEY; roadmap step videos)
 ```
 No database, no auth, no queue, no cache. Details: `docs/architecture.md`.
 
@@ -62,7 +64,9 @@ roadmap-ai/
 ├── CLAUDE.md  README.md  ROADMAP.md  SESSION.md
 ├── docs/                      project documentation (this knowledge base)
 ├── backend/
-│   ├── main.py                all API code (179 lines)
+│   ├── main.py                API endpoints + prompts (~210 lines)
+│   ├── youtube.py             YouTube Data API lookup for roadmap step videos
+│   ├── .env.example           template: GEMINI_API_KEY, YOUTUBE_API_KEY
 │   ├── requirements.txt
 │   └── .env                   GEMINI_API_KEY (secret — never commit)
 ├── frontend/
@@ -104,12 +108,12 @@ See `docs/ui-design.md`.
 
 Two single-shot prompts in `backend/main.py`:
 1. **Career:** answers → exactly 3 tech-only careers `{title, reason, match_score 70–95, salary_range, growth_rate, education, skills[4–5]}` + `explanation`.
-2. **Roadmap:** answers + chosen career → `{career, roadmap: [{title, description, time, resources[{name,url}], tasks[]}]}` (≤5 steps).
+2. **Roadmap:** answers + chosen career → `{career, roadmap: [{title, description, time, resources[{name,url}], tasks[], video_query}]}` (≤5 steps). The backend then adds `videos[{id,title,channel,thumbnail,url}]` (real YouTube Data API results) and `video_search_url` to each step (ADR-012).
 Output parsed with `json.loads` after manual code-fence stripping. No response schema, no validation, no retries, no streaming, no caching, no grounding (salaries and URLs are model-invented). User free text is interpolated directly (prompt-injection surface). Improvement plan: `docs/ai-system.md`.
 
 ## 9. Important design decisions (see `docs/decisions.md` for ADRs)
 
-- ADR-001 React + Vite SPA · ADR-002 FastAPI backend as an AI proxy (keeps key server-side) · ADR-003 Gemini Flash-Lite (cheap/fast) · ADR-004 localStorage persistence (MVP, no accounts) · ADR-005 tech-only career scope (pivot from general careers) · ADR-006 plain CSS · ADR-007 router state as data transport · ADR-008 client-side tracking/scoring engines · ADR-009 docs-as-memory (update CLAUDE/ROADMAP/SESSION/decisions every session) · ADR-010 one dashboard: keep `/dashboard`, keep `/home` as the future signed-in hub, delete the `/app/*` shell.
+- ADR-001 React + Vite SPA · ADR-002 FastAPI backend as an AI proxy (keeps key server-side) · ADR-003 Gemini Flash-Lite (cheap/fast) · ADR-004 localStorage persistence (MVP, no accounts) · ADR-005 tech-only career scope (pivot from general careers) · ADR-006 plain CSS · ADR-007 router state as data transport · ADR-008 client-side tracking/scoring engines · ADR-009 docs-as-memory (update CLAUDE/ROADMAP/SESSION/decisions every session) · ADR-010 one dashboard: keep `/dashboard`, keep `/home` as the future signed-in hub, delete the `/app/*` shell · ADR-011 unbuilt-feature entry points open an honest explanation · ADR-012 roadmap videos come from the YouTube Data API, never the model.
 
 ## 10. Known limitations & bugs (top items — full list in `docs/technical-debt.md`)
 
@@ -121,7 +125,7 @@ Output parsed with `json.loads` after manual code-fence stripping. No response s
 6. Hard-coded `http://127.0.0.1:8000` and CORS `http://localhost:5173` → not deployable.
 7. Open, unauthenticated, un-rate-limited AI proxy; raw exception text returned; user answers printed to logs.
 8. ~~Fake data and dead buttons~~ — fixed 2026-09-25. Remaining honesty gap: Employability/Momentum scores mostly measure app engagement (TD-29).
-9. Invalid nested interactive HTML (checkbox inside button in Results; links inside button in RoadmapTimeline).
+9. Invalid nested interactive HTML: checkbox inside button in Results (the RoadmapTimeline part was fixed 2026-09-26).
 10. No tests, no CI; 17 ESLint errors (most are `motion` false positives from the missing jsx-uses-vars rule).
 
 ## 11. Current priorities (in order)
@@ -145,7 +149,7 @@ See `ROADMAP.md` → *Next Sprint*.
 
 ## 13. Features
 
-**Implemented:** landing page (header Log in / Sign up → honest "coming soon" dialog, native `<dialog>`) · honest `/home` hub (empty state) · 8-question animated quiz (choice / slider / text) · AI career matches (3) with match %, salary, growth, skills, reason · expand card · compare 2–3 careers · regenerate · "none of these" → retake · AI roadmap generation · dashboard timeline with expandable steps, resources, tasks, mark done/undo · readiness / employability / momentum meters + top recommendation banner · PDF download & print of results · localStorage event/metric/progress tracking.
+**Implemented:** landing page (header Log in / Sign up → honest "coming soon" dialog, native `<dialog>`) · honest `/home` hub (empty state) · 8-question animated quiz (choice / slider / text) · AI career matches (3) with match %, salary, growth, skills, reason · expand card · compare 2–3 careers · regenerate · "none of these" → retake · AI roadmap generation · real YouTube videos per step (YouTube Data API; search-link fallback) · dashboard timeline with expandable steps, videos, resources, tasks, mark done/undo · readiness / employability / momentum meters + top recommendation banner · PDF download & print of results · localStorage event/metric/progress tracking.
 
 **Partially implemented:** progress tracking (buggy, not per-roadmap) · `/home` hub (no personal data until accounts exist) · theming (two competing mechanisms).
 

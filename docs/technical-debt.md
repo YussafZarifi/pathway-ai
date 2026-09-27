@@ -33,7 +33,7 @@ Found in the 2026-09-24 audit. When an item is resolved, strike it through and n
 | TD-16 | Routing | ~~Links to non-existent `/login`, `/signup`, `/profile`, `/app/*`~~ (removed 2026-09-25); **still no 404 route** (ROADMAP F-12) | `App.jsx` |
 | TD-17 | Testing | Zero tests (frontend or backend) | — |
 | TD-18 | CI/CD | No CI, Docker or deployment config | — |
-| TD-19 | A11y | Invalid nested interactive HTML: checkbox in `<button>`; `<a>` in `<button>` | `Results.jsx:453-475`; `RoadmapTimeline.jsx:100-146` |
+| TD-19 | A11y | Invalid nested interactive HTML: checkbox in `<button>` (still open); ~~`<a>` in `<button>`~~ fixed 2026-09-26 (`639da18`: the step header is the toggle button, links sit outside it) | `Results.jsx:453-475` |
 | TD-20 | A11y | Modals lack dialog role, focus trap, Esc, labels | `CareerCompareModal.jsx`, `ShareModal.jsx` |
 | TD-21 | AI | Salaries and resource URLs invented by the model, shown as fact | prompts in `main.py` |
 
