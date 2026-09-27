@@ -35,6 +35,8 @@ import {
   EVENT_TYPES,
   METRIC_NAMES,
 } from "../lib/trackingEngine";
+import { requestRoadmap } from "../lib/api";
+import { saveCurrentRoadmap } from "../lib/roadmapStore";
 
 export default function Results() {
   const location = useLocation();
@@ -204,26 +206,7 @@ export default function Results() {
       setLoadingRoadmap(true);
       setError("");
 
-      const res = await fetch("http://127.0.0.1:8000/api/ai/roadmap", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ answers, career: selectedCareer }),
-      });
-
-      if (!res.ok) throw new Error("Roadmap AI request failed");
-
-      const data = await res.json();
-
-      const steps = Array.isArray(data?.roadmap)
-        ? data.roadmap.map((step, idx) => ({
-            ...step,
-            step: idx + 1,
-            time: step.time || "Varies",
-            resources: step.resources || [],
-            tasks: step.tasks || [],
-            videos: Array.isArray(step.videos) ? step.videos : [],
-          }))
-        : [];
+      const steps = await requestRoadmap(answers, selectedCareer);
 
       // Track roadmap generation
       trackEvent(EVENT_TYPES.ROADMAP_GENERATED, {
@@ -245,6 +228,13 @@ export default function Results() {
         });
         trackMetric(METRIC_NAMES.CAREER_MATCH_SCORE, selectedCareerData.match_score || 85);
       }
+
+      saveCurrentRoadmap({
+        career: selectedCareer,
+        careerData: selectedCareerData || null,
+        answers,
+        roadmap: steps,
+      });
 
       navigate("/dashboard", {
         state: { career: selectedCareer, roadmap: steps },
