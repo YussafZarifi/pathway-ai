@@ -1,7 +1,15 @@
-import { Target, Clock, PlayCircle, Search, Check, ArrowRight, Trophy } from "lucide-react";
+import { Target, Clock, Check, ArrowRight, Trophy } from "lucide-react";
+import VideoCard from "../VideoCard";
 
 // Exactly one recommended action: the first task of the current step.
-export default function TodayFocus({ focus, totalSteps, onMarkDone, onOpenStep, onRetakeQuiz }) {
+export default function TodayFocus({
+  focus,
+  totalSteps,
+  busy = false,
+  onMarkDone,
+  onOpenStep,
+  onRetakeQuiz,
+}) {
   if (!focus) {
     return (
       <section className="dashCard dashFocus dashFocus--done" aria-labelledby="dashFocusTitle">
@@ -42,34 +50,8 @@ export default function TodayFocus({ focus, totalSteps, onMarkDone, onOpenStep, 
         </div>
       )}
 
-      {focus.video ? (
-        <a
-          className="dashFocusVideo"
-          href={focus.video.url}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <span className="timelineVideoThumb">
-            {focus.video.thumbnail && <img src={focus.video.thumbnail} alt="" loading="lazy" />}
-            <PlayCircle size={24} aria-hidden="true" />
-          </span>
-          <span className="timelineVideoText">
-            <span className="timelineVideoTitle">{focus.video.title}</span>
-            <span className="timelineVideoChannel">{focus.video.channel} · YouTube</span>
-          </span>
-        </a>
-      ) : (
-        focus.searchUrl && (
-          <a
-            className="timelineResourceChip dashFocusSearch"
-            href={focus.searchUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Search size={13} aria-hidden="true" />
-            Find a video for this step
-          </a>
-        )
+      {(focus.video || focus.searchUrl) && (
+        <VideoCard video={focus.video} searchUrl={focus.searchUrl} compact />
       )}
 
       <div className="dashFocusActions">
@@ -77,11 +59,17 @@ export default function TodayFocus({ focus, totalSteps, onMarkDone, onOpenStep, 
           type="button"
           className="dashBtn dashBtn--primary"
           onClick={() => onMarkDone(focus.stepIndex)}
+          disabled={busy}
         >
           <Check size={16} aria-hidden="true" />
           Mark step done
         </button>
-        <button type="button" className="dashBtn" onClick={() => onOpenStep(focus.stepIndex)}>
+        <button
+          type="button"
+          className="dashBtn"
+          onClick={() => onOpenStep(focus.stepIndex)}
+          disabled={busy}
+        >
           Open step
           <ArrowRight size={16} aria-hidden="true" />
         </button>

@@ -18,7 +18,9 @@ export default function DashboardHero({ career, careerData, summary, remaining, 
           hero
           ariaLabel={`Roadmap ${summary.percent}% complete`}
         />
-        <span className="dashHeroRingLabel">Roadmap</span>
+        <span className="dashHeroRingLabel">
+          {summary.done} of {summary.total} steps
+        </span>
       </div>
 
       <div className="dashHeroBody">
@@ -27,17 +29,14 @@ export default function DashboardHero({ career, careerData, summary, remaining, 
           {career}
         </h1>
 
-        <div className="dashHeroBadges">
-          {match != null && (
+        {match != null && (
+          <div className="dashHeroBadges">
             <span className="dashBadge dashBadge--accent">
               <Sparkles size={13} aria-hidden="true" />
               {match}% AI match
             </span>
-          )}
-          <span className="dashBadge">
-            {summary.done} of {summary.total} steps complete
-          </span>
-        </div>
+          </div>
+        )}
 
         <p className="dashHeroMotivation">{motivation}</p>
 

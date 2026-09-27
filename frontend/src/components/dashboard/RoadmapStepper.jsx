@@ -3,12 +3,12 @@ import {
   ChevronDown,
   Clock,
   PlayCircle,
-  Search,
   ExternalLink,
   CheckCircle2,
   BookOpen,
   ListChecks,
 } from "lucide-react";
+import VideoCard from "../VideoCard";
 
 const dateFormat = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" });
 
@@ -50,38 +50,13 @@ function StepDetails({ step }) {
       {(videos.length > 0 || step.video_search_url) && (
         <div className="stepDetailBlock">
           <h4 className="timelineResourcesTitle">Videos</h4>
-          {videos.length > 0 ? (
-            <div className="timelineVideoList">
-              {videos.map((video) => (
-                <a
-                  key={video.id}
-                  href={video.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="timelineVideoCard"
-                >
-                  <span className="timelineVideoThumb">
-                    {video.thumbnail && <img src={video.thumbnail} alt="" loading="lazy" />}
-                    <PlayCircle size={28} aria-hidden="true" />
-                  </span>
-                  <span className="timelineVideoText">
-                    <span className="timelineVideoTitle">{video.title}</span>
-                    <span className="timelineVideoChannel">{video.channel} · YouTube</span>
-                  </span>
-                </a>
-              ))}
-            </div>
-          ) : (
-            <a
-              href={step.video_search_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="timelineResourceChip"
-            >
-              <Search size={13} aria-hidden="true" />
-              Search YouTube for this step
-            </a>
-          )}
+          <div className="videoList">
+            {videos.length > 0 ? (
+              videos.map((video) => <VideoCard key={video.id} video={video} />)
+            ) : (
+              <VideoCard searchUrl={step.video_search_url} />
+            )}
+          </div>
         </div>
       )}
 
@@ -159,7 +134,14 @@ export default function RoadmapStepper({
               >
                 <span className="stepHeadRow">
                   <span className="stepTitle">{step.title}</span>
-                  <StepStatus status={status} isCurrent={isCurrent} />
+                  <span className="stepHeadEnd">
+                    <StepStatus status={status} isCurrent={isCurrent} />
+                    <ChevronDown
+                      size={18}
+                      className={`stepChevron ${isOpen ? "is-open" : ""}`}
+                      aria-hidden="true"
+                    />
+                  </span>
                 </span>
                 <span className="stepMetaRow">
                   {step.time && step.time !== "Varies" && (
@@ -175,11 +157,6 @@ export default function RoadmapStepper({
                       <span className="srOnly"> {c.label}</span>
                     </span>
                   ))}
-                  <ChevronDown
-                    size={18}
-                    className={`stepChevron ${isOpen ? "is-open" : ""}`}
-                    aria-hidden="true"
-                  />
                 </span>
               </button>
 

@@ -2297,8 +2297,6 @@ body.theme-landing .trustRow {
   box-shadow: 0 4px 15px rgba(255, 55, 208, 0.3);
 }
 
-.timelineToggle:focus-visible,
-.timelineVideoCard:focus-visible,
 .timelineResourceChip:focus-visible {
   outline: 2px solid #a855f7;
   outline-offset: 4px;
@@ -2342,17 +2340,18 @@ body.theme-landing .trustRow {
   color: #ffffff;
 }
 
-.timelineVideoList {
+/* YouTube preview card (components/VideoCard.jsx): the only video card */
+.videoList {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(240px, 100%), 1fr));
-  gap: 10px;
+  gap: 8px;
 }
 
-.timelineVideoCard {
+.videoCard {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
   padding: 8px;
+  padding-right: 14px;
   border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   background: rgba(255, 255, 255, 0.03);
@@ -2361,25 +2360,33 @@ body.theme-landing .trustRow {
   transition: background 0.2s ease, border-color 0.2s ease;
 }
 
-.timelineVideoCard:hover {
+.videoCard:hover {
   background: rgba(255, 0, 0, 0.06);
   border-color: rgba(255, 80, 80, 0.35);
 }
 
-.timelineVideoThumb {
+.videoCard:focus-visible {
+  outline: 2px solid #a855f7;
+  outline-offset: 3px;
+}
+
+.videoThumb {
   position: relative;
   flex: none;
-  width: 112px;
+  width: 128px;
   aspect-ratio: 16 / 9;
   border-radius: 8px;
   overflow: hidden;
-  background: rgba(255, 255, 255, 0.06);
   display: grid;
   place-items: center;
-  color: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.06);
 }
 
-.timelineVideoThumb img {
+.videoCard--compact .videoThumb {
+  width: 104px;
+}
+
+.videoThumb img {
   position: absolute;
   inset: 0;
   width: 100%;
@@ -2387,19 +2394,35 @@ body.theme-landing .trustRow {
   object-fit: cover;
 }
 
-.timelineVideoThumb svg {
-  position: relative;
-  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.6));
+/* Missing / failed thumbnail and the search fallback */
+.videoThumb--placeholder {
+  background:
+    radial-gradient(circle at 30% 20%, rgba(255, 80, 80, 0.22), transparent 60%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02));
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-.timelineVideoText {
+.videoThumbIcon {
+  position: relative;
+  display: grid;
+  place-items: center;
+  color: #ffffff;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.6));
+  transition: transform 0.2s ease;
+}
+
+.videoCard:hover .videoThumbIcon {
+  transform: scale(1.1);
+}
+
+.videoText {
   display: grid;
   gap: 4px;
   min-width: 0;
 }
 
-.timelineVideoTitle {
-  font-size: 13px;
+.videoTitle {
+  font-size: 14px;
   font-weight: 700;
   line-height: 1.35;
   color: rgba(255, 255, 255, 0.92);
@@ -2409,12 +2432,36 @@ body.theme-landing .trustRow {
   overflow: hidden;
 }
 
-.timelineVideoChannel {
+.videoCard--compact .videoTitle {
+  font-size: 13px;
+}
+
+.videoMeta {
   font-size: 12px;
   color: rgba(255, 255, 255, 0.6);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.videoCard--search .videoTitle {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+@media (max-width: 420px) {
+  .videoThumb {
+    width: 96px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .videoThumbIcon {
+    transition: none;
+  }
+
+  .videoCard:hover .videoThumbIcon {
+    transform: none;
+  }
 }
 
 .timelineResourceLink:hover {
@@ -3490,11 +3537,10 @@ body.theme-landing .trustRow {
 }
 
 .dashHeroRingLabel {
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 1px;
-  text-transform: uppercase;
+  font-size: 13px;
+  font-weight: 600;
   color: var(--dash-muted);
+  font-variant-numeric: tabular-nums;
 }
 
 .dashHeroBody {
@@ -3603,7 +3649,7 @@ body.theme-landing .trustRow {
 
 .dashFocusTask {
   margin: 0;
-  font-size: 21px;
+  font-size: 20px;
   font-weight: 800;
   line-height: 1.25;
   color: #ffffff;
@@ -3616,32 +3662,6 @@ body.theme-landing .trustRow {
   font-size: 13px;
   font-weight: 600;
   color: rgba(255, 255, 255, 0.85);
-}
-
-.dashFocusVideo {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 8px;
-  border-radius: 12px;
-  border: 1px solid var(--dash-line);
-  background: rgba(0, 0, 0, 0.25);
-  color: inherit;
-  text-decoration: none;
-  transition: border-color 0.2s ease, background 0.2s ease;
-}
-
-.dashFocusVideo:hover {
-  border-color: rgba(255, 80, 80, 0.35);
-  background: rgba(255, 0, 0, 0.06);
-}
-
-.dashFocusVideo .timelineVideoThumb {
-  width: 96px;
-}
-
-.dashFocusSearch {
-  align-self: flex-start;
 }
 
 .dashFocusActions {
@@ -3671,10 +3691,17 @@ body.theme-landing .trustRow {
     box-shadow 0.2s ease;
 }
 
-.dashBtn:hover {
+.dashBtn:hover:not(:disabled) {
   background: rgba(255, 255, 255, 0.08);
   border-color: rgba(255, 255, 255, 0.28);
   transform: translateY(-1px);
+}
+
+.dashBtn:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+  transform: none;
+  box-shadow: none;
 }
 
 .dashBtn--primary {
@@ -3684,7 +3711,7 @@ body.theme-landing .trustRow {
   box-shadow: 0 8px 22px rgba(168, 85, 247, 0.3);
 }
 
-.dashBtn--primary:hover {
+.dashBtn--primary:hover:not(:disabled) {
   background: var(--dash-accent-grad);
   border-color: transparent;
   box-shadow: 0 12px 30px rgba(255, 55, 208, 0.35);
@@ -3693,8 +3720,7 @@ body.theme-landing .trustRow {
 .dashBtn:focus-visible,
 .stepNode:focus-visible,
 .stepToggle:focus-visible,
-.quickAction:focus-visible,
-.dashFocusVideo:focus-visible {
+.quickAction:focus-visible {
   outline: 2px solid var(--dash-accent);
   outline-offset: 3px;
 }
@@ -3705,12 +3731,7 @@ body.theme-landing .trustRow {
   flex-direction: column;
   gap: 8px;
   padding: 18px 20px;
-  transition: border-color 0.2s ease, transform 0.25s var(--dash-ease);
-}
-
-.dashStat:hover {
-  border-color: var(--dash-line-2);
-  transform: translateY(-2px);
+  min-height: 132px;
 }
 
 .dashStatLabel {
@@ -3733,7 +3754,8 @@ body.theme-landing .trustRow {
 }
 
 .dashStatValue {
-  font-size: 26px;
+  font-size: 24px;
+  line-height: 1.1;
   font-weight: 800;
   letter-spacing: -0.5px;
   color: #ffffff;
@@ -3741,6 +3763,7 @@ body.theme-landing .trustRow {
 }
 
 .dashStatHint {
+  margin-top: auto;
   font-size: 12px;
   color: var(--dash-muted);
 }
@@ -3805,7 +3828,7 @@ body.theme-landing .trustRow {
 
 .dashRailTitle {
   margin: 0;
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 800;
   color: #ffffff;
 }
@@ -3989,8 +4012,14 @@ body.theme-landing .trustRow {
   color: rgba(255, 255, 255, 0.8);
 }
 
+.stepHeadEnd {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .stepChevron {
-  margin-left: auto;
   color: var(--dash-muted);
   transition: transform 0.25s var(--dash-ease);
 }
@@ -4069,16 +4098,11 @@ body.theme-landing .trustRow {
   display: flex;
   align-items: center;
   gap: 10px;
+  min-height: 62px;
   padding: 10px;
   border-radius: 12px;
   border: 1px solid var(--dash-line);
   background: rgba(255, 255, 255, 0.02);
-  transition: transform 0.25s var(--dash-ease), border-color 0.2s ease;
-}
-
-.achievement.is-earned:hover {
-  transform: translateY(-2px);
-  border-color: rgba(168, 85, 247, 0.4);
 }
 
 .achievementIcon {
@@ -4115,7 +4139,7 @@ body.theme-landing .trustRow {
 }
 
 .achievementMeta {
-  font-size: 11.5px;
+  font-size: 12px;
   color: var(--dash-muted);
   line-height: 1.35;
 }
@@ -4131,8 +4155,9 @@ body.theme-landing .trustRow {
 
 .insight {
   display: flex;
+  align-items: flex-start;
   gap: 10px;
-  font-size: 13.5px;
+  font-size: 14px;
   line-height: 1.5;
   color: rgba(255, 255, 255, 0.85);
 }
@@ -4151,13 +4176,13 @@ body.theme-landing .trustRow {
 /* Quick actions */
 .quickActions {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   gap: 8px;
 }
 
 .quickAction {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 10px;
   padding: 12px;
   border-radius: 12px;
@@ -4223,7 +4248,7 @@ body.theme-landing .trustRow {
   align-items: center;
   flex-wrap: wrap;
   gap: 6px;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
   color: #ffffff;
 }
@@ -4314,7 +4339,7 @@ body.theme-landing .trustRow {
   }
 
   .quickActions {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
@@ -4336,6 +4361,15 @@ body.theme-landing .trustRow {
     gap: 14px;
   }
 
+  .dashHeroRing .radialMeterSvg {
+    width: 104px;
+    height: 104px;
+  }
+
+  .dashHeroRing .radialMeter--hero .radialMeterValue {
+    font-size: 26px;
+  }
+
   .dashHeroTitle {
     font-size: 28px;
   }
@@ -4345,7 +4379,7 @@ body.theme-landing .trustRow {
   }
 
   .quickActions {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
@@ -4384,10 +4418,8 @@ body.theme-landing .trustRow {
     animation: none;
   }
 
-  .dashBtn:hover,
-  .dashStat:hover,
+  .dashBtn:hover:not(:disabled),
   .stepNode:hover,
-  .achievement.is-earned:hover,
   .quickAction:hover:not(:disabled) {
     transform: none;
   }

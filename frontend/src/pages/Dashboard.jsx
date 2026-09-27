@@ -234,6 +234,7 @@ export default function Dashboard() {
           <TodayFocus
             focus={focus}
             totalSteps={summary.total}
+            busy={regenerating}
             onMarkDone={toggleDone}
             onOpenStep={openStep}
             onRetakeQuiz={() => navigate("/quiz")}
