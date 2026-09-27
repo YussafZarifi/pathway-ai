@@ -4,7 +4,7 @@
 
 ---
 
-## Current session — 2026-09-26 · Landing Log in / Sign up · `/home` polish · YouTube videos per step · Dashboard redesign
+## Current session — 2026-09-26 · Landing Log in / Sign up · `/home` polish · YouTube videos per step · Dashboard redesign + polish
 
 ### Goal (owner request)
 Add Log in / Sign up buttons to the Landing page **without building auth**. The owner picked the "honest dialog" option: the buttons open a dialog saying accounts are coming soon.
@@ -22,7 +22,8 @@ Add Log in / Sign up buttons to the Landing page **without building auth**. The 
 7. **Dashboard redesign (owner brief; owner approved: hero ring = roadmap completion, include N-7, use existing step estimates):**
    - Data layer (`d47d7b8`): `lib/roadmapStore.js` (current roadmap in `pathwayai_roadmap`, per-roadmap progress keys), `lib/api.js` (`requestRoadmap`, shared by Results and Dashboard, `VITE_API_URL` with localhost default), `lib/dashboardData.js` (pure derivations: progress, AI-estimate parsing, activity/streak, achievements, focus, insights). Results saves careerData + answers.
    - UI (`d7630b6`): new `Dashboard.jsx` + `components/dashboard/*` (hero, Today's focus, stat tiles, roadmap stepper, achievements, insights, quick actions), shared `AppHeader` and `Dialog`, empty state instead of redirect, regenerate with confirmation + skeleton. Employability/Momentum meters and the fake resume banner removed from the UI. `RoadmapTimeline.jsx` and ~690 lines of dead CSS deleted. ADR-013.
-8. **Docs:** CLAUDE.md, ROADMAP.md (C-13, C-14, C-15), `docs/frontend.md`, `docs/ui-design.md`, `docs/api.md`, `docs/ai-system.md`, `docs/backend.md`, `docs/deployment.md`, `docs/technical-debt.md`, ADR-011 and ADR-012 in `docs/decisions.md`, this file.
+8. **Dashboard polish + consistent videos (`dc1ef65`, owner briefs; no new features):** new `components/VideoCard.jsx` is the single video card (stepper + Today's focus); steps without videos get the same card as a search link; failing/missing thumbnails → placeholder; lazy thumbnails only after expanding. Why the owner saw a rich card only on step 1: no `YOUTUBE_API_KEY` is configured, and the test data used in Chrome only had videos on steps 1–2; the stepper markup was already shared, but the card was duplicated in TodayFocus. Polish: step count under the ring (duplicate badge removed), no hover lift on non-interactive tiles/achievements, tile hints aligned, single-column quick actions, status + chevron aligned in step headers, type-scale cleanup, focus buttons disabled while regenerating, 104px ring on phones.
+9. **Docs:** CLAUDE.md, ROADMAP.md (C-13, C-14, C-15), `docs/frontend.md`, `docs/ui-design.md`, `docs/api.md`, `docs/ai-system.md`, `docs/backend.md`, `docs/deployment.md`, `docs/technical-debt.md`, ADR-011 and ADR-012 in `docs/decisions.md`, this file.
 
 Commits: `81d62a3` feat(landing) Log in / Sign up dialog · `d2a484c` docs · `style(home)` visual polish · docs. **Not pushed.**
 
@@ -42,6 +43,7 @@ Commits: `81d62a3` feat(landing) Log in / Sign up dialog · `d2a484c` docs · `s
 | Dashboard in Chrome (test roadmap injected, then localStorage restored byte-for-byte) | Empty state without roadmap; "Mark step done" → ring 0→20%, focus advances, scoped key + `roadmap_step_completed` event written; reload keeps state; "Open step" expands and focuses the step; Coach/Resume dialogs and regenerate confirm open/close; 0 nested interactive elements; 360px: no horizontal scroll |
 | Real regenerate (1 Gemini call) | Skeleton + `aria-busy` while loading; new roadmap id, progress reset to 0%, careerData kept |
 | Landing dialog after `Dialog` refactor; `/home` with the 3-item header at 360px | Opens/closes, labelled, focus inside; no horizontal scroll |
+| Polish + VideoCard in Chrome (test data, storage restored) | 5 steps (1 video, 2 videos, empty thumbnail, failing thumbnail, none) all render `VideoCard`; 0 thumbnails before expanding; failing image replaced by placeholder via `onError`; 0 broken images; 360px no overflow, ring 104px. Keyboard `:focus-visible` outline not observable via scripted focus (rule present) |
 | `npm run lint` | 12 errors / 1 warning (was 17); none in files added this session |
 | `npm run build` | Passes |
 
@@ -54,7 +56,7 @@ Commits: `81d62a3` feat(landing) Log in / Sign up dialog · `d2a484c` docs · `s
 - **Owner action for real videos:** add `YOUTUBE_API_KEY` to `backend/.env` (Google Cloud Console → enable "YouTube Data API v3" → Credentials → API key, ideally restricted to that API), then restart the backend. Until then every step shows the search link. Free quota ≈ 20 roadmaps/day.
 - Not verified with a real YouTube key (none configured); the response parsing was tested against the documented API shape.
 
-- Dashboard: one roadmap at a time (B-20); Insights are rule-based (B-19); the hero ring is large on phones; `scoringEngine.js` is now unused by any page (B-14).
+- Dashboard: one roadmap at a time (B-20); Insights are rule-based (B-19); `scoringEngine.js` is now unused by any page (B-14).
 - Quiz answers are stored in `pathwayai_roadmap` for "Regenerate" (same device; TD-41 privacy class).
 
 ### Current blockers

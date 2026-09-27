@@ -31,6 +31,7 @@ Every page file is now routed. Deleted as unreachable: the `/app/*` shell (`Dash
 | `ThemeGate` | App | Sets `theme-aurora` or `theme-landing` on body per route; conflicts with page-level effects |
 | `dashboard/RoadmapStepper` | Dashboard | Replaced `RoadmapTimeline` (deleted 2026-09-26). Node button = mark done (`aria-pressed`), header button = expand (`aria-expanded`), details outside any button |
 | `dashboard/*` others | Dashboard | `DashboardHero`, `TodayFocus`, `StatTile` (+ `StepsBar`, `ActivityBars`), `AchievementGrid`, `InsightsPanel`, `QuickActions`: presentational, props only |
+| `VideoCard` | Dashboard (stepper, Today's focus) | The only YouTube preview card: thumbnail (lazy, `onError` → placeholder), title, channel, play icon; with no video it renders a "Search YouTube for this step" card. Link name "Watch <title> by <channel> on YouTube (opens in a new tab)". Added 2026-09-26 |
 | `AppHeader` | Home, Dashboard | Shared sticky header, nav Home / Dashboard / Quiz |
 | `Dialog` | Landing, Dashboard | Native `<dialog>` modal (`showModal`), used by `AccountsSoonDialog` and the dashboard's confirm / coming-soon dialogs |
 | `RadialMeter` | Dashboard | SVG ring with gradient (`useId`), animated dashoffset; optional `ariaLabel` (role="img") |
