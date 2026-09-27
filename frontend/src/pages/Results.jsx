@@ -221,6 +221,7 @@ export default function Results() {
             time: step.time || "Varies",
             resources: step.resources || [],
             tasks: step.tasks || [],
+            videos: Array.isArray(step.videos) ? step.videos : [],
           }))
         : [];
 
