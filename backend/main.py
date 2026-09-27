@@ -1,9 +1,12 @@
 import os, json
+from concurrent.futures import ThreadPoolExecutor
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from google import genai
+
+import youtube
 
 load_dotenv()
 
@@ -142,7 +145,8 @@ Return STRICT JSON only in this exact shape:
         {{"name":"Resource name","url":"https://example.com"}},
         {{"name":"Another resource","url":"https://example.com"}}
       ],
-      "tasks":["Task 1","Task 2","Task 3"]
+      "tasks":["Task 1","Task 2","Task 3"],
+      "video_query":"short YouTube search phrase"
     }}
   ]
 }}
@@ -153,6 +157,7 @@ Rules:
 - time: estimate (e.g., "2-4 weeks", "1-2 months")
 - resources: 2-3 learning resources with valid URLs
 - tasks: 2-3 actionable items
+- video_query: 3-8 word YouTube search phrase for a beginner tutorial covering this step (e.g. "Python basics for beginners"). No URLs.
 - tailor to user's stage + location if provided
 
 User answers:
@@ -172,8 +177,33 @@ Chosen career:
         if text.startswith("```"):
             text = text.strip("`").replace("json", "", 1).strip()
 
-        return json.loads(text)
+        result = json.loads(text)
 
     except Exception as e:
         print("Gemini error:", repr(e))
         raise HTTPException(status_code=500, detail="Roadmap generation failed. Check backend console.")
+
+    add_videos(result, career)
+    return result
+
+
+def add_videos(result, career):
+    """Attach real YouTube videos (and a search-link fallback) to each step."""
+    steps = result.get("roadmap") if isinstance(result, dict) else None
+    if not isinstance(steps, list):
+        return
+
+    steps = [s for s in steps if isinstance(s, dict)]
+    queries = [
+        str(s.get("video_query") or f"{s.get('title', '')} {career} tutorial").strip()
+        for s in steps
+    ]
+
+    # One API call per step, run in parallel so 5 steps take ~1 request's time.
+    with ThreadPoolExecutor(max_workers=5) as pool:
+        video_lists = list(pool.map(youtube.search_videos, queries))
+
+    for step, query, videos in zip(steps, queries, video_lists):
+        step["video_query"] = query
+        step["videos"] = videos
+        step["video_search_url"] = youtube.search_url(query)
