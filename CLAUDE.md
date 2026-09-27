@@ -1,7 +1,7 @@
 # CLAUDE.md — PathwayAI (repo: `roadmap-ai`)
 
 > Permanent project memory. Read this first in every session. Then read `SESSION.md` (latest state) and `ROADMAP.md` (what's next).
-> Last updated: 2026-09-26 (Landing Log in / Sign up → honest "coming soon" dialog; `/home` polish; real YouTube videos per roadmap step, ADR-012; **dashboard redesigned** around real progress with the current roadmap persisted in localStorage and progress scoped per roadmap, ADR-013; then a polish pass and one shared `VideoCard` for every step's videos).
+> Last updated: 2026-09-26 (Landing Log in / Sign up → honest "coming soon" dialog; `/home` polish; real YouTube videos per roadmap step, ADR-012; **dashboard redesigned** around real progress with the current roadmap persisted in localStorage and progress scoped per roadmap, ADR-013; then polish passes and one shared `VideoCard` for every step's videos. Dashboard considered complete; next: deployment).
 
 ---
 

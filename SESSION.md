@@ -23,7 +23,8 @@ Add Log in / Sign up buttons to the Landing page **without building auth**. The 
    - Data layer (`d47d7b8`): `lib/roadmapStore.js` (current roadmap in `pathwayai_roadmap`, per-roadmap progress keys), `lib/api.js` (`requestRoadmap`, shared by Results and Dashboard, `VITE_API_URL` with localhost default), `lib/dashboardData.js` (pure derivations: progress, AI-estimate parsing, activity/streak, achievements, focus, insights). Results saves careerData + answers.
    - UI (`d7630b6`): new `Dashboard.jsx` + `components/dashboard/*` (hero, Today's focus, stat tiles, roadmap stepper, achievements, insights, quick actions), shared `AppHeader` and `Dialog`, empty state instead of redirect, regenerate with confirmation + skeleton. Employability/Momentum meters and the fake resume banner removed from the UI. `RoadmapTimeline.jsx` and ~690 lines of dead CSS deleted. ADR-013.
 8. **Dashboard polish + consistent videos (`dc1ef65`, owner briefs; no new features):** new `components/VideoCard.jsx` is the single video card (stepper + Today's focus); steps without videos get the same card as a search link; failing/missing thumbnails → placeholder; lazy thumbnails only after expanding. Why the owner saw a rich card only on step 1: no `YOUTUBE_API_KEY` is configured, and the test data used in Chrome only had videos on steps 1–2; the stepper markup was already shared, but the card was duplicated in TodayFocus. Polish: step count under the ring (duplicate badge removed), no hover lift on non-interactive tiles/achievements, tile hints aligned, single-column quick actions, status + chevron aligned in step headers, type-scale cleanup, focus buttons disabled while regenerating, 104px ring on phones.
-9. **Docs:** CLAUDE.md, ROADMAP.md (C-13, C-14, C-15), `docs/frontend.md`, `docs/ui-design.md`, `docs/api.md`, `docs/ai-system.md`, `docs/backend.md`, `docs/deployment.md`, `docs/technical-debt.md`, ADR-011 and ADR-012 in `docs/decisions.md`, this file.
+9. **Final dashboard consistency pass (owner brief; no new features):** `--dash-*` tokens moved to `:root`; dialogs use `dashBtn` (the confirm dialog's primary was rendering as a dim grey `uiverseBtn`); rail icons share one tint style (no more yellow Insights icons or solid-gradient quick-action icons); achievements as an even 3×2 badge grid with short labels; no repeated "Up next" badges; finished-state focus card centred; gentler entrance animation; "Yours is ready" copy. Verified in-progress and complete states, 900px and 360px, and real Tab-key focus rings. The owner considers the dashboard complete; **next up is deployment**.
+10. **Docs:** CLAUDE.md, ROADMAP.md (C-13, C-14, C-15), `docs/frontend.md`, `docs/ui-design.md`, `docs/api.md`, `docs/ai-system.md`, `docs/backend.md`, `docs/deployment.md`, `docs/technical-debt.md`, ADR-011 and ADR-012 in `docs/decisions.md`, this file.
 
 Commits: `81d62a3` feat(landing) Log in / Sign up dialog · `d2a484c` docs · `style(home)` visual polish · docs. **Not pushed.**
 
@@ -64,7 +65,10 @@ Commits: `81d62a3` feat(landing) Log in / Sign up dialog · `d2a484c` docs · `s
 - **Unsafe to deploy publicly:** open, un-rate-limited AI proxy; raw exception text returned; user answers logged (N-9).
 
 ### Next recommended task
-**N-5 + N-6: env-based config and a single API client.** `src/lib/api.js` (base URL from `VITE_API_URL`, timeout, typed errors, abort) replacing the three `fetch` blocks in `Results.jsx`; `ALLOWED_ORIGINS` from env in the backend; commit `frontend/.env.example` and `backend/.env.example`. First hard blocker on the path to a live demo (F-1).
+**Deployment path (F-1), in this order:**
+1. **N-5 (remaining):** backend `ALLOWED_ORIGINS` from env (CORS is still hard-coded to `http://localhost:5173`), `frontend/.env.example` with `VITE_API_URL`, and move the two career fetches in `Results.jsx` into `lib/api.js` (N-6). The roadmap request and `backend/.env.example` already exist.
+2. **N-9 (backend hardening) before any public URL:** rate limiting, `answers` schema and size limits, generic error messages, no user answers in logs. Without it a public URL exposes the Gemini and YouTube quotas.
+3. **F-1 deploy:** needs the owner's choice of host (open question 3). Also add `YOUTUBE_API_KEY` in production if videos should show.
 
 ### Open questions (for the owner)
 1. Target market: Canada-first (CAD salaries, EN/FR) or US?
