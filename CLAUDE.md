@@ -1,7 +1,7 @@
 # CLAUDE.md — PathwayAI (repo: `roadmap-ai`)
 
 > Permanent project memory. Read this first in every session. Then read `SESSION.md` (latest state) and `ROADMAP.md` (what's next).
-> Last updated: 2026-09-26 (Landing header got Log in / Sign up buttons that open an honest "Accounts are coming soon" dialog; no auth was built).
+> Last updated: 2026-09-26 (Landing header got Log in / Sign up buttons that open an honest "Accounts are coming soon" dialog, no auth built; `/home` visual polish pass).
 
 ---
 
@@ -27,7 +27,7 @@ Naming: the product brand is **PathwayAI**. The repo/folder is `roadmap-ai`. The
 | AI Coach / Chatbot | **Not implemented** ("Coming soon" tab on `/dashboard`, "Planned" card on `/home`) |
 | Auth / accounts | **Not implemented.** Since 2026-09-26 the Landing header has Log in / Sign up buttons; both open `AccountsSoonDialog` ("Accounts are coming soon", no account needed, "Take the quiz"). No login form, routes or backend exist |
 | Database / server persistence | **Not implemented** |
-| `/home` page | **Partially implemented:** honest empty-state hub (quiz CTA, "No saved roadmaps yet", planned-feature cards). Future signed-in dashboard (ADR-010). Not linked from Landing |
+| `/home` page | **Partially implemented:** honest empty-state hub (quiz CTA, "No saved roadmaps yet", planned-feature cards); visual polish pass 2026-09-26. Future signed-in dashboard (ADR-010). Not linked from Landing |
 | Git / GitHub | **Implemented 2026-09-25.** `main` with a root `.gitignore` (excludes `backend/.env`); remote `origin` = https://github.com/YussafZarifi/pathway-ai (**private** — keep it private until the owner decides otherwise). `main` tracks `origin/main` |
 | Tests, CI, Docker, deployment | **None** |
 

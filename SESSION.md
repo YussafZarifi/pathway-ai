@@ -4,7 +4,7 @@
 
 ---
 
-## Current session — 2026-09-26 · Landing Log in / Sign up buttons (no auth)
+## Current session — 2026-09-26 · Landing Log in / Sign up buttons (no auth) + `/home` polish
 
 ### Goal (owner request)
 Add Log in / Sign up buttons to the Landing page **without building auth**. The owner picked the "honest dialog" option: the buttons open a dialog saying accounts are coming soon.
@@ -14,9 +14,10 @@ Add Log in / Sign up buttons to the Landing page **without building auth**. The 
 2. **`frontend/src/components/AccountsSoonDialog.jsx` (new):** a native `<dialog>` opened with `showModal()`. Title "Accounts are coming soon"; copy says no account is needed and that saving roadmaps across devices arrives with accounts; buttons Close and "Take the quiz" (→ `/quiz`). `aria-labelledby`/`aria-describedby`, backdrop click closes, Esc closes, focus returns to the trigger.
 3. **`Landing.jsx`:** header "Take the quiz" replaced by **Log in** (`ghostBtn`) and **Sign up** (`uiverseBtn`), both `aria-haspopup="dialog"`. The hero "Get Started" CTA still goes to `/quiz`.
 4. **`index.css`:** dialog styles (matching the Share Modal look), `:focus-visible` rings for header and dialog buttons, and a ≤520px rule that shrinks header padding, button size and brand font so everything fits at 360px.
-5. **Docs:** CLAUDE.md, ROADMAP.md (C-13), `docs/frontend.md`, ADR-011 in `docs/decisions.md`, this file.
+5. **`/home` visual polish (owner request, visual only):** aligned sticky header, Landing's ambient glow, gradient title and a real gradient CTA (`.homePrimaryBtn`; the old `.uiverseBtn` rendered grey outside `.page`), uppercase section labels, left-aligned cards with 42px icons and a "Start →" hint on the live card, small `.homeBadge` "Planned" pills, planned cards no longer opacity-dimmed (AA contrast), `prefers-reduced-motion`, nav icons hidden ≤420px. Removed `resumeIcon`/`coachIcon`/`roadmapsIcon` classes from the cards because global rules with those names changed icon sizes.
+6. **Docs:** CLAUDE.md, ROADMAP.md (C-13, C-14), `docs/frontend.md`, `docs/ui-design.md`, ADR-011 in `docs/decisions.md`, this file.
 
-Commit: `81d62a3 feat(landing): add Log in / Sign up buttons with an honest "coming soon" dialog` (plus a docs commit). **Not pushed.**
+Commits: `81d62a3` feat(landing) Log in / Sign up dialog · `d2a484c` docs · `style(home)` visual polish · docs. **Not pushed.**
 
 ### Verification
 | Check | Result |
@@ -26,10 +27,12 @@ Commit: `81d62a3 feat(landing): add Log in / Sign up buttons with an honest "com
 | Backdrop click | Closes |
 | "Take the quiz" | Navigates to `/quiz` |
 | 360px viewport (iframe) | No horizontal scroll (scrollWidth = clientWidth); 16px gap between brand and buttons; dialog fits with side margins |
+| `/home` at 1538px and 360px | All three card icons 42px; no horizontal scroll at 360px (scrollWidth = clientWidth) after hiding nav icons ≤420px |
 | `npm run lint` | 17 errors / 1 warning, identical to before (the Landing error is the known `motion` false positive, TD-35) |
 | `npm run build` | Passes |
 
 ### Open issues / notes
+- `index.css` has several unscoped, repeatedly defined classes (`.comingSoonBadge` ×3, `.resumeIcon` ×2, `.coachIcon`) that leak across pages; part of N-14 / F-9.
 - `ShareModal` and `CareerCompareModal` still lack dialog semantics; ADR-011 suggests moving them to the same native `<dialog>` pattern (F-10).
 - A dev server was already running on :5173 (not started by this session) and was used for testing.
 - Carried over: dead CSS in `index.css` (N-14); Landing hero invisible until JS runs (TD-32); `/home` not linked (N-15); no `.gitattributes` (CRLF warnings).
