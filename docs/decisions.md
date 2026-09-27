@@ -9,7 +9,7 @@ ADR-001 to ADR-008 were **reconstructed on 2026-09-24** from the existing code d
 | ADR-001 | React + Vite single-page app | Accepted |
 | ADR-002 | FastAPI backend as an AI proxy | Accepted |
 | ADR-003 | Google Gemini 2.5 Flash-Lite as the model | Accepted |
-| ADR-004 | Browser localStorage for persistence (MVP) | Accepted · to be superseded |
+| ADR-004 | Browser localStorage for persistence (MVP) | Accepted · step 1 done in ADR-013 |
 | ADR-005 | Technology-careers-only scope | Accepted |
 | ADR-006 | Plain global CSS for styling | Accepted · under review |
 | ADR-007 | React Router state as cross-page data transport | Accepted · to be superseded |
@@ -18,6 +18,7 @@ ADR-001 to ADR-008 were **reconstructed on 2026-09-24** from the existing code d
 | ADR-010 | One dashboard: keep `/dashboard`, keep `/home` as the future signed-in hub, delete the `/app/*` shell | Accepted |
 | ADR-011 | Entry points for unbuilt features must do something honest when clicked | Accepted |
 | ADR-012 | Roadmap videos come from the YouTube Data API, not the model | Accepted |
+| ADR-013 | Persist the current roadmap in localStorage; dashboard shows only real-data metrics | Accepted |
 
 ---
 
@@ -101,6 +102,18 @@ ADR-001 to ADR-008 were **reconstructed on 2026-09-24** from the existing code d
 - **Decision:** the model writes a short search phrase per step (`video_query`). The backend resolves it to up to 2 real videos with the YouTube Data API v3 (`backend/youtube.py`) and returns `videos[]` plus an always-valid `video_search_url`. `YOUTUBE_API_KEY` is optional; without it, or on any API error, the UI shows a "Search YouTube for this step" link.
 - **Alternatives considered:** search links only (no key, always works, but no specific videos or thumbnails); model-picked videos verified through YouTube oEmbed (no key, but most model IDs would fail verification).
 - **Consequences:** a second external API and key. The free quota (10,000 units/day, 100 per search) allows about 20 new roadmaps a day; an in-memory cache helps, and a shared cache (Redis) or persisting videos with saved roadmaps (F-8) will matter at scale. Adds latency of about one YouTube request (lookups run in parallel). Thumbnails load from `i.ytimg.com`. It's the first grounded AI output in the app and a pattern to reuse for resources (TD-21).
+- **Status:** Accepted.
+
+## ADR-013 — Persist the current roadmap in localStorage; dashboard shows only real-data metrics
+- **Date:** 2026-09-26
+- **Context:** the dashboard redesign needs a dashboard people can come back to, but the roadmap only lived in router state (lost on new tabs, TD-09), step progress keys were shared across roadmaps (TD-08) and the roadmap % counted touched steps (TD-07). The old headline "Career Readiness" averaged Employability and Momentum, which mostly measure app engagement (TD-29), and a banner recommended a resume upload that doesn't exist. The owner's brief forbids fake or invented statistics.
+- **Decision:**
+  - New localStorage key `pathwayai_roadmap` holds the **current** roadmap `{version: 1, id, career, careerData, answers, roadmap, generatedAt}` (`lib/roadmapStore.js`). Results saves it; the dashboard reads it first and falls back to router state.
+  - Step progress keys become `roadmap_step_<roadmapId>_<index>`: unique per roadmap, still prefixed `roadmap_step_` for `scoringEngine.js`. Old unscoped keys are ignored, not migrated.
+  - Every dashboard number is derived in `lib/dashboardData.js` from real stored data: progress out of the roadmap's length, time left as the sum of the AI's own step estimates (labelled "AI estimate"; unreadable estimates are reported, not guessed), activity/streak from the event log (labelled as app activity), achievements with the date they happened. "Insights" are rule-based and not called AI.
+  - The Employability/Momentum/Readiness scores are no longer displayed; `scoringEngine.js` is kept unchanged pending B-14.
+- **Alternatives considered:** keep the Readiness score with an explanation (rejected by the owner in favour of roadmap completion); an AI-generated insights endpoint (deferred, B-19); per-task minutes/difficulty from the model (rejected for now: step estimates already exist).
+- **Consequences:** `/dashboard` works after reloads and in new tabs and shows correct progress. Still one roadmap, one browser (supersedes step 1 of ADR-004; F-7/F-8 remain the real fix). Quiz answers, including free text, are now stored in localStorage to support "Regenerate" (same privacy class as TD-41). ADR-007's router state is no longer the only transport for the roadmap. ADR-008's scores are demoted from the UI.
 - **Status:** Accepted.
 
 ---

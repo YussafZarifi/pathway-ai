@@ -23,6 +23,8 @@
 | C-10 | (was N-3) Removed simulated `ResumeAnalyzer`, the `/app/*` shell, legacy pages/helpers/data/images, `dashboard.css`, `App.css`, root `.vite/`; `/home` kept and rebuilt as an honest empty-state hub (ADR-010) | 2026-09-25 |
 | C-11 | (was N-4) Removed dead buttons: Landing Log in/Sign Up, Save Roadmap, Mark as In Progress, fake Copy Link + account prompt (Settings/Upgrade went with the `/app/*` shell) | 2026-09-25 |
 | C-14 | `/home` visual polish: Landing glow, gradient CTA/title, aligned header, left-aligned cards with Landing's per-feature icon colours (green Resume, indigo Coach) that float on hover, small "Planned" pills, AA-safe planned cards, reduced motion, fits at 360px | 2026-09-26 |
+| C-17 | Dashboard redesign: hero with progress ring, Today's focus, stat tiles, visual roadmap stepper, dated achievements, rule-based Insights, quick actions (regenerate with confirm + skeleton), empty state; shared `AppHeader` and `Dialog`; Employability/Momentum meters and fake resume banner removed from the UI; ~690 lines of dead CSS removed | 2026-09-26 |
+| C-16 | (was N-7) Current roadmap persisted in localStorage (`lib/roadmapStore.js`), progress keys scoped per roadmap, % from roadmap length (TD-07/08/09). ADR-013 | 2026-09-26 |
 | C-15 | Real YouTube videos per roadmap step: Gemini writes a search phrase, backend resolves it via the YouTube Data API (optional `YOUTUBE_API_KEY`, search-link fallback), Dashboard shows video cards; step card no longer a `<button>` (TD-19 timeline part). ADR-012 | 2026-09-26 |
 | C-13 | Landing header: Log in / Sign up buttons open an accessible "Accounts are coming soon" dialog (native `<dialog>`: focus trap, Esc, focus return); no auth built (F-7 still planned) | 2026-09-26 |
 | C-12 | (was N-2) Pushed full history to the **private** GitHub repo `YussafZarifi/pathway-ai`; `main` tracks `origin/main` (placeholder README commits from repo creation replaced with `--force-with-lease`) | 2026-09-25 |
@@ -36,8 +38,7 @@ _Nothing in progress._
 | ID | Task | Priority | Effort | Impact |
 |---|---|---|---|---|
 | N-5 | Env config: `VITE_API_URL` (frontend), `ALLOWED_ORIGINS` (backend); `.env.example` files | P0 | S | ★★★ |
-| N-6 | Single API client `src/lib/api.js` (base URL, timeout, typed errors); dedupe 3 fetches in `Results.jsx` | P1 | S | ★★ |
-| N-7 | Fix progress bugs: scope keys per roadmap ID, compute % from roadmap length, persist roadmaps per career in localStorage; `/dashboard` loads last roadmap | P0 | M | ★★★ |
+| N-6 | Single API client `src/lib/api.js` (timeout, typed errors); move the 2 career fetches in `Results.jsx` into it (the roadmap request moved 2026-09-26) | P1 | S | ★★ |
 | N-8 | Gemini structured output (`response_mime_type` + `response_schema`) + Pydantic request/response models + one retry | P1 | M | ★★★ |
 | N-9 | Backend hardening: rate limit (slowapi), request size/schema for `answers`, generic error messages, remove PII logging, request timeout | P0 | M | ★★★ |
 | N-10 | Fix `ThemeGate`/page theme conflict — single theme mechanism | P2 | S | ★ |
@@ -45,7 +46,7 @@ _Nothing in progress._
 | N-12 | Brand consistency: `<title>`, favicon, meta/OG tags, "PathwayAI" everywhere | P1 | XS | ★★ |
 | N-13 | ESLint: add JSX-uses-vars (eslint-plugin-react) and fix real errors → 0 errors (17 left as of 2026-09-25) | P2 | S | ★★ |
 | N-14 | Prune dead CSS left in `index.css` by deleted components (e.g. `.roadmapStats`, `.primaryBtn`, `.comingSoonBadge` defined three times) | P3 | S | ★ |
-| N-15 | Link `/home` from Landing/Dashboard once it shows something useful (after N-7) | P3 | XS | ★ |
+| N-15 | Link `/home` from Landing (the shared app header on `/home` and `/dashboard` links it since 2026-09-26) | P3 | XS | ★ |
 
 ## 🚀 Future Features — Production baseline & persistence (≈ 2–3 weeks)
 
@@ -86,10 +87,12 @@ _Nothing in progress._
 | B-11 | Location question + CAD/USD salaries | P2 | S |
 | B-12 | Route-level code splitting (`React.lazy`) | P3 | S |
 | B-13 | Render Landing hero without waiting for JS animation (LCP) | P2 | XS |
-| B-14 | Rethink Employability/Momentum scores (currently measure engagement) | P2 | M |
+| B-14 | Rethink Employability/Momentum scores (measure engagement; hidden from the dashboard since 2026-09-26): delete or redesign `scoringEngine.js` | P2 | M |
 | B-15 | Light theme + `prefers-color-scheme` | P3 | M |
 | B-16 | Weekly digest / inactivity nudge emails (background job) | P3 | L |
 | B-17 | Streaks + activity heatmap | P3 | M |
+| B-19 | Real "AI insights": a Gemini endpoint that comments on the user's progress (the dashboard's Insights are rule-based today) | P3 | M |
+| B-20 | Multiple saved roadmaps in localStorage (switch between careers) before accounts | P2 | M |
 | B-18 | Prune or cap localStorage event log; stop write-on-read in `getTrackingData` | P2 | S |
 
 ## 🌟 Stretch Goals

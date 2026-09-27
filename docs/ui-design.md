@@ -14,10 +14,10 @@
 | Home | Honest empty state and planned-feature labels (2026-09-25); visual polish pass 2026-09-26 (Landing glow, gradient CTA and title, left-aligned cards, small "Planned" pills, reduced-motion); focus-visible outlines; no horizontal scroll at 360px | Different header from other pages; unreachable from Landing; nothing personal to show until accounts and saved roadmaps exist |
 | Quiz | Best screen: focused card, progress, accessible slider | Dim disabled CTA; no keyboard shortcuts; answers lost on refresh; no time-remaining hint |
 | Results | Rich cards, compare, regenerate, share, states | Copied letter loader clashes with the style; hover-only tooltip on "None of these"; compare hidden behind a mode toggle; PDF is a screenshot of a dark page; "Try again" reloads the page |
-| Dashboard | Readiness rings look good | Contradicting % numbers; 2 of 3 tabs "Coming soon"; no way to switch career or go back to results |
+| Dashboard | Redesigned 2026-09-26: above-the-fold hero + Today's focus + stat tiles, visual stepper, achievements, insights, quick actions; only real data; skeleton while regenerating; reduced-motion; no horizontal scroll at 360px | Hero ring is large on phones; Insights are rule-based (no AI yet); one roadmap at a time |
 
 ## Consistency problems
-- Two product names (PathwayAI in the UI, "roadmap-ai" in the tab title). Three different header implementations (Landing, Home, Dashboard).
+- Two product names (PathwayAI in the UI, "roadmap-ai" in the tab title). Two header implementations: Landing, and the shared `AppHeader` for `/home` + `/dashboard` (2026-09-26).
 - One button system in use (`uiverseBtn` + `ghostBtn`); `primaryBtn` styles are left over in `index.css` but no component uses them since the `/app/*` shell was deleted.
 - Three loader styles (letter wave, orb, shimmer).
 - Two theme mechanisms (`ThemeGate` + per-page body classes) that both render black.

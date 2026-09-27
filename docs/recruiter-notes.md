@@ -28,7 +28,7 @@ How this project is likely to be perceived, and what increases its portfolio val
 5. ~~**Dead buttons** and fake Copy Link~~ — removed 2026-09-25.
 6. **Not deployable:** hard-coded localhost, no live demo.
 7. **No tests or CI.**
-8. **Visible bugs:** "Roadmap 100%" after one step; progress leaking between careers.
+8. ~~**Visible bugs:** "Roadmap 100%" after one step; progress leaking between careers~~ — fixed 2026-09-26 with the dashboard redesign (ADR-013).
 9. ~~**About 40% dead code** in the repo~~ — unreachable files deleted 2026-09-25; some dead CSS rules remain in `index.css`.
 
 ## How to reach production quality

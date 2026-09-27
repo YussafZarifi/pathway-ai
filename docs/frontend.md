@@ -12,7 +12,7 @@
 | `/home` | `Home` | 🟡 Honest empty-state hub (since 2026-09-25): quiz CTA, "No saved roadmaps yet", planned-feature cards. Reachable only by URL. Becomes the signed-in dashboard after auth (ADR-010) |
 | `/quiz` | `Quiz` | ✅ |
 | `/results` | `Results` | ✅ Redirects to `/quiz` without `location.state.answers` |
-| `/dashboard` | `Dashboard` | ✅/🟡 Redirects to `/quiz` without `location.state.career`; Resume and Chat tabs say "Coming soon" |
+| `/dashboard` | `Dashboard` | ✅ Redesigned 2026-09-26. Loads the stored roadmap (`lib/roadmapStore.js`), falls back to router state, shows an empty state (not a redirect) when there's none |
 | `*` | — | ❌ No 404 route |
 
 ## Pages
@@ -20,7 +20,7 @@
 - **Home.jsx** — "Welcome to PathwayAI" hero with quiz CTA; "Your roadmaps" empty state explaining nothing is saved until accounts exist; "What you can do" with one real card (quiz, a `<button>`) and two non-interactive "Planned" cards (Resume Analyzer, AI Coach). Nav uses `NavLink`. No stats, activity or achievements are shown until real data exists. Visual polish pass 2026-09-26: own `.homePrimaryBtn` (gradient CTA), `.homeBadge` for "Planned" (the global `.comingSoonBadge` has conflicting definitions), no `resumeIcon`/`coachIcon` classes on cards (global rules with those names leak in); instead `homeFeatureIcon--roadmap/--resume/--coach` and `homeFeatureCard--resume/--coach` give the cards the Landing colours (pink, green, indigo) and tinted hover glows; every card floats on hover (6px lift, icon lift + 1.06 scale; disabled under reduced motion).
 - **Quiz.jsx** — step state, `answers` object, progress bar, `AnimatePresence` transitions. Question types: `choice`, `slider` (custom visuals over an invisible native range input — accessible), `text`. Initializes sliders to `min`. Tracks `quiz_started`, `quiz_question_answered` (⚠ per keystroke for text, fired inside a state updater), `quiz_completed`, session start/end.
 - **Results.jsx** (723 lines) — fetches careers on mount (AbortController), shows the letter loader, error state (Try again = full page reload), empty state, career cards (icon via a keyword `if` chain, match %, salary, growth, skills, expand for reason plus `CAREER_DETAILS` overview), compare mode (checkbox ⚠ nested inside button), "None of these", Generate roadmap → `/dashboard`. Three near-identical fetch blocks with a hard-coded `http://127.0.0.1:8000`.
-- **Dashboard.jsx** — tabs (roadmap/resume/chat), readiness hero ring plus Employability, Momentum, Roadmap (⚠ wrong %) and optional Resume meters, top recommendation banner, `RoadmapTimeline`.
+- **Dashboard.jsx** (redesigned 2026-09-26) — composes `components/dashboard/*` from `lib/dashboardData.js` derivations: `DashboardHero` (career, AI match %, progress ring, next milestone, time left, skills), `TodayFocus` (one task + first video, mark done / open step), four `StatTile`s (steps bar, learning materials, day streak, 14-day active days), `RoadmapStepper` (done/current/upcoming nodes, expandable details with tasks, videos, resources), and a rail with `AchievementGrid`, `InsightsPanel`, `QuickActions` (regenerate via `lib/api.js` with confirm dialog + skeleton, retake quiz, Resume/Coach "coming soon" dialogs). Marking a step done calls `trackProgress("roadmap_step_<roadmapId>_<i>")` and emits `roadmap_step_completed`. No tabs, no Employability/Momentum meters.
 
 ### Removed on 2026-09-25
 Every page file is now routed. Deleted as unreachable: the `/app/*` shell (`DashboardLayout`, `DashboardHome`, `Coach`, `AppShell`, `Sidebar`, `Topbar`, `styles/dashboard.css`), the old `Roadmap.jsx`, the simulated `ResumeAnalyzer.jsx` (random score), `GeneratingLoader`, `lib/exportPdf.js`, `lib/matchCareers.js`, `data/careers.js`, `App.css` and three unused images in `public/assets/`. Reasons are in each commit message.
@@ -29,8 +29,11 @@ Every page file is now routed. Deleted as unreachable: the `/app/*` shell (`Dash
 | Component | Used by | Notes |
 |---|---|---|
 | `ThemeGate` | App | Sets `theme-aurora` or `theme-landing` on body per route; conflicts with page-level effects |
-| `RoadmapTimeline` | Dashboard | Expand/collapse, mark done via `trackProgress("roadmap_step_<index>")`; resource links nested inside a `<button>` |
-| `RadialMeter` | Dashboard | SVG ring with gradient (`useId`), animated dashoffset |
+| `dashboard/RoadmapStepper` | Dashboard | Replaced `RoadmapTimeline` (deleted 2026-09-26). Node button = mark done (`aria-pressed`), header button = expand (`aria-expanded`), details outside any button |
+| `dashboard/*` others | Dashboard | `DashboardHero`, `TodayFocus`, `StatTile` (+ `StepsBar`, `ActivityBars`), `AchievementGrid`, `InsightsPanel`, `QuickActions`: presentational, props only |
+| `AppHeader` | Home, Dashboard | Shared sticky header, nav Home / Dashboard / Quiz |
+| `Dialog` | Landing, Dashboard | Native `<dialog>` modal (`showModal`), used by `AccountsSoonDialog` and the dashboard's confirm / coming-soon dialogs |
+| `RadialMeter` | Dashboard | SVG ring with gradient (`useId`), animated dashoffset; optional `ariaLabel` (role="img") |
 | `CareerCompareModal` | Results | Returns `null` when closed (so exit animations never play); no dialog semantics or Esc handling |
 | `AccountsSoonDialog` | Landing | Native `<dialog>` opened by the header Log in / Sign up buttons: "Accounts are coming soon", Close + "Take the quiz". Focus trap, Esc, backdrop click and focus return come from `showModal()`. Added 2026-09-26 |
 | `ShareModal` | Results | "Save Your Results": PDF (lazy `html2pdf.js`, captures `.resultsPage`) and print only; `alert()` on error. Fake copy-link removed 2026-09-25 |

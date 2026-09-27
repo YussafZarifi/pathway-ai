@@ -29,7 +29,8 @@ flowchart TB
 | Component | Responsibility | Notes |
 |---|---|---|
 | React SPA | All UI, routing, quiz state, rendering AI output, tracking and scoring | Plain JS; no API layer; no global state library |
-| Router state | Moves `answers` Quiz → Results and `{career, roadmap}` Results → Dashboard | Survives reload (history.state) but not new tabs or direct links; the roadmap is never persisted |
+| Router state | Moves `answers` Quiz → Results; a fallback copy of `{career, roadmap}` Results → Dashboard | Since 2026-09-26 the dashboard reads the roadmap from localStorage first (ADR-013) |
+| Roadmap store | `pathwayai_roadmap`: the current roadmap with careerData and answers | One roadmap, this browser only (`lib/roadmapStore.js`) |
 | localStorage | Event log, metrics history, step progress | Single key `pathwayai_tracking`; unbounded growth; rewritten on every read |
 | FastAPI | Holds the Gemini key; builds prompts; parses JSON; returns results | Stateless; no auth, rate limit, validation or caching |
 | Gemini | Generates careers and roadmaps | Prompt-and-parse JSON; no response schema |
@@ -43,8 +44,8 @@ flowchart TB
 ### Request lifecycle — roadmap
 1. User picks a career → `POST /api/ai/roadmap {answers, career}`.
 2. Response `roadmap[]` normalized (adds `step`, defaults `time/resources/tasks`).
-3. `navigate("/dashboard", { state: { career, roadmap } })`.
-4. `Dashboard` renders `RoadmapTimeline`; completion writes `progress["roadmap_step_<index>"]` to localStorage; scores are recomputed from the whole tracking blob.
+3. `saveCurrentRoadmap(...)` writes `pathwayai_roadmap`, then `navigate("/dashboard", { state: { career, roadmap } })`.
+4. `Dashboard` loads the stored roadmap and derives everything in `lib/dashboardData.js`; marking a step done writes `progress["roadmap_step_<roadmapId>_<index>"]` and a `roadmap_step_completed` event.
 
 ## Known architectural problems
 - No data ownership: the roadmap exists only in router state.
