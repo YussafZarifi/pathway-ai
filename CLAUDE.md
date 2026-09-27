@@ -1,7 +1,7 @@
 # CLAUDE.md — PathwayAI (repo: `roadmap-ai`)
 
 > Permanent project memory. Read this first in every session. Then read `SESSION.md` (latest state) and `ROADMAP.md` (what's next).
-> Last updated: 2026-09-25 (git initialized and pushed to the private GitHub repo `YussafZarifi/pathway-ai`; fake data, dead buttons and unreachable code removed; `/home` rebuilt as an honest empty state).
+> Last updated: 2026-09-26 (Landing header got Log in / Sign up buttons that open an honest "Accounts are coming soon" dialog; no auth was built).
 
 ---
 
@@ -25,7 +25,7 @@ Naming: the product brand is **PathwayAI**. The repo/folder is `roadmap-ai`. The
 | Roadmap step completion + readiness/momentum scores | **Partially implemented** (localStorage only; progress bugs — see §10) |
 | Resume Analyzer | **Not implemented.** The simulated `ResumeAnalyzer.jsx` (random score) was deleted 2026-09-25. Shown only as "Planned" / "Coming soon" |
 | AI Coach / Chatbot | **Not implemented** ("Coming soon" tab on `/dashboard`, "Planned" card on `/home`) |
-| Auth / accounts | **Not implemented** (no login UI is shown; the dead Log in / Sign Up buttons were removed 2026-09-25) |
+| Auth / accounts | **Not implemented.** Since 2026-09-26 the Landing header has Log in / Sign up buttons; both open `AccountsSoonDialog` ("Accounts are coming soon", no account needed, "Take the quiz"). No login form, routes or backend exist |
 | Database / server persistence | **Not implemented** |
 | `/home` page | **Partially implemented:** honest empty-state hub (quiz CTA, "No saved roadmaps yet", planned-feature cards). Future signed-in dashboard (ADR-010). Not linked from Landing |
 | Git / GitHub | **Implemented 2026-09-25.** `main` with a root `.gitignore` (excludes `backend/.env`); remote `origin` = https://github.com/YussafZarifi/pathway-ai (**private** — keep it private until the owner decides otherwise). `main` tracks `origin/main` |
@@ -71,7 +71,7 @@ roadmap-ai/
 │   └── src/
 │       ├── main.jsx  App.jsx  index.css (only stylesheet, ~3,760 lines)
 │       ├── pages/        Landing, Home, Quiz, Results, Dashboard  (all routed)
-│       ├── components/   ThemeGate, RadialMeter, RoadmapTimeline, CareerCompareModal, ShareModal
+│       ├── components/   ThemeGate, RadialMeter, RoadmapTimeline, CareerCompareModal, ShareModal, AccountsSoonDialog
 │       ├── lib/          trackingEngine.js, scoringEngine.js
 │       └── data/         questions.js, trackingSchema.js, careerDetails.js
 ├── .gitignore                 root ignore file (secrets, venvs, node_modules, caches)
@@ -145,7 +145,7 @@ See `ROADMAP.md` → *Next Sprint*.
 
 ## 13. Features
 
-**Implemented:** landing page · honest `/home` hub (empty state) · 8-question animated quiz (choice / slider / text) · AI career matches (3) with match %, salary, growth, skills, reason · expand card · compare 2–3 careers · regenerate · "none of these" → retake · AI roadmap generation · dashboard timeline with expandable steps, resources, tasks, mark done/undo · readiness / employability / momentum meters + top recommendation banner · PDF download & print of results · localStorage event/metric/progress tracking.
+**Implemented:** landing page (header Log in / Sign up → honest "coming soon" dialog, native `<dialog>`) · honest `/home` hub (empty state) · 8-question animated quiz (choice / slider / text) · AI career matches (3) with match %, salary, growth, skills, reason · expand card · compare 2–3 careers · regenerate · "none of these" → retake · AI roadmap generation · dashboard timeline with expandable steps, resources, tasks, mark done/undo · readiness / employability / momentum meters + top recommendation banner · PDF download & print of results · localStorage event/metric/progress tracking.
 
 **Partially implemented:** progress tracking (buggy, not per-roadmap) · `/home` hub (no personal data until accounts exist) · theming (two competing mechanisms).
 

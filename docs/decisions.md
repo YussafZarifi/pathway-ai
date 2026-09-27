@@ -16,6 +16,7 @@ ADR-001 to ADR-008 were **reconstructed on 2026-09-24** from the existing code d
 | ADR-008 | Client-side tracking and scoring engines | Accepted · under review |
 | ADR-009 | Project documentation as persistent memory | Accepted |
 | ADR-010 | One dashboard: keep `/dashboard`, keep `/home` as the future signed-in hub, delete the `/app/*` shell | Accepted |
+| ADR-011 | Entry points for unbuilt features must do something honest when clicked | Accepted |
 
 ---
 
@@ -83,6 +84,14 @@ ADR-001 to ADR-008 were **reconstructed on 2026-09-24** from the existing code d
   - The `/app/*` shell and every other unreachable file are **deleted**. Git keeps the history.
 - **Alternatives considered:** delete `/home` and use `/dashboard` as the only hub (rejected by the owner: `/home` is the natural home for multiple saved roadmaps after auth); wire up the `/app/*` shell instead (rejected: it duplicated `/dashboard`, carried dead Settings/Upgrade buttons and a third brand name).
 - **Consequences:** one dashboard design and one fewer theme mechanism. `/home` needs real data (auth F-7 + persistence N-7/F-8) before it can show anything personal; it isn't linked from Landing yet. When auth lands, `/home` shows the user's saved roadmaps and `/dashboard` becomes a per-roadmap route (e.g. `/dashboard/:roadmapId`).
+- **Status:** Accepted.
+
+## ADR-011 — Entry points for unbuilt features must do something honest when clicked
+- **Date:** 2026-09-26
+- **Context:** on 2026-09-25 the Landing Log in / Sign Up buttons were removed because they had no click handler (C-11). The owner wants them back in the header, so visitors and recruiters see where accounts will live, without building auth yet (F-7).
+- **Decision:** a visible control for a feature that isn't built must never be dead. It opens an honest explanation instead. For accounts, both header buttons open `AccountsSoonDialog` ("Accounts are coming soon", no account needed, "Take the quiz"). Dialogs use the native `<dialog>` element with `showModal()` for focus trapping, Esc and focus return.
+- **Alternatives considered:** UI-only `/login` and `/signup` pages with a disabled form (rejected for now: more code, and it looks like a working form); disabled buttons with a tooltip (rejected: look unfinished and tooltips are weak on touch).
+- **Consequences:** the "no fake UI" standard is kept while showing planned features. When auth lands (F-7), the buttons are rewired to real routes and the dialog is deleted. `ShareModal` and `CareerCompareModal` should move to the same native `<dialog>` pattern (F-10).
 - **Status:** Accepted.
 
 ---

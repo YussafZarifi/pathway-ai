@@ -16,7 +16,7 @@
 | `*` | — | ❌ No 404 route |
 
 ## Pages
-- **Landing.jsx** — framer-motion staggered hero. Hero elements start at `opacity: 0` (JS-dependent visibility). Header has a single working "Take the quiz" button (the dead Log in / Sign Up were removed 2026-09-25).
+- **Landing.jsx** — framer-motion staggered hero. Hero elements start at `opacity: 0` (JS-dependent visibility). Header has Log in and Sign up buttons (since 2026-09-26). Both open `AccountsSoonDialog`, which says accounts are coming soon and offers "Take the quiz"; no auth exists (F-7). The hero "Get Started" CTA goes to `/quiz`.
 - **Home.jsx** — "Welcome to PathwayAI" hero with quiz CTA; "Your roadmaps" empty state explaining nothing is saved until accounts exist; "What you can do" with one real card (quiz, a `<button>`) and two non-interactive "Planned" cards (Resume Analyzer, AI Coach). Nav uses `NavLink`. No stats, activity or achievements are shown until real data exists.
 - **Quiz.jsx** — step state, `answers` object, progress bar, `AnimatePresence` transitions. Question types: `choice`, `slider` (custom visuals over an invisible native range input — accessible), `text`. Initializes sliders to `min`. Tracks `quiz_started`, `quiz_question_answered` (⚠ per keystroke for text, fired inside a state updater), `quiz_completed`, session start/end.
 - **Results.jsx** (723 lines) — fetches careers on mount (AbortController), shows the letter loader, error state (Try again = full page reload), empty state, career cards (icon via a keyword `if` chain, match %, salary, growth, skills, expand for reason plus `CAREER_DETAILS` overview), compare mode (checkbox ⚠ nested inside button), "None of these", Generate roadmap → `/dashboard`. Three near-identical fetch blocks with a hard-coded `http://127.0.0.1:8000`.
@@ -32,6 +32,7 @@ Every page file is now routed. Deleted as unreachable: the `/app/*` shell (`Dash
 | `RoadmapTimeline` | Dashboard | Expand/collapse, mark done via `trackProgress("roadmap_step_<index>")`; resource links nested inside a `<button>` |
 | `RadialMeter` | Dashboard | SVG ring with gradient (`useId`), animated dashoffset |
 | `CareerCompareModal` | Results | Returns `null` when closed (so exit animations never play); no dialog semantics or Esc handling |
+| `AccountsSoonDialog` | Landing | Native `<dialog>` opened by the header Log in / Sign up buttons: "Accounts are coming soon", Close + "Take the quiz". Focus trap, Esc, backdrop click and focus return come from `showModal()`. Added 2026-09-26 |
 | `ShareModal` | Results | "Save Your Results": PDF (lazy `html2pdf.js`, captures `.resultsPage`) and print only; `alert()` on error. Fake copy-link removed 2026-09-25 |
 
 ## State management
