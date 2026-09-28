@@ -1,103 +1,92 @@
 // src/data/questions.js
+// The 5-question quiz (ADR-016). IDs are a contract with the backend
+// (backend/schemas.py QuizAnswersV2) and its prompts: change them only
+// together, with an ADR.
 export const QUESTIONS = [
   {
-    id: "stage",
-    type: "choice",
-    title: "Where are you currently in your journey?",
-    subtitle: "Helps tailor the recommendations to your stage.",
+    id: "interests",
+    type: "multi",
+    max: 3,
+    title: "What excites you the most?",
+    subtitle: "Choose up to 3.",
     options: [
-      "High school",
-      "College / University",
-      "Self-learning / Bootcamp",
-      "Working professional",
-      "Graduate",
+      "Building apps",
+      "Working with AI",
+      "Analyzing data",
+      "Designing interfaces",
+      "Securing systems",
+      "Automating tasks",
+      "Cloud & infrastructure",
+      "Mobile apps",
+      "Games",
+    ],
+  },
+
+  {
+    id: "problem_style",
+    type: "choice",
+    title: "When you face a hard problem, what’s your style?",
+    options: [
+      "Dig in until I find the root cause",
+      "Build a quick version and improve it fast",
+      "Research and experiment until I really understand it",
+      "Work with people to figure out what they actually need",
+      "Organize the plan and keep everyone moving",
+    ],
+  },
+
+  {
+    id: "experience",
+    type: "choice",
+    title: "What’s your experience level?",
+    subtitle: "This sets where your roadmap starts.",
+    options: [
+      "Complete beginner",
+      "Some coding",
+      "Built a few projects",
+      "Comfortable developer",
+      "Professional developer",
+    ],
+  },
+
+  {
+    id: "weekly_hours",
+    type: "buttons",
+    title: "How much time can you realistically give each week?",
+    subtitle: "This sets the pace of your roadmap.",
+    options: [
+      { value: 2, label: "2 hours" },
+      { value: 5, label: "5 hours" },
+      { value: 10, label: "10 hours" },
+      { value: 20, label: "20+ hours" },
     ],
   },
 
   {
     id: "goal",
     type: "choice",
-    title: "What’s your main goal right now?",
+    title: "What do you want to achieve in the next 12 months?",
     options: [
-      "Choose a career path",
-      "Get an internship/job",
-      "Build a learning plan",
-      "Not sure yet",
+      "Get my first tech job",
+      "Land an internship",
+      "Switch careers",
+      "Build my own startup",
+      "Learn for fun",
     ],
-  },
-
-  {
-    id: "interest_area",
-    type: "choice",
-    title: "Which tech field interests you most?",
-    subtitle: "Pick the one that feels most exciting.",
-    options: [
-      "Software Engineering",
-      "AI / Machine Learning",
-      "Data Science & Analytics",
-      "Cybersecurity",
-      "Cloud & DevOps",
-      "UX/UI & Product Design",
-    ],
-  },
-
-  {
-    id: "work_style",
-    type: "choice",
-    title: "Which work style fits you best?",
-    options: [
-      "Creative & design",
-      "Analytical & problem-solving",
-      "People & communication",
-      "Hands-on / practical",
-      "Leadership & management",
-      "Mix of everything",
-    ],
-  },
-
-  {
-    id: "experience_level",
-    type: "slider",
-    title: "How much experience do you have in your area of interest?",
-    subtitle: "Move the slider (it’s okay to estimate).",
-    min: 0,
-    max: 10,
-    step: 1,
-    labels: ["New", "Experienced"], // optional display labels
-    unit: "years",
-  },
-
-  {
-    id: "education_comfort",
-    type: "slider",
-    title: "How much education/training are you comfortable with?",
-    subtitle: "This helps suggest paths that match your timeline.",
-    min: 0,
-    max: 6,
-    step: 1,
-    labels: ["Short", "Long"],
-    unit: "years",
-  },
-
-  {
-    id: "environment",
-    type: "choice",
-    title: "What work environment do you prefer?",
-    options: [
-      "Startup (fast-paced)",
-      "Big Tech / Enterprise",
-      "Remote / Freelance",
-      "Research / Academia",
-      "No preference",
-    ],
-  },
-
-  {
-    id: "curious_fields",
-    type: "text",
-    title: "Any specific tech roles you’re curious about?",
-    subtitle: "Optional — this helps the AI personalize suggestions.",
-    placeholder: "e.g., backend developer, ML engineer, cybersecurity analyst, DevOps, UX designer…",
-    maxLength: 300, // the backend rejects longer answers (backend/schemas.py)
+    // Optional field shown below the options.
+    followUp: {
+      id: "career_in_mind",
+      label: "Already have a career in mind?",
+      hint: "Optional",
+      placeholder: "e.g. AI engineer",
+      maxLength: 100, // the backend rejects longer answers (backend/schemas.py)
+      suggestions: [
+        "AI engineer",
+        "Full-stack developer",
+        "Data engineer",
+        "Security analyst",
+        "UX designer",
+      ],
+    },
   },
 ];

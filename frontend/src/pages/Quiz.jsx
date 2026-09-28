@@ -9,7 +9,7 @@ export default function Quiz() {
   const questions = useMemo(() => QUESTIONS, []);
   const [step, setStep] = useState(0);
   const [answers, setAnswers] = useState({});
-  const [quizStartTime, setQuizStartTime] = useState(Date.now());
+  const [quizStartTime] = useState(() => Date.now());
   const navigate = useNavigate();
 
   // Track session start on mount
@@ -19,51 +19,40 @@ export default function Quiz() {
       totalQuestions: questions.length,
     });
 
-    setQuizStartTime(Date.now());
-
     // Track session end on unmount
     return () => {
       endSession();
     };
-  }, []);
-
-  // Track question answered
-  function trackQuestionAnswer(questionId, answer) {
-    trackEvent(EVENT_TYPES.QUIZ_QUESTION_ANSWERED, {
-      questionId,
-      answer,
-    });
-
-    const totalAnswered = Object.keys({ ...answers, [questionId]: answer }).length;
-    trackMetric(METRIC_NAMES.QUIZ_QUESTIONS_ANSWERED, totalAnswered);
-  }
+  }, [questions.length]);
 
   // Current question
   const q = questions[step];
-
-  // ✅ Initialize slider questions so 0 is a valid saved answer
-  useEffect(() => {
-    if (!q) return;
-
-    if (q.type === "slider" && answers[q.id] === undefined) {
-      setAnswers((prev) => ({
-        ...prev,
-        [q.id]: typeof q.min === "number" ? q.min : 0,
-      }));
-    }
-    // only run when question changes
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [q?.id]);
+  const currentAnswer = answers[q.id];
 
   // Progress for the bar
   const progress = Math.round(((step + 1) / questions.length) * 100);
 
-  function setAnswer(value) {
-    setAnswers((prev) => {
-      const newAnswers = { ...prev, [q.id]: value };
-      trackQuestionAnswer(q.id, value);
-      return newAnswers;
-    });
+  // Tracking runs here, outside the state updater (no side effects in updaters).
+  function setAnswer(id, value) {
+    const next = { ...answers, [id]: value };
+    setAnswers(next);
+
+    trackEvent(EVENT_TYPES.QUIZ_QUESTION_ANSWERED, { questionId: id, answer: value });
+    trackMetric(METRIC_NAMES.QUIZ_QUESTIONS_ANSWERED, Object.keys(next).length);
+  }
+
+  function toggleMulti(opt) {
+    const selected = Array.isArray(currentAnswer) ? currentAnswer : [];
+    if (selected.includes(opt)) {
+      setAnswer(q.id, selected.filter((o) => o !== opt));
+    } else if (selected.length < q.max) {
+      setAnswer(q.id, [...selected, opt]);
+    }
+  }
+
+  // Free text: not tracked per keystroke; it's part of the completed answers.
+  function setFollowUp(value) {
+    setAnswers((prev) => ({ ...prev, [q.followUp.id]: value }));
   }
 
   function next() {
@@ -74,10 +63,18 @@ export default function Quiz() {
       return;
     }
 
+    // Send the optional field only when it has content.
+    const finalAnswers = { ...answers };
+    const extra = q.followUp && String(finalAnswers[q.followUp.id] ?? "").trim();
+    if (q.followUp) {
+      if (extra) finalAnswers[q.followUp.id] = extra;
+      else delete finalAnswers[q.followUp.id];
+    }
+
     // Track quiz completion
     const timeSpent = Date.now() - quizStartTime;
     trackEvent(EVENT_TYPES.QUIZ_COMPLETED, {
-      answers,
+      answers: finalAnswers,
       totalQuestions: questions.length,
       timeSpent,
     });
@@ -85,33 +82,21 @@ export default function Quiz() {
     trackMetric(METRIC_NAMES.QUIZ_TIME_SPENT, timeSpent);
 
     // last question: go to /results and pass answers through navigation state
-    navigate("/results", { state: { answers } });
+    navigate("/results", { state: { answers: finalAnswers } });
   }
 
   function prev() {
     setStep((s) => Math.max(0, s - 1));
   }
 
-  const currentAnswer = answers[q?.id];
-
-  const sliderValue =
-    q?.type === "slider"
-      ? currentAnswer ?? (typeof q.min === "number" ? q.min : 0)
-      : 0;
-  const sliderPct =
-    q?.type === "slider" && q.max > q.min
-      ? ((sliderValue - q.min) / (q.max - q.min)) * 100
-      : 0;
-  const sliderTickCount =
-    q?.type === "slider" ? Math.round((q.max - q.min) / q.step) + 1 : 0;
-
-  // ✅ Allow slider = 0, require choice selection, require text non-empty
   const canContinue =
-    q?.type === "text"
-      ? String(currentAnswer ?? "").trim().length > 0
-      : q?.type === "slider"
-      ? currentAnswer !== undefined && currentAnswer !== null
+    q.type === "multi"
+      ? Array.isArray(currentAnswer) && currentAnswer.length > 0
       : currentAnswer !== undefined && currentAnswer !== null && currentAnswer !== "";
+
+  const multiSelected = q.type === "multi" && Array.isArray(currentAnswer) ? currentAnswer : [];
+  const followUpValue = q.followUp ? answers[q.followUp.id] ?? "" : "";
+  const titleId = `q-${q.id}`;
 
   return (
     <div className="quizPage">
@@ -137,20 +122,21 @@ export default function Quiz() {
             exit={{ opacity: 0, y: -14 }}
             transition={{ duration: 0.22 }}
           >
-            <h1 className="qTitle">{q.title}</h1>
+            <h1 className="qTitle" id={titleId}>{q.title}</h1>
             {q.subtitle && <p className="qSub">{q.subtitle}</p>}
 
-            {/* ✅ Multiple choice */}
+            {/* ✅ Single choice */}
             {q.type === "choice" && (
-              <div className="choiceList">
+              <div className="choiceList" role="group" aria-labelledby={titleId}>
                 {q.options.map((opt) => {
-                  const selected = answers[q.id] === opt;
+                  const selected = currentAnswer === opt;
                   return (
                     <button
                       type="button"
                       key={opt}
                       className={`choiceBtn ${selected ? "selected" : ""}`}
-                      onClick={() => setAnswer(opt)}
+                      aria-pressed={selected}
+                      onClick={() => setAnswer(q.id, opt)}
                     >
                       <div className={`radio ${selected ? "on" : ""}`} />
                       <div className="choiceMain">{opt}</div>
@@ -160,71 +146,84 @@ export default function Quiz() {
               </div>
             )}
 
-            {/* ✅ Text input */}
-            {q.type === "text" && (
-              <input
-                className="textInput"
-                placeholder={q.placeholder || ""}
-                maxLength={q.maxLength}
-                value={answers[q.id] || ""}
-                onChange={(e) => setAnswer(e.target.value)}
-              />
+            {/* ✅ Multiple choice (up to q.max) */}
+            {q.type === "multi" && (
+              <>
+                <div className="choiceGrid" role="group" aria-labelledby={titleId}>
+                  {q.options.map((opt) => {
+                    const selected = multiSelected.includes(opt);
+                    const full = !selected && multiSelected.length >= q.max;
+                    return (
+                      <button
+                        type="button"
+                        key={opt}
+                        className={`choiceBtn ${selected ? "selected" : ""}`}
+                        aria-pressed={selected}
+                        disabled={full}
+                        onClick={() => toggleMulti(opt)}
+                      >
+                        <div className={`checkbox ${selected ? "on" : ""}`} />
+                        <div className="choiceMain">{opt}</div>
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="choiceCount" aria-live="polite">
+                  {multiSelected.length} of {q.max} selected
+                </p>
+              </>
             )}
 
-            {/* ✅ Slider */}
-            {q.type === "slider" && (
-              <div className="sliderWrap">
-                <div className="sliderTrackWrap">
-                  {/* Floating value bubble, follows the thumb */}
-                  <motion.div
-                    className="sliderBubble"
-                    initial={false}
-                    animate={{ left: `${sliderPct}%` }}
-                    transition={{ type: "spring", stiffness: 350, damping: 32 }}
-                  >
-                    {sliderValue}
-                    <span className="sliderBubbleUnit">{q.unit || ""}</span>
-                  </motion.div>
+            {/* ✅ Large buttons */}
+            {q.type === "buttons" && (
+              <div className="hoursGrid" role="group" aria-labelledby={titleId}>
+                {q.options.map((opt) => {
+                  const selected = currentAnswer === opt.value;
+                  return (
+                    <button
+                      type="button"
+                      key={opt.value}
+                      className={`hoursBtn ${selected ? "selected" : ""}`}
+                      aria-pressed={selected}
+                      onClick={() => setAnswer(q.id, opt.value)}
+                    >
+                      {opt.label}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
 
-                  {/* Track background + gradient fill */}
-                  <div className="sliderTrack">
-                    <div
-                      className="sliderTrackFill"
-                      style={{ width: `${sliderPct}%` }}
-                    />
-                    <div className="sliderTicks">
-                      {Array.from({ length: sliderTickCount }).map((_, i) => (
-                        <span key={i} className="sliderTick" />
-                      ))}
-                    </div>
-                    <motion.div
-                      className="sliderThumb"
-                      initial={false}
-                      animate={{ left: `${sliderPct}%` }}
-                      transition={{ type: "spring", stiffness: 350, damping: 32 }}
-                    />
-                  </div>
-
-                  {/* Real input: invisible, handles drag/keyboard/a11y */}
-                  <input
-                    type="range"
-                    className="sliderInput"
-                    min={q.min}
-                    max={q.max}
-                    step={q.step}
-                    value={sliderValue}
-                    onChange={(e) => setAnswer(Number(e.target.value))}
-                    aria-label={q.title}
-                  />
+            {/* ✅ Optional follow-up field */}
+            {q.followUp && (
+              <div className="quizFollowUp">
+                <label className="quizFollowUpLabel" htmlFor={q.followUp.id}>
+                  {q.followUp.label} <span className="quizFollowUpHint">{q.followUp.hint}</span>
+                </label>
+                <input
+                  id={q.followUp.id}
+                  className="textInput"
+                  placeholder={q.followUp.placeholder}
+                  maxLength={q.followUp.maxLength}
+                  value={followUpValue}
+                  onChange={(e) => setFollowUp(e.target.value)}
+                />
+                <div className="quizChips">
+                  {q.followUp.suggestions.map((s) => {
+                    const selected = followUpValue === s;
+                    return (
+                      <button
+                        type="button"
+                        key={s}
+                        className={`quizChip ${selected ? "selected" : ""}`}
+                        aria-pressed={selected}
+                        onClick={() => setFollowUp(selected ? "" : s)}
+                      >
+                        {s}
+                      </button>
+                    );
+                  })}
                 </div>
-
-                {/* Min / Max labels */}
-                {q.labels && (
-                  <div className="sliderLabels">
-                    <span>{q.labels[0]}</span>
-                    <span>{q.labels[1]}</span>
-                  </div>
-                )}
               </div>
             )}
 
@@ -241,7 +240,7 @@ export default function Quiz() {
 
               <button
                 type="button"
-                className={`uiverseBtn large ${q.type === "slider" ? "sliderBtn" : ""}`}
+                className="uiverseBtn large"
                 onClick={next}
                 disabled={!canContinue}
               >
