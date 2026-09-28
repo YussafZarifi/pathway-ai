@@ -52,7 +52,7 @@ Rethink the quiz: at most 5 questions that give **more** signal than the 8 old o
 - **N-17:** after the flash-lite quota resets, run one quiz end to end and check the log for `career v2 attempt 1: ok … strategy=direct`.
 - Two answer formats coexist until N-19. The tracking event log in localStorage will contain both shapes.
 - Carried over from 2026-09-27: Gemini free tier = 20 requests/day (N-16, owner decision); Render deploy not done (F-1); `YOUTUBE_API_KEY` unset.
-- **Git:** 3 code commits + 1 docs commit this session; `main` is **38 commits ahead of `origin/main`, not pushed.**
+- **Git:** 3 code commits + 1 docs commit this session; `main` is **38 commits ahead of `origin/main` (including this fix), not pushed.**
 
 ### Next recommended task
 1. N-18 visual check + N-17 live check (small; needs a visible browser and the quota reset).
