@@ -1,6 +1,6 @@
 import json
 from concurrent.futures import ThreadPoolExecutor
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -8,6 +8,7 @@ from google import genai
 
 import config
 import youtube
+from rate_limit import limit_ai_requests
 from schemas import CareerRequest, RoadmapRequest
 
 # Answers are a handful of short strings; anything bigger is not a quiz.
@@ -26,7 +27,7 @@ async def limit_body_size(request: Request, call_next):
     return await call_next(request)
 
 
-# Added last so it wraps everything, including the 413 above.
+# Added last so it wraps everything, including the 413 above and 429s.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=config.ALLOWED_ORIGINS,
@@ -47,7 +48,7 @@ async def invalid_request(request: Request, exc: RequestValidationError):
 
 client = genai.Client(api_key=config.GEMINI_API_KEY) if config.GEMINI_API_KEY else None
 
-@app.post("/api/ai/career")
+@app.post("/api/ai/career", dependencies=[Depends(limit_ai_requests)])
 def career_ai(payload: CareerRequest):
     if client is None:
         raise HTTPException(status_code=500, detail="GEMINI_API_KEY missing in backend/.env")
@@ -141,7 +142,7 @@ def health():
     """Liveness check for the host. Makes no external calls and spends no quota."""
     return {"status": "ok"}
 
-@app.post("/api/ai/roadmap")
+@app.post("/api/ai/roadmap", dependencies=[Depends(limit_ai_requests)])
 def roadmap_ai(payload: RoadmapRequest):
     if client is None:
         raise HTTPException(status_code=500, detail="GEMINI_API_KEY missing in backend/.env")
