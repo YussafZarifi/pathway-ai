@@ -1,15 +1,32 @@
 import json
 from concurrent.futures import ThreadPoolExecutor
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from fastapi.responses import JSONResponse
 from google import genai
 
 import config
 import youtube
+from schemas import CareerRequest, RoadmapRequest
 
-app = FastAPI()
+# Answers are a handful of short strings; anything bigger is not a quiz.
+MAX_BODY_BYTES = 16 * 1024
 
+INVALID_ANSWERS = "Some quiz answers are missing or too long. Please retake the quiz and try again."
+
+app = FastAPI(title="PathwayAI API")
+
+
+@app.middleware("http")
+async def limit_body_size(request: Request, call_next):
+    length = request.headers.get("content-length")
+    if length and (not length.isdigit() or int(length) > MAX_BODY_BYTES):
+        return JSONResponse(status_code=413, content={"detail": "Request is too large."})
+    return await call_next(request)
+
+
+# Added last so it wraps everything, including the 413 above.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=config.ALLOWED_ORIGINS,
@@ -18,27 +35,24 @@ app.add_middleware(
     allow_headers=["Content-Type"],
 )
 
+
+
+@app.exception_handler(RequestValidationError)
+async def invalid_request(request: Request, exc: RequestValidationError):
+    # Report which fields failed, never their values (they are user answers).
+    fields = sorted({".".join(str(p) for p in err["loc"][1:]) for err in exc.errors()})
+    print(f"Rejected {request.url.path}: invalid fields {fields}")
+    return JSONResponse(status_code=422, content={"detail": INVALID_ANSWERS})
+
+
 client = genai.Client(api_key=config.GEMINI_API_KEY) if config.GEMINI_API_KEY else None
-
-class CareerRequest(BaseModel):
-    answers: dict
-
-class RoadmapRequest(BaseModel):
-    answers: dict
-    career: str
 
 @app.post("/api/ai/career")
 def career_ai(payload: CareerRequest):
     if client is None:
         raise HTTPException(status_code=500, detail="GEMINI_API_KEY missing in backend/.env")
 
-    answers = payload.answers
-
-    if not answers or not isinstance(answers, dict):
-        print(f"ERROR: Invalid answers received: {answers}")
-        raise HTTPException(status_code=400, detail="Invalid answers format")
-
-    profile_text = "\n".join([f"{k}: {v}" for k, v in answers.items()])
+    profile_text = payload.answers.as_profile_text()
     print(f"Processing career request with answers: {profile_text}")
 
     prompt = f"""
@@ -132,9 +146,8 @@ def roadmap_ai(payload: RoadmapRequest):
     if client is None:
         raise HTTPException(status_code=500, detail="GEMINI_API_KEY missing in backend/.env")
 
-    answers = payload.answers
     career = payload.career
-    profile_text = "\n".join([f"{k}: {v}" for k, v in answers.items()])
+    profile_text = payload.answers.as_profile_text()
 
     prompt = f"""
 Return STRICT JSON only in this exact shape:
