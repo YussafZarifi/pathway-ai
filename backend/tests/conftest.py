@@ -1,0 +1,91 @@
+import json
+import os
+import sys
+from types import SimpleNamespace
+
+import pytest
+
+# Tests never call real APIs: no keys, and a fixed origin for CORS checks.
+os.environ["GEMINI_API_KEY"] = "test-key"
+os.environ["YOUTUBE_API_KEY"] = ""
+os.environ["ALLOWED_ORIGINS"] = "http://localhost:5173"
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+# Planted in answers and model replies; must never appear in logs or errors.
+SECRET = "SECRET-MARKER-7f3a"
+
+ANSWERS = {
+    "stage": "College / University",
+    "goal": "Get an internship/job",
+    "interest_area": "Cloud & DevOps",
+    "work_style": "Hands-on / practical",
+    "experience_level": 1,
+    "education_comfort": 2,
+    "environment": "Remote / Freelance",
+    "curious_fields": f"DevOps {SECRET}",
+}
+
+
+def roadmap_reply(**overrides):
+    step = {
+        "title": "Linux basics",
+        "description": "Learn the command line.",
+        "time": "2-3 weeks",
+        "resources": [{"name": "Linux Journey", "url": "https://linuxjourney.com"}],
+        "tasks": ["Install Ubuntu", "Write a shell script"],
+        "video_query": "linux command line for beginners",
+    }
+    step.update(overrides)
+    return {"career": "DevOps Engineer", "roadmap": [step]}
+
+
+def career_reply():
+    return {
+        "careers": [
+            {
+                "title": "Cloud Engineer",
+                "reason": "Fits your interest in cloud.",
+                "match_score": 88,
+                "salary_range": "$80k - $120k",
+                "growth_rate": "+15% (Faster than average)",
+                "education": "Bachelor's degree",
+                "skills": ["AWS", "Linux", "Terraform", "Python"],
+            }
+        ],
+        "explanation": "A good start.",
+    }
+
+
+class FakeModels:
+    """Stands in for client.models: replays a script of replies/exceptions."""
+
+    def __init__(self, script):
+        self.script = list(script)
+        self.calls = 0
+
+    def generate_content(self, model, contents, config=None):
+        self.calls += 1
+        item = self.script.pop(0)
+        if isinstance(item, BaseException):
+            raise item
+        text = item if isinstance(item, str) else json.dumps(item)
+        return SimpleNamespace(
+            text=text,
+            candidates=[SimpleNamespace(finish_reason=SimpleNamespace(name="STOP"))],
+            usage_metadata=SimpleNamespace(prompt_token_count=500, candidates_token_count=900),
+        )
+
+
+@pytest.fixture
+def fake_gemini(monkeypatch):
+    """Install a scripted Gemini client; returns a setter for the script."""
+    import llm
+
+    def install(*script):
+        models = FakeModels(script)
+        monkeypatch.setattr(llm, "client", SimpleNamespace(models=models))
+        return models
+
+    monkeypatch.setattr(llm.time, "sleep", lambda seconds: None)
+    return install
