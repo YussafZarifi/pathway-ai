@@ -1,0 +1,52 @@
+# Render Blueprint for PathwayAI: FastAPI backend + static React frontend.
+# Apply from the Render Dashboard (New > Blueprint). Render asks for every
+# `sync: false` value on first apply. See docs/deployment.md.
+services:
+  # Backend: FastAPI AI proxy (Gemini + YouTube). No database yet.
+  - type: web
+    name: pathwayai-api
+    runtime: python
+    plan: free
+    region: ohio
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    # --proxy-headers + --forwarded-allow-ips: take the client IP from
+    # Render's proxy (X-Forwarded-For) so rate limits apply per visitor.
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT --proxy-headers --forwarded-allow-ips "*"
+    healthCheckPath: /health
+    buildFilter:
+      paths:
+        - backend/**
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: YOUTUBE_API_KEY
+        sync: false
+      # The static site's URL, e.g. https://pathwayai-web.onrender.com
+      - key: ALLOWED_ORIGINS
+        sync: false
+
+  # Frontend: Vite build served as a static site.
+  - type: web
+    name: pathwayai-web
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm ci && npm run build
+    staticPublishPath: dist
+    buildFilter:
+      paths:
+        - frontend/**
+    routes:
+      # React Router (BrowserRouter): serve index.html for every app route.
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      # The backend's URL, e.g. https://pathwayai-api.onrender.com
+      # Read at build time: redeploy the site after changing it.
+      - key: VITE_API_URL
+        sync: false
