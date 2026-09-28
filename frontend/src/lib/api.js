@@ -22,20 +22,23 @@ export class ApiError extends Error {
 
 /**
  * The message to show for a failed request. Client errors (bad answers,
- * rate limits) and timeouts carry a specific, user-safe message from
- * ApiError; everything else gets the page's own fallback copy.
+ * rate limits), 503s (AI quota used up or busy) and timeouts carry a
+ * specific, user-safe message from ApiError; everything else gets the
+ * page's own fallback copy.
  */
 export function errorMessage(error, fallback) {
   const specific =
     error instanceof ApiError &&
-    (error.status === 0 || (error.status >= 400 && error.status < 500));
+    (error.status === 0 ||
+      error.status === 503 ||
+      (error.status >= 400 && error.status < 500));
   return specific && error.message ? error.message : fallback;
 }
 
 async function request(path, body, { signal } = {}) {
   if (!API_URL) {
     console.error("VITE_API_URL is not set; see frontend/.env.example");
-    throw new ApiError("PathwayAI isn't configured correctly. Please try again later.", 503);
+    throw new ApiError("PathwayAI isn't configured correctly. Please try again later.", 500);
   }
 
   // Abort on the caller's signal (e.g. unmount) or on our own timeout.
