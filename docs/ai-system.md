@@ -2,7 +2,9 @@
 
 ## Current implementation (✅)
 
-**Provider:** Google Gemini via `google-genai`. **Model:** `gemini-2.5-flash-lite` (from `GEMINI_MODEL`, default in `backend/config.py`; 30 s timeout since 2026-09-27). **Pattern:** single-shot prompt → free text → parse JSON.
+**Provider:** Google Gemini via `google-genai`. **Model:** `gemini-2.5-flash-lite` (from `GEMINI_MODEL`, default in `backend/config.py`; 30 s timeout since 2026-09-27). **Pattern (since 2026-09-27, ADR-015):** single-shot prompt → Gemini JSON mode with a `response_schema` → Pydantic validation (`backend/ai_output.py`) → at most one retry (`backend/llm.py`).
+
+**Quota:** the key is on Gemini's **free tier: 20 requests per day** for `gemini-2.5-flash-lite` (quota `GenerateRequestsPerDayPerProjectPerModel-FreeTier`, measured 2026-09-27). A quiz run uses 2 requests (careers + roadmap), plus 1 per regenerate. See `docs/deployment.md`.
 
 ### Workflow 1 — Career matching (`POST /api/ai/career`)
 Prompt structure (`backend/main.py:43-91`):
@@ -17,32 +19,42 @@ Prompt structure (`backend/main.py:132-163`):
 3. User answers + chosen career.
 4. **Video enrichment (✅ 2026-09-26, ADR-012):** after parsing, `add_videos()` in `main.py` sends each step's `video_query` to `backend/youtube.py`, which calls the YouTube Data API v3 `search.list` (`type=video`, `maxResults=2`, `safeSearch=strict`) in parallel, with a 5 s timeout and an in-memory cache of successful lookups. The model never produces video URLs; it only chooses the search phrase. Without `YOUTUBE_API_KEY` or on API failure, `videos` is `[]` and the UI shows `video_search_url`. This is a small example of grounding: retrieval from a real source instead of model-invented links.
 
-### Parsing
-```python
-text = (resp.text or "").strip()
-if text.startswith("```"):
-    text = text.strip("`").replace("json", "", 1).strip()
-json.loads(text)
-```
-Fragile: it breaks on leading prose, a `JSON` tag or trailing commentary. No schema validation. The frontend defends with `Array.isArray` checks and `|| 85` fallbacks.
+### Output handling (✅ 2026-09-27, ADR-015)
+- **Generation:** `response_mime_type="application/json"` plus `response_schema` (`CareerSchema` / `RoadmapSchema` in `ai_output.py`, every field required). Verified live on `gemini-2.5-flash`: replies parse directly, with no fences.
+- **Extraction** (`extract_json`): direct parse, else the first code fence, else the outermost `{…}`; trailing commas are repaired. The strategy used is logged.
+- **Validation** (`parse_careers`, `parse_roadmap`): items are validated one by one. Missing or wrong-typed optional fields get defaults (`time` "Varies", `""`, `[]`). Resources need an `http(s)` URL; tasks and skills must be text. A step without a title, or a career without a title or a 0–100 `match_score` ("85%" is accepted), is dropped and logged. At most 5 steps and 3 careers. The roadmap's `career` is the user's choice, not the model's echo. No usable items → retry.
+- **Retries** (`llm.generate`, at most 2 attempts): unusable reply, Gemini 5xx, timeout or network error → retry once; 429 per-minute with delay ≤10 s → wait and retry; 429 daily quota and other 4xx → no retry.
+- **User-facing errors:** 503 "usage limit" (daily quota), 503 "busy" + `Retry-After`, 503 unavailable (no key), 502 otherwise. Raw model output is never returned.
+- **Diagnostics:** per attempt, the log records outcome, finish reason, input/output tokens, reply length, JSON strategy, dropped items (field paths and error types only), a 12-character sha256 of the reply, and the quota id and retry delay for 429s, all tagged with the request ID. Never the reply, the prompt or the answers.
+
+### Investigation of the "intermittent roadmap failure" (2026-09-27)
+25 live calls through the real pipeline with synthetic answers (old parser, before the changes above):
+| Result | Count |
+|---|---|
+| Reply parsed fine (14 fenced ```` ```json ````, 1 bare JSON; all `finish=STOP`; 1.1–1.4k output tokens; 3.1–5.6 s) | 15 |
+| Malformed JSON | **0** |
+| Gemini `429 RESOURCE_EXHAUSTED` (free-tier daily quota of 20 reached) | 10 |
+
+The old backend turned the 429 into the same generic 502 as a parse failure. The one failure seen earlier that day happened when only about 2 requests had been made, so the daily quota doesn't explain it; its cause can't be established after the fact. Gemini 5xx, timeouts and malformed replies are now all retried once and logged with their exact type, so the next occurrence will be identifiable from the logs.
 
 ### What's missing
 | Gap | Consequence |
 |---|---|
-| No `response_schema` / JSON mode | Occasional parse failures → 500 |
-| No output validation | Wrong field names or types reach the UI |
-| No retries or timeouts | Transient errors surface to users |
+| ~~No `response_schema` / JSON mode~~ | Done 2026-09-27 |
+| ~~No output validation~~ | Done 2026-09-27 (Pydantic, per item) |
+| ~~No retries or timeouts~~ | Done 2026-09-27 (1 retry, 30 s timeout) |
+| Free-tier quota (20 requests/day) | About 10 quiz runs a day before users see "usage limit" |
 | No streaming | 3–8 s blank wait for roadmaps |
 | No grounding | Salaries and resource URLs are model-invented (URLs may 404) |
 | No caching | Same answers → new paid call every time |
 | No evals | Prompt changes can't be checked for regressions |
-| No token/cost/latency logging | No visibility into spend |
+| Token/latency logged per call (2026-09-27), but no cost dashboard | Limited visibility into spend |
 | Raw user text in prompt | Prompt-injection surface (`curious_fields`, `career`) |
 | No memory | Every call is stateless; there's no coach |
 
 ## Planned improvements (🗺️) — in priority order
 
-1. **Structured output.** Pass `config={"response_mime_type": "application/json", "response_schema": CareerResponse}` using Pydantic models that double as FastAPI `response_model`s. Validate; on failure retry once with the validation error appended; then return a typed error.
+1. ~~**Structured output.**~~ Done 2026-09-27 (ADR-015). Possible follow-ups: append the validation error to the retry prompt; use the output models as FastAPI `response_model`s.
 2. **Prompt hygiene.** Move instructions to `system_instruction`. Send answers as a delimited JSON block with human-readable labels and scales (e.g. "experience: 3 years on a 0–10 scale"). Tell the model to treat the user block as data only. Cap free-text length. Remove the "location" rule or add a location question.
 3. **LLM service layer** (`services/llm.py`): model from config, timeout, retries with backoff (tenacity is already a transitive dependency), cache keyed by `sha256(prompt_version + normalized answers)`, log tokens, latency and model per call, prompt versions stored in `prompts/`.
 4. **Streaming.** SSE endpoint for roadmaps. Stream step objects as they complete (JSON Lines) and render progressively.

@@ -38,7 +38,7 @@ flowchart TB
 ### Request lifecycle — career matches
 1. `Quiz` collects answers → `navigate("/results", { state: { answers } })`.
 2. `Results` `useEffect` → `POST /api/ai/career` with `AbortController`.
-3. Backend formats `key: value` lines → prompt → `client.models.generate_content` → strips code fences → `json.loads` → returns the dict.
+3. Backend validates the answers, builds `key: value` lines → prompt → `llm.generate` (Gemini JSON mode + response schema, ≤2 attempts) → `ai_output.parse_careers` validates each career → returns the validated dict.
 4. `Results` stores `{explanation, careers}` and tracks `career_suggestions_generated`.
 
 ### Request lifecycle — roadmap

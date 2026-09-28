@@ -20,6 +20,7 @@ ADR-001 to ADR-008 were **reconstructed on 2026-09-24** from the existing code d
 | ADR-012 | Roadmap videos come from the YouTube Data API, not the model | Accepted |
 | ADR-013 | Persist the current roadmap in localStorage; dashboard shows only real-data metrics | Accepted |
 | ADR-014 | Deployment readiness: env-only config, request validation, in-memory rate limits, Render Blueprint | Accepted |
+| ADR-015 | Validated AI output: JSON mode + response schema, per-item validation, one retry, content-free diagnostics | Accepted |
 
 ---
 
@@ -129,6 +130,20 @@ ADR-001 to ADR-008 were **reconstructed on 2026-09-24** from the existing code d
   - **Render Blueprint** (`render.yaml`): Python web service (`/health` check, Uvicorn proxy headers for real client IPs) and a static site with an SPA rewrite; secrets are `sync: false`.
 - **Alternatives considered:** keep `http://127.0.0.1:8000` as a dev fallback in `api.js` (rejected: a missing variable would silently ship a broken production build); slowapi (rejected for now, see above); Redis-backed limits (deferred: one free instance doesn't need shared state); a Dockerfile (deferred: Render's native Python runtime is simpler until there is more to package); enumerating every quiz option in the schema (rejected: couples backend to UI copy).
 - **Consequences:** the project can be deployed by applying the Blueprint and entering four values. Local dev needs one extra step (`cp .env.example .env.local`). Rate-limit state resets on every deploy/restart and isn't shared between instances; a client forging `X-Forwarded-For` may get a fresh per-IP bucket, but the global cap still bounds spend. Invalid requests count toward the limits. The free plan sleeps, so the frontend timeout is 90 s. Response validation (N-8), tests/CI (F-2–F-4) and error tracking (F-11) remain before a public launch.
+- **Status:** Accepted.
+
+## ADR-015 — Validated AI output: JSON mode + response schema, per-item validation, one retry, content-free diagnostics
+- **Date:** 2026-09-27
+- **Context:** before deploying, the owner asked to investigate an intermittent roadmap failure suspected to be malformed JSON, without guessing. 25 live calls through the real pipeline showed 15 of 15 replies parsed fine (0 malformed; 14 wrapped in code fences) and 10 failures that were all Gemini `429 RESOURCE_EXHAUSTED`: the key's free tier allows **20 requests per day** for `gemini-2.5-flash-lite`. The backend reported quota errors and parse errors as the same generic 502 and logged too little to tell failures apart. The original single failure isn't explained by the daily quota (only ~2 requests had been made) and can't be diagnosed after the fact.
+- **Decision:**
+  - Ask Gemini for JSON mode (`response_mime_type`) with a `response_schema` built from Pydantic generation schemas (all fields required).
+  - Validate every reply with separate, tolerant output models (`ai_output.py`): per-item validation, defaults for missing optional fields, invalid items dropped (http(s)-only resource URLs, integer 0–100 match scores), whole reply rejected only when no item is usable. Keep a fallback extractor (fences, outermost braces, trailing-comma repair) in case JSON mode is ever bypassed.
+  - At most 2 attempts (`llm.py`): retry once on an unusable reply, Gemini 5xx, timeout or network error, and on a per-minute 429 with a short delay; never on the daily quota or other 4xx.
+  - Distinct user messages: 503 "usage limit" (quota), 503 "busy" + `Retry-After`, 503 unavailable, 502 failed. Raw output is never returned.
+  - Diagnostics per attempt: outcome, finish reason, tokens, length, JSON strategy, dropped items as field paths + error types, a sha256 prefix, quota id and retry delay; every line tagged with a request ID also returned as `X-Request-ID`. No reply text, prompt or answers, enforced by tests with a planted marker.
+  - First automated tests: 60 pytest tests with a scripted fake Gemini.
+- **Alternatives considered:** only improving the fence parser (rejected: the evidence showed parsing wasn't the failing part); saving raw failed replies to disk for debugging (rejected: replies can echo the user's free text); retrying with the validation error appended to the prompt (deferred: no malformed replies observed to tune against); unlimited or exponential retries (rejected: each retry spends the 20/day quota and the frontend waits at most 90 s); using the output models as `response_model` (deferred; the explicit parse keeps per-item dropping).
+- **Consequences:** a malformed or partial reply no longer fails the request when a usable part exists, transient errors get a second chance, and every failure is identifiable in the logs by type. A retry costs one more quota request. JSON mode + schema was verified live on `gemini-2.5-flash`; on `gemini-2.5-flash-lite` it still has to be checked once the daily quota resets (same API; the schema converts locally). The free-tier quota, not parsing, is now the main blocker to a public launch: the owner should enable billing before sharing the URL widely.
 - **Status:** Accepted.
 
 ---

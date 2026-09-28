@@ -9,6 +9,10 @@ A small FastAPI app in `backend/`. Run locally with `uvicorn main:app --reload -
 | `schemas.py` | Pydantic request models (added 2026-09-27) |
 | `rate_limit.py` | In-memory rate limiter used as a FastAPI dependency (added 2026-09-27) |
 | `youtube.py` | YouTube Data API lookups for roadmap step videos (ADR-012) |
+| `llm.py` | Gemini client, JSON mode + response schema, retry policy, per-attempt diagnostics (added 2026-09-27, ADR-015) |
+| `ai_output.py` | Generation schemas, output models, JSON extraction and per-item validation (added 2026-09-27) |
+| `request_log.py` | Logging setup with a per-request ID (`X-Request-ID`) (added 2026-09-27) |
+| `tests/` | 60 pytest tests (`requirements-dev.txt`); see `docs/testing.md` |
 
 ## Configuration (`config.py`)
 `load_dotenv()` reads `backend/.env` locally; on Render the service environment is used. Template: `backend/.env.example`.
@@ -41,9 +45,10 @@ Full contracts: `docs/api.md`.
 3. **Rate limit** (`Depends(limit_ai_requests)` on the AI routes) → 429 with `Retry-After`.
 4. **Validation** (`schemas.py`): `QuizAnswers` has the 8 quiz IDs. Choice answers 1–80 chars; `experience_level` 0–10 and `education_comfort` 0–6 as ints; `curious_fields` optional, ≤300 chars; `career` 1–100 chars. Control characters (newlines etc.) are replaced with spaces. Unknown keys are ignored. Failure → 422 with a friendly message; the log lists failing field names only.
 5. **Prompt**: `answers.as_profile_text()` builds `question_id: answer` lines from the validated model (so unknown keys never reach the prompt). Prompt text itself is unchanged from before 2026-09-27.
-6. **Gemini** via `generate_json(prompt, label)`: model from config, timeout, code-fence stripping (still fragile: N-8), `json.loads`, must be an object.
-7. (roadmap) `add_videos(result, career)` adds `videos`, `video_search_url` and `video_query` per step (parallel YouTube lookups, 5 s timeout, in-memory cache; failures → `[]`).
-8. The parsed dict is returned (response shape still unvalidated: N-8).
+6. **Gemini** via `llm.generate(prompt, label, schema, parse)`: JSON mode + response schema, 30 s timeout, at most 2 attempts (retry policy in `docs/ai-system.md`).
+7. **Validation** via `ai_output.parse_careers` / `parse_roadmap`: extraction, per-item Pydantic validation, defaults for missing fields, invalid items dropped.
+8. (roadmap) `add_videos(result, career)` adds `videos`, `video_search_url` and `video_query` per step (parallel YouTube lookups, 5 s timeout, in-memory cache; failures → `[]`).
+9. The validated dict is returned.
 
 ## Rate limiting (`rate_limit.py`, ADR-014)
 Sliding windows keyed by client IP (per minute, per day) plus one global daily window. Only allowed requests are recorded, so memory is bounded by the global cap. Checks the day window before the minute window so the message is accurate. Invalid (422) requests still count, since the dependency runs before body validation.
@@ -59,13 +64,17 @@ Clients never see exception text.
 | Body too large | 413 | "Request is too large." |
 | Rate limited | 429 | Minute / day / global message |
 | `GEMINI_API_KEY` missing | 503 | "PathwayAI's AI service is temporarily unavailable. Please try again later." |
-| Gemini error, timeout, invalid JSON | 502 | "We couldn't generate results right now. Please try again." |
+| Gemini daily quota used up | 503 | "PathwayAI has reached its AI usage limit for now. Please try again later." |
+| Gemini per-minute limit (after the one allowed wait) | 503 + `Retry-After` | "PathwayAI's AI service is busy right now. Please wait a minute and try again." |
+| Gemini error, timeout or unusable reply after the retry | 502 | "We couldn't generate results right now. Please try again." |
 | Anything unexpected | 500 | Same as 502 |
 
-No retries yet (N-8).
-
 ## Logging
-Python `logging` (`LOG_LEVEL`), format `time level logger: message`. Logged: Gemini timings, Gemini error code/status or exception class, invalid field names, rate-limit hits (scope only), YouTube error class, startup config warnings. **Never logged:** quiz answers, prompts, AI output, API keys. No request IDs yet (F-11). The `google_genai` and `httpx` libraries also log at INFO (request URLs without keys; Gemini sends its key in a header).
+Python `logging` (`LOG_LEVEL`), format `time level logger rid=<request id>: message`; the ID is also returned as `X-Request-ID`. Logged: per Gemini attempt the outcome, finish reason, tokens, reply length, JSON strategy, dropped items (field paths + error types), reply sha256 prefix, and for errors the code/status (plus quota id and retry delay on 429); invalid request field names; rate-limit hits (scope only); YouTube error class; startup config warnings. **Never logged:** quiz answers, prompts, AI output, API keys. Example:
+```
+INFO pathwayai.llm rid=89e3c00c1a9e: roadmap attempt 1: ok items=5 strategy=direct finish=STOP tokens=325/1146 chars=4624 (10.5s)
+WARNING pathwayai.llm rid=3f575856b373: career attempt 1: Gemini 429 RESOURCE_EXHAUSTED quota=GenerateRequestsPerDayPerProjectPerModel-FreeTier retry_delay=34s (0.2s)
+``` The `google_genai` and `httpx` libraries also log at INFO (request URLs without keys; Gemini sends its key in a header).
 
 ## Dependencies (`requirements.txt`)
 fastapi 0.128, uvicorn 0.40, pydantic 2.12, google-genai 2.25, python-dotenv, httpx, plus transitive packages. **`openai` 2.14 is listed but unused** (open question 4). Two virtualenvs exist (repo root `.venv`, which the owner's dev server uses, and `backend/.venv`); consolidate to one.
@@ -73,7 +82,7 @@ fastapi 0.128, uvicorn 0.40, pydantic 2.12, google-genai 2.25, python-dotenv, ht
 ## Remaining security gaps
 - No auth: anyone can call the AI endpoints within the rate limits.
 - Prompt injection is reduced (length limits, no control characters, unknown keys dropped) but not prevented: `curious_fields` and `career` are still free text in the prompt, and `career` is interpolated inside the JSON example (TD-13).
-- AI output isn't schema-validated; resource URLs are model-invented (TD-10, TD-21).
+- Resource URLs are still model-invented; only non-http(s) URLs are filtered (TD-21).
 
 ## Planned structure (🗺️)
 ```

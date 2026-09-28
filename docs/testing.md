@@ -1,8 +1,13 @@
 # Testing
 
 ## Current state
-**No automated tests exist.** No test runner is installed in either project. Quality checks available today:
-- `npm run lint` (ESLint 9): 17 errors and 1 warning as of 2026-09-25 (was 21). Most remaining errors are `motion` false positives from the missing `jsx-uses-vars` rule, plus real unused imports (ROADMAP N-13).
+- **Backend: 60 pytest tests** (since 2026-09-27) in `backend/tests/`, run with `cd backend && pip install -r requirements-dev.txt && python -m pytest -q` (under 1 s, no network: Gemini is a scripted fake, no keys needed).
+  - `test_ai_output.py` (34): JSON extraction (fences, prose, trailing commas, truncation), defaults for missing fields, dropped bad items, score normalization, limits, content-free errors.
+  - `test_llm.py` (16): retry policy (unusable reply, 5xx, timeouts, per-minute vs daily 429, 400), and logs that describe failures without reply content.
+  - `test_api.py` (10): `/health`, response shape, user-friendly 502/503 messages with CORS headers, `Retry-After`, 422 before any Gemini call, rate limit, disallowed origin.
+  - Privacy guard: a marker planted in answers and replies must never appear in logs or responses.
+- **Frontend: no tests.** `npm run lint` (ESLint 9): 12 errors and 1 warning as of 2026-09-27. Most are `motion` false positives from the missing `jsx-uses-vars` rule, plus real unused imports (ROADMAP N-13).
+- No CI yet (F-4).
 - `npm run build`: passes.
 - Manual testing in the browser.
 
@@ -48,5 +53,5 @@ See `ai-system.md` §6. A golden set of about 30 profiles; schema and rule check
 ```bash
 cd frontend && npm test          # vitest
 cd frontend && npm run test:e2e  # playwright
-cd backend  && pytest -q
+cd backend  && python -m pytest -q   # ✅ exists (60 tests)
 ```

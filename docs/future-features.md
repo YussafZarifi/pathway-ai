@@ -19,7 +19,7 @@ Everything here is **planned, not implemented**. Effort: Easy (1–2 h) · Mediu
 ## Medium
 | Feature | Roadmap |
 |---|---|
-| Gemini structured output + Pydantic response models | N-8 |
+| ~~Gemini structured output + Pydantic response models~~ — done 2026-09-27 (ADR-015) | N-8 |
 | ~~Central API client (timeout, typed errors)~~ — done 2026-09-27; retries still open | N-6 |
 | Per-roadmap localStorage persistence | N-7 |
 | Streaming roadmap (SSE) (Large if done with progressive UI) | F-6 |

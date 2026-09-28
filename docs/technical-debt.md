@@ -24,18 +24,18 @@ Found in the 2026-09-24 audit. When an item is resolved, strike it through and n
 | ~~TD-07~~ | Bug | ~~Roadmap % counts only touched steps → 100% after 1 of 5~~ — **resolved 2026-09-26** (`d47d7b8`/`d7630b6`: % = done ÷ roadmap length in `dashboardData.js`; `scoringEngine.js` still uses the old count but is no longer displayed) | — |
 | ~~TD-08~~ | Bug | ~~Progress keys not scoped per roadmap~~ — **resolved 2026-09-26** (`roadmap_step_<roadmapId>_<index>`, ADR-013) | — |
 | ~~TD-09~~ | Persistence | ~~Roadmap only in router state; `/dashboard` direct visit → `/quiz`~~ — **resolved 2026-09-26** (`pathwayai_roadmap` in localStorage; empty state instead of redirect). One roadmap, one browser until F-8 | — |
-| TD-10 | AI | No structured output/schema; fragile code-fence stripping; unvalidated output returned (now one `generate_json()` helper; non-objects → 502) | `main.py` `generate_json` |
+| ~~TD-10~~ | AI | ~~No structured output/schema; fragile code-fence stripping; unvalidated output returned~~ — **resolved 2026-09-27** (`5fcfb4d`, `97ae7aa`: JSON mode + response schema, per-item Pydantic validation, one retry; ADR-015) | — |
 | ~~TD-11~~ | Security | ~~Raw exception text returned to clients~~ — **resolved 2026-09-27** (`27d0ce9`: fixed messages for 422/429/502/503/500) | — |
 | ~~TD-12~~ | Privacy | ~~User answers and AI output printed to logs~~ — **resolved 2026-09-27** (`27d0ce9` backend logging; `cb53422` removed the Quiz `console.log` of answers) | — |
 | TD-13 | Security | Prompt injection via `curious_fields` and `career`; `career` interpolated inside the JSON example. **Reduced 2026-09-27** (`dc0f4d1`): length limits, control characters stripped, unknown keys dropped | `main.py` prompts |
 | ~~TD-14~~ | Security | ~~No input size/shape limits (`answers: dict`)~~ — **resolved 2026-09-27** (`dc0f4d1`: `schemas.py`, 16 KB body limit) | — |
 | ~~TD-15~~ | UX | ~~Dead buttons and fake Copy Link~~ — **resolved 2026-09-25**: Settings/Upgrade deleted with AppShell (`2375759`); Home auth buttons (`058d07a`); Landing Log in/Sign Up (`b1edc7f`); Save Roadmap/Mark as In Progress (`d8354b3`); Copy Link (`f76ff22`) | — |
 | TD-16 | Routing | ~~Links to non-existent `/login`, `/signup`, `/profile`, `/app/*`~~ (removed 2026-09-25); **still no 404 route** (ROADMAP F-12) | `App.jsx` |
-| TD-17 | Testing | Zero tests (frontend or backend) | — |
+| TD-17 | Testing | ~~Zero tests~~ Backend: 60 pytest tests since 2026-09-27 (`backend/tests`). Frontend: none. No CI | `frontend/` |
 | TD-18 | CI/CD | No CI, Docker or deployment config | — |
 | TD-19 | A11y | Invalid nested interactive HTML: checkbox in `<button>` (still open); ~~`<a>` in `<button>`~~ fixed 2026-09-26 (`639da18`: the step header is the toggle button, links sit outside it) | `Results.jsx:453-475` |
 | TD-20 | A11y | Modals lack dialog role, focus trap, Esc, labels | `CareerCompareModal.jsx`, `ShareModal.jsx` |
-| TD-21 | AI | Salaries and resource URLs invented by the model, shown as fact | prompts in `main.py` |
+| TD-21 | AI | Salaries and resource URLs invented by the model, shown as fact (non-http(s) URLs dropped since 2026-09-27) | prompts in `main.py` |
 
 ## 🟡 Medium
 
@@ -56,7 +56,7 @@ Found in the 2026-09-24 audit. When an item is resolved, strike it through and n
 | TD-34 | Styling | 3,900-line single CSS file; 8 tokens vs ~130 colour literals; duplicate selectors; copied Uiverse CSS; `Inter` not loaded | `index.css` |
 | TD-35 | Quality | 12 ESLint errors, 1 warning as of 2026-09-26 (was 17); most are false positives from missing `jsx-uses-vars` | `eslint.config.js` + various |
 | TD-36 | Observability | `print`/`console.log` only; no request IDs, error tracking or metrics | FE + BE |
-| TD-37 | AI | No retries or caching (timeout and `GEMINI_MODEL` config added 2026-09-27) | `main.py` |
+| TD-37 | AI | No caching (timeout, `GEMINI_MODEL` config and one retry added 2026-09-27) | `llm.py` |
 | TD-38 | AI | Prompt references "location" but the quiz doesn't ask for it | `main.py:156` |
 | TD-39 | Type safety | No TypeScript; field-name drift (`name` vs `title`, `salary_range` vs `salaryRange`) | FE |
 | TD-40 | UX | "Try again" does `window.location.reload()`; PDF export uses `alert()` on error | `Results.jsx:367`, `ShareModal.jsx:33` |

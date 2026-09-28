@@ -1,7 +1,7 @@
 # CLAUDE.md — PathwayAI (repo: `roadmap-ai`)
 
 > Permanent project memory. Read this first in every session. Then read `SESSION.md` (latest state) and `ROADMAP.md` (what's next).
-> Last updated: 2026-09-27 (**deployment-ready for Render, not deployed**: env-only config with `ALLOWED_ORIGINS` / `VITE_API_URL`, every request through `lib/api.js`, Pydantic request validation, in-memory rate limits, generic errors, no user data in logs, `/health`, `render.yaml`; ADR-014. Next: the owner reviews, then deploy F-1).
+> Last updated: 2026-09-27 (**deployment-ready for Render, not deployed**: env-only config with `ALLOWED_ORIGINS` / `VITE_API_URL`, every request through `lib/api.js`, Pydantic request validation, in-memory rate limits, generic errors, no user data in logs, `/health`, `render.yaml`; ADR-014. Then the "intermittent roadmap failure" investigation: 0 malformed JSON in 25 live calls, the real limit is Gemini's free tier of **20 requests/day**; AI output now uses JSON mode + schema, per-item validation, one retry, safe diagnostics with request IDs, 60 backend tests; ADR-015. Next: owner enables Gemini billing, reviews, then deploy F-1).
 
 ---
 
@@ -31,7 +31,9 @@ Naming: the product brand is **PathwayAI**. The repo/folder is `roadmap-ai`. The
 | `/home` page | **Partially implemented:** honest empty-state hub (quiz CTA, "No saved roadmaps yet", planned-feature cards); visual polish pass 2026-09-26. Future signed-in dashboard (ADR-010). Linked from the shared app header (Home / Dashboard / Quiz) on `/home` and `/dashboard`; not linked from Landing |
 | Git / GitHub | **Implemented 2026-09-25.** `main` with a root `.gitignore` (excludes `backend/.env`); remote `origin` = https://github.com/YussafZarifi/pathway-ai (**private** — keep it private until the owner decides otherwise). `main` tracks `origin/main` |
 | Deployment readiness | **Implemented 2026-09-27** (ADR-014): no hard-coded URLs (`VITE_API_URL`, `ALLOWED_ORIGINS`; `vite build` fails without `VITE_API_URL`), `.env.example` in `backend/` and `frontend/`, `GET /health`, Pydantic request models, 16 KB body limit, in-memory rate limits (per IP 8/min + 50/day, global 500/day), generic error messages, no answers/prompts/AI output in logs, `render.yaml` Blueprint (validated against Render's schema). **Not deployed yet**: the owner reviews first |
-| Tests, CI, Docker, live deployment | **None** |
+| AI output reliability | **Implemented 2026-09-27** (ADR-015): Gemini JSON mode + `response_schema`; `ai_output.py` validates per item (defaults for missing fields, invalid items dropped); `llm.py` retries once (unusable reply, 5xx, timeout, short per-minute 429); 503 quota/busy messages; per-attempt logs with request IDs and no content. **Gemini key is on the free tier: 20 requests/day** for flash-lite (N-16) |
+| Tests | **Backend: 60 pytest tests** (`backend/tests`, `requirements-dev.txt`, `python -m pytest -q`, no network). Frontend: none |
+| CI, Docker, live deployment | **None** |
 
 ## 3. Architecture (current)
 
@@ -42,14 +44,14 @@ Browser (React SPA, Vite dev :5173)
   ├─ localStorage "pathwayai_tracking" (events, metrics, progress; step keys roadmap_step_<roadmapId>_<i>)
   └─ lib/api.js → VITE_API_URL  (the only backend client; 90 s timeout, ApiError)
         │
-FastAPI (backend/: main.py + config.py + schemas.py + rate_limit.py + youtube.py; :8000 locally)
+FastAPI (backend/: main.py + config.py + schemas.py + rate_limit.py + llm.py + ai_output.py + request_log.py + youtube.py; :8000 locally)
   ├─ CORS from ALLOWED_ORIGINS · 16 KB body limit · Pydantic request models · rate limits on AI routes
   ├─ POST /api/ai/career   {answers: QuizAnswers}     → {careers[3], explanation}
   ├─ POST /api/ai/roadmap  {answers, career ≤100}     → {career, roadmap[≤5]}
   ├─ GET  /                                           → status
   └─ GET  /health                                     → liveness (Render health check)
         │
-Google Gemini  (google-genai, GEMINI_MODEL default "gemini-2.5-flash-lite", GEMINI_API_KEY, 30 s timeout)
+Google Gemini  (google-genai via llm.py; GEMINI_MODEL default "gemini-2.5-flash-lite"; JSON mode + response_schema; 30 s timeout; ≤2 attempts; FREE TIER 20 req/day)
 YouTube Data API v3  (backend/youtube.py, optional YOUTUBE_API_KEY; roadmap step videos)
 ```
 No database, no auth, no queue, no shared cache (rate limits and the YouTube cache are in-process memory). Hosting target: Render (`render.yaml`). Details: `docs/architecture.md`, `docs/deployment.md`.
@@ -72,6 +74,10 @@ roadmap-ai/
 │   ├── config.py              settings from environment variables
 │   ├── schemas.py             Pydantic request models (quiz answers, career)
 │   ├── rate_limit.py          in-memory per-IP + global rate limiter
+│   ├── llm.py                 Gemini client, JSON mode + schema, retry policy, safe per-attempt logs
+│   ├── ai_output.py           generation schemas, output models, JSON extraction, per-item validation
+│   ├── request_log.py         logging with a request ID (X-Request-ID)
+│   ├── tests/                 60 pytest tests (fake Gemini); requirements-dev.txt adds pytest
 │   ├── youtube.py             YouTube Data API lookup for roadmap step videos
 │   ├── .env.example           template: GEMINI_API_KEY, YOUTUBE_API_KEY, ALLOWED_ORIGINS, limits…
 │   ├── requirements.txt
@@ -100,7 +106,8 @@ Routes (`App.jsx`): `/` Landing · `/home` Home · `/quiz` Quiz · `/results` Re
 - **No fake data or simulated AI in shipped UI.** If a feature isn't built, hide it or disable it with honest copy.
 - **No side effects inside React state updater functions** (tracking calls currently violate this in `Quiz.jsx`).
 - All network calls go through `src/lib/api.js`, with base URL from `import.meta.env.VITE_API_URL` (no hard-coded URLs anywhere).
-- Requests are validated with Pydantic models (`backend/schemas.py`); AI responses must be too (N-8, not done yet).
+- Requests are validated with Pydantic models (`backend/schemas.py`); AI output is validated in `backend/ai_output.py` before use. Never return or log raw model output.
+- Backend tests must pass (`cd backend && python -m pytest -q`) before a backend task is done.
 - Config comes only from environment variables, documented in the `.env.example` files.
 - Never log user answers / PII. Never return raw exception text to clients.
 - Every new interactive element must be keyboard-accessible; no interactive elements nested inside `<button>`.
@@ -120,16 +127,16 @@ See `docs/ui-design.md`.
 Two single-shot prompts in `backend/main.py`:
 1. **Career:** answers → exactly 3 tech-only careers `{title, reason, match_score 70–95, salary_range, growth_rate, education, skills[4–5]}` + `explanation`.
 2. **Roadmap:** answers + chosen career → `{career, roadmap: [{title, description, time, resources[{name,url}], tasks[], video_query}]}` (≤5 steps). The backend then adds `videos[{id,title,channel,thumbnail,url}]` (real YouTube Data API results) and `video_search_url` to each step (ADR-012).
-Output parsed with `json.loads` after manual code-fence stripping. Requests are validated (length limits, control characters stripped, unknown keys dropped) and rate limited; Gemini calls have a 30 s timeout and failures return a generic 502. Still no response schema/validation, no retries, no streaming, no caching, no grounding (salaries and URLs are model-invented). User free text (≤300 chars) and the career title still go into the prompt (reduced prompt-injection surface, not closed). Improvement plan: `docs/ai-system.md`.
+Output comes from Gemini JSON mode and is validated in `backend/ai_output.py`. Requests are validated (length limits, control characters stripped, unknown keys dropped) and rate limited. Since ADR-015: Gemini JSON mode with a `response_schema`, per-item output validation with defaults, one retry, 30 s timeout, distinct 503 quota/busy and 502 failure messages, content-free diagnostics. Still no streaming, no caching, no grounding (salaries and URLs are model-invented; only non-http(s) URLs are dropped). User free text (≤300 chars) and the career title still go into the prompt (reduced prompt-injection surface, not closed). Improvement plan: `docs/ai-system.md`.
 
 ## 9. Important design decisions (see `docs/decisions.md` for ADRs)
 
-- ADR-001 React + Vite SPA · ADR-002 FastAPI backend as an AI proxy (keeps key server-side) · ADR-003 Gemini Flash-Lite (cheap/fast) · ADR-004 localStorage persistence (MVP, no accounts) · ADR-005 tech-only career scope (pivot from general careers) · ADR-006 plain CSS · ADR-007 router state as data transport · ADR-008 client-side tracking/scoring engines · ADR-009 docs-as-memory (update CLAUDE/ROADMAP/SESSION/decisions every session) · ADR-010 one dashboard: keep `/dashboard`, keep `/home` as the future signed-in hub, delete the `/app/*` shell · ADR-011 unbuilt-feature entry points open an honest explanation · ADR-012 roadmap videos come from the YouTube Data API, never the model · ADR-013 current roadmap persisted in localStorage, progress scoped per roadmap, dashboard shows only real-data metrics · ADR-014 deployment readiness: env-only config (no localhost defaults), one API client, request validation, in-memory rate limits, safe errors/logs, Render Blueprint.
+- ADR-001 React + Vite SPA · ADR-002 FastAPI backend as an AI proxy (keeps key server-side) · ADR-003 Gemini Flash-Lite (cheap/fast) · ADR-004 localStorage persistence (MVP, no accounts) · ADR-005 tech-only career scope (pivot from general careers) · ADR-006 plain CSS · ADR-007 router state as data transport · ADR-008 client-side tracking/scoring engines · ADR-009 docs-as-memory (update CLAUDE/ROADMAP/SESSION/decisions every session) · ADR-010 one dashboard: keep `/dashboard`, keep `/home` as the future signed-in hub, delete the `/app/*` shell · ADR-011 unbuilt-feature entry points open an honest explanation · ADR-012 roadmap videos come from the YouTube Data API, never the model · ADR-013 current roadmap persisted in localStorage, progress scoped per roadmap, dashboard shows only real-data metrics · ADR-014 deployment readiness: env-only config (no localhost defaults), one API client, request validation, in-memory rate limits, safe errors/logs, Render Blueprint · ADR-015 validated AI output: JSON mode + schema, per-item validation, one retry, content-free diagnostics.
 
 ## 10. Known limitations & bugs (top items — full list in `docs/technical-debt.md`)
 
 1. ~~Roadmap % wrong / progress leaking between roadmaps / roadmap not persisted~~ — fixed 2026-09-26 (ADR-013). Remaining: one roadmap at a time, this browser only; `scoringEngine.js` still counts all `roadmap_step_*` keys the old way (not displayed any more).
-2. ~~Hard-coded API URLs / CORS~~ — fixed 2026-09-27 (ADR-014). A malformed Gemini reply now gives a clean 502 but still fails the request (N-8; seen once in three live roadmap calls).
+2. **Gemini free tier: 20 requests/day** (≈10 quiz runs); then users see "usage limit" until the reset. Enable billing before a public launch (N-16). Hard-coded URLs fixed 2026-09-27 (ADR-014); AI output validated + retried (ADR-015).
 3. Quiz answers (incl. free text) are stored in localStorage for "Regenerate" (same device only; see TD-41).
 4. `ThemeGate` effect removes the `theme-landing` class that `Landing`/`Home` add (parent effect runs after child).
 5. Quiz text input logs one tracking event per keystroke, from inside a state updater.
@@ -137,7 +144,7 @@ Output parsed with `json.loads` after manual code-fence stripping. Requests are 
 7. AI endpoints are unauthenticated (rate-limited and validated since 2026-09-27; raw exception text and answer logging removed).
 8. ~~Fake data and dead buttons~~ — fixed 2026-09-25. Remaining honesty gap: Employability/Momentum scores mostly measure app engagement (TD-29).
 9. Invalid nested interactive HTML: checkbox inside button in Results (the RoadmapTimeline part was fixed 2026-09-26).
-10. No tests, no CI; 12 ESLint errors (most are `motion` false positives from the missing jsx-uses-vars rule; none in files added 2026-09-26).
+10. Backend tests only (60), no frontend tests, no CI; 12 ESLint errors (most are `motion` false positives from the missing jsx-uses-vars rule; none in files added 2026-09-26).
 
 ## 11. Current priorities (in order)
 
@@ -145,7 +152,7 @@ Output parsed with `json.loads` after manual code-fence stripping. Requests are 
 2. ~~Remove fake data / dead code; hide unbuilt features honestly~~ ✅ 2026-09-25.
 3. ~~Env-based API URL + CORS; single API client (N-5, N-6)~~ ✅ 2026-09-27.
 4. ~~Fix progress bugs; persist roadmaps per career (N-7)~~ ✅ 2026-09-26 (with the dashboard redesign).
-5. ~~Backend hardening (N-9)~~ ✅ 2026-09-27. **Next: deploy to Render (F-1) after the owner's review**, then Gemini structured output + response validation (N-8).
+5. ~~Backend hardening (N-9)~~ ✅ 2026-09-27. ~~Gemini structured output + response validation (N-8)~~ ✅ 2026-09-27 (ADR-015). **Next: the owner enables Gemini billing (N-16) and reviews, then deploy to Render (F-1).**
 6. Tests + CI, then deploy.
 See `ROADMAP.md` → *Next Sprint*.
 
@@ -180,5 +187,5 @@ See `ROADMAP.md` → *Next Sprint*.
 - **End of every coding session: update `CLAUDE.md`, `ROADMAP.md`, `SESSION.md`, and `docs/decisions.md`** (add an ADR for any significant architectural change). Update other `docs/*` files when the area they describe changes.
 - Keep docs truthful: clearly separate *Implemented / Partially implemented / Planned*. Never describe planned work as existing.
 - Git: small, single-concern commits with conventional prefixes; explain every deleted file in its commit message. Run `git check-ignore backend/.env` before any broad `git add`. Remote: `origin` → private `YussafZarifi/pathway-ai`; push `main` only when the owner asks. Never change the repo's visibility.
-- Commands: frontend `cd frontend && cp .env.example .env.local && npm install && npm run dev` (lint: `npm run lint`, build: `npm run build`, which needs `VITE_API_URL`); backend `cd backend && cp .env.example .env` (set `GEMINI_API_KEY`) `&& pip install -r requirements.txt && uvicorn main:app --reload --port 8000`. The owner's running dev backend uses the repo-root `.venv`.
+- Commands: frontend `cd frontend && cp .env.example .env.local && npm install && npm run dev` (lint: `npm run lint`, build: `npm run build`, which needs `VITE_API_URL`); backend `cd backend && cp .env.example .env` (set `GEMINI_API_KEY`) `&& pip install -r requirements.txt && uvicorn main:app --reload --port 8000`. Backend tests: `cd backend && pip install -r requirements-dev.txt && python -m pytest -q` (no network, no keys). The owner's running dev backend uses the repo-root `.venv` (pytest is installed in `backend/.venv`).
 - Deployment: Render via `render.yaml`; steps in `docs/deployment.md`. Don't deploy or push without the owner's go-ahead.
