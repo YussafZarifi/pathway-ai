@@ -1,64 +1,86 @@
 # Deployment
 
 ## Current state
-**Not deployed. Not deployable as-is.** Blockers:
-1. The frontend fetches a hard-coded `http://127.0.0.1:8000` (`Results.jsx`).
-2. Backend CORS only allows `http://localhost:5173`.
-3. AI endpoints have no rate limiting or auth, so a public URL exposes the Gemini quota.
-4. No CI, Dockerfile or environment separation. (Git was initialized on 2026-09-25 with a root `.gitignore` that excludes `backend/.env`.)
+**Deployment-ready for Render, not deployed yet** (as of 2026-09-27). The owner reviews the changes first.
 
-### How it runs today (local only)
+Done (ADR-014):
+- No hard-coded URLs: the frontend reads `VITE_API_URL` (the build fails without it); the backend reads `ALLOWED_ORIGINS`.
+- `backend/.env.example` and `frontend/.env.example` document every variable.
+- `/health` endpoint for the platform health check.
+- Request validation, a 16 KB body limit, in-memory rate limiting (per IP and global), generic error messages, no quiz answers or AI output in logs.
+- `render.yaml` Blueprint, validated against Render's JSON schema.
+
+Still missing before a public launch (not blockers for a first deploy):
+- No tests or CI (F-2–F-4); no error tracking (F-11).
+- AI output isn't schema-validated (N-8), so a malformed Gemini reply becomes a 502. Seen once in three live roadmap calls on 2026-09-27.
+- No Gemini budget alert. The global daily cap (`GLOBAL_AI_LIMIT_PER_DAY`) is the only spend guard.
+
+## Local development
 ```bash
-# backend
-cd backend && uvicorn main:app --reload --port 8000
-# frontend
-cd frontend && npm run dev   # :5173
+# backend (terminal 1)
+cd backend
+cp .env.example .env          # set GEMINI_API_KEY (and optionally YOUTUBE_API_KEY)
+uvicorn main:app --reload --port 8000
+
+# frontend (terminal 2)
+cd frontend
+cp .env.example .env.local    # VITE_API_URL=http://127.0.0.1:8000
+npm run dev                   # http://localhost:5173
 ```
-Secrets: `backend/.env` → `GEMINI_API_KEY`, optional `YOUTUBE_API_KEY` (template: `backend/.env.example`, added 2026-09-26).
+`backend/.env` and `frontend/.env.local` are git-ignored. `.env.example` sets `ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173` for Vite.
 
-## Target setup (🗺️)
+## Render setup (`render.yaml`)
 
-| Piece | Option A (simple) | Option B (all-in-one) |
-|---|---|---|
-| Frontend | Vercel / Netlify static | Render Static Site |
-| Backend | Render Web Service / Fly.io (Docker) | Render Web Service (Docker) |
-| Database | Supabase / Neon Postgres | Render Postgres |
-| Cache / rate limit | Upstash Redis | Render Key Value |
-| Errors | Sentry | Sentry |
+| Service | Type | Root | Build | Start / publish |
+|---|---|---|---|---|
+| `pathwayai-api` | Web service, Python 3.11.9, free plan, Ohio | `backend/` | `pip install -r requirements.txt` | `uvicorn main:app --host 0.0.0.0 --port $PORT --proxy-headers --forwarded-allow-ips "*"`, health check `/health` |
+| `pathwayai-web` | Static site, Node 22 | `frontend/` | `npm ci && npm run build` | publishes `dist/`; rewrite `/*` → `/index.html` (BrowserRouter) |
 
-Decision pending (see SESSION.md open questions). Record the choice as an ADR.
+Both have `buildFilter` paths, so a frontend-only change doesn't redeploy the API and vice versa.
 
 ### Environment variables
-| Name | Service | Notes |
-|---|---|---|
-| `GEMINI_API_KEY` | backend | Secret |
-| `GEMINI_MODEL` | backend | Default `gemini-2.5-flash-lite` |
-| `YOUTUBE_API_KEY` | backend | Optional secret. YouTube Data API v3; ~20 roadmaps/day on the free quota. Restrict the key to that API |
-| `ALLOWED_ORIGINS` | backend | Comma-separated frontend origins |
-| `DATABASE_URL` | backend | Once Postgres exists |
-| `REDIS_URL` | backend | Rate limiting and cache |
-| `SENTRY_DSN` | both | Optional |
-| `VITE_API_URL` | frontend (build time) | Backend base URL |
+| Name | Service | Set how | Notes |
+|---|---|---|---|
+| `GEMINI_API_KEY` | api | `sync: false` (prompted on first apply) | Secret |
+| `YOUTUBE_API_KEY` | api | `sync: false` | Optional secret; leave blank for search links only |
+| `ALLOWED_ORIGINS` | api | `sync: false` | The static site's URL, e.g. `https://pathwayai-web.onrender.com` (no trailing slash) |
+| `PYTHON_VERSION` | api | in `render.yaml` | `3.11.9` (matches local) |
+| `GEMINI_MODEL`, `GEMINI_TIMEOUT_SECONDS`, `RATE_LIMIT_PER_MINUTE`, `RATE_LIMIT_PER_DAY`, `GLOBAL_AI_LIMIT_PER_DAY`, `LOG_LEVEL` | api | optional, Dashboard | Defaults in `backend/config.py` |
+| `VITE_API_URL` | web | `sync: false` | The API's URL, e.g. `https://pathwayai-api.onrender.com`. **Build time**: redeploy the site after changing it |
+| `NODE_VERSION` | web | in `render.yaml` | `22` (Vite 7 needs ≥ 20.19) |
 
-### Containers
-- `backend/Dockerfile`: multi-stage `python:3.12-slim`, non-root user, `uvicorn main:app --host 0.0.0.0 --port $PORT`, healthcheck on `/health`.
-- `frontend/Dockerfile` (optional): build with Node, serve `dist/` with nginx and an SPA fallback.
-- `docker-compose.yml`: frontend, backend, postgres, redis for one-command local dev.
+### First deploy (when approved)
+1. Push `main` to GitHub (the Blueprint is read from the repo).
+2. Render Dashboard → **New → Blueprint** → pick `YussafZarifi/pathway-ai` (grant Render access to the private repo).
+3. Enter the `sync: false` values. The URLs aren't known before the first deploy, so either:
+   - use the predictable names (`https://pathwayai-api.onrender.com`, `https://pathwayai-web.onrender.com`). Render appends a suffix if a name is taken; or
+   - deploy once, copy the real URLs into `ALLOWED_ORIGINS` and `VITE_API_URL`, then redeploy the static site (rebuild) and restart the API.
+4. Check `https://<api>/health` returns `{"status":"ok"}`, then run the quiz → results → dashboard flow on the static site.
 
-### SPA routing
-The static host must rewrite unknown paths to `/index.html` (React Router `BrowserRouter`).
+### Free-plan behaviour
+- The free web service sleeps after ~15 minutes idle; the first request can take up to about a minute. The frontend timeout is 90 s for this reason, and the career loader covers the wait.
+- A restart or deploy resets the in-memory rate limits and YouTube cache.
+- Upgrading `pathwayai-api` to a paid plan removes the sleep; nothing else changes.
 
-### CI/CD (GitHub Actions)
+## Later (🗺️)
+| Piece | Plan |
+|---|---|
+| Database | Render Postgres (or Supabase/Neon) with auth: F-7/F-8 |
+| Shared rate limits / cache | Render Key Value (Redis-compatible) once there is more than one instance |
+| Errors | Sentry (F-11) |
+| Containers | Optional `backend/Dockerfile` + `docker-compose.yml` for local dev (F-5) |
+
+### CI/CD (GitHub Actions, F-4)
 1. On PR: install → lint → unit tests (FE + BE) → build → Playwright E2E (mocked API).
-2. On merge to `main`: deploy backend, then frontend. Run migrations before the backend starts serving.
-3. Preview deployments per PR (Vercel/Render previews).
+2. Render auto-deploys `main`; switch `autoDeployTrigger` to `checksPass` once CI exists.
 
-### Production checklist
-- [ ] Env-based config, `.env.example` committed, real `.env` ignored
-- [ ] Rate limiting and request size limits on AI routes
-- [ ] Generic error responses, no personal data in logs
-- [ ] `/health` endpoint used by the platform health check
-- [ ] HTTPS only; CORS restricted to real origins
+## Production checklist
+- [x] Env-based config, `.env.example` committed, real `.env` ignored
+- [x] Rate limiting and request size limits on AI routes
+- [x] Generic error responses, no personal data in logs
+- [x] `/health` endpoint used by the platform health check
+- [x] CORS restricted to configured origins (HTTPS comes from Render)
 - [ ] Sentry wired up
-- [ ] Gemini budget alert / quota cap
+- [ ] Gemini budget alert / quota cap in Google Cloud
+- [ ] Tests + CI
 - [ ] README has the live URL

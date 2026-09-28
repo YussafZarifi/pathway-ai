@@ -1,61 +1,86 @@
 # Backend
 
-`backend/main.py` — a single-file FastAPI app (179 lines). Run with `uvicorn main:app --reload --port 8000`.
+A small FastAPI app in `backend/`. Run locally with `uvicorn main:app --reload --port 8000`; on Render it runs with `uvicorn main:app --host 0.0.0.0 --port $PORT --proxy-headers --forwarded-allow-ips "*"` (see `render.yaml`).
 
-## Setup
-- `load_dotenv()` reads `backend/.env` → `GEMINI_API_KEY`.
-- `genai.Client(api_key=...)` is created once at import time.
-- CORS: `allow_origins=["http://localhost:5173"]` (hard-coded), credentials allowed, all methods and headers.
+| File | Role |
+|---|---|
+| `main.py` | App, middleware, error handlers, endpoints, prompts, `generate_json()` Gemini helper, `add_videos()` |
+| `config.py` | Settings read once from environment variables (added 2026-09-27) |
+| `schemas.py` | Pydantic request models (added 2026-09-27) |
+| `rate_limit.py` | In-memory rate limiter used as a FastAPI dependency (added 2026-09-27) |
+| `youtube.py` | YouTube Data API lookups for roadmap step videos (ADR-012) |
+
+## Configuration (`config.py`)
+`load_dotenv()` reads `backend/.env` locally; on Render the service environment is used. Template: `backend/.env.example`.
+
+| Variable | Default | Notes |
+|---|---|---|
+| `GEMINI_API_KEY` | — | Required. Without it the AI endpoints return 503 (logged at startup) |
+| `YOUTUBE_API_KEY` | — | Optional (read by `youtube.py`); without it steps get a search link |
+| `ALLOWED_ORIGINS` | empty | Comma-separated CORS origins, trailing slash tolerated. **No localhost default**: empty means no browser origin is allowed (warning at startup) |
+| `GEMINI_MODEL` | `gemini-2.5-flash-lite` | |
+| `GEMINI_TIMEOUT_SECONDS` | 30 | Per Gemini request |
+| `RATE_LIMIT_PER_MINUTE` | 8 | Per client IP, AI endpoints combined |
+| `RATE_LIMIT_PER_DAY` | 50 | Per client IP |
+| `GLOBAL_AI_LIMIT_PER_DAY` | 500 | All clients together |
+| `LOG_LEVEL` | `INFO` | |
 
 ## Endpoints (✅)
 | Method | Path | Handler | Summary |
 |---|---|---|---|
 | GET | `/` | `root` | `{"status":"ok","message":"Backend is running"}` |
-| POST | `/api/ai/career` | `career_ai` | 3 tech careers + explanation |
-| POST | `/api/ai/roadmap` | `roadmap_ai` | ≤5-step roadmap |
+| GET | `/health` | `health` | `{"status":"ok"}`; no external calls, not rate limited (Render health check) |
+| POST | `/api/ai/career` | `career_ai` | 3 tech careers + explanation (rate limited) |
+| POST | `/api/ai/roadmap` | `roadmap_ai` | ≤5-step roadmap with videos (rate limited) |
 
 Full contracts: `docs/api.md`.
 
-## Request models
-```python
-class CareerRequest(BaseModel):  answers: dict
-class RoadmapRequest(BaseModel): answers: dict; career: str
-```
-There are no response models, and `answers` has no field-level schema or size limit.
+## Request pipeline
+1. **CORS** (outermost middleware): only `ALLOWED_ORIGINS`, methods GET/POST, header `Content-Type`, no credentials.
+2. **Body size**: `Content-Length` over 16 KB → 413 before parsing.
+3. **Rate limit** (`Depends(limit_ai_requests)` on the AI routes) → 429 with `Retry-After`.
+4. **Validation** (`schemas.py`): `QuizAnswers` has the 8 quiz IDs. Choice answers 1–80 chars; `experience_level` 0–10 and `education_comfort` 0–6 as ints; `curious_fields` optional, ≤300 chars; `career` 1–100 chars. Control characters (newlines etc.) are replaced with spaces. Unknown keys are ignored. Failure → 422 with a friendly message; the log lists failing field names only.
+5. **Prompt**: `answers.as_profile_text()` builds `question_id: answer` lines from the validated model (so unknown keys never reach the prompt). Prompt text itself is unchanged from before 2026-09-27.
+6. **Gemini** via `generate_json(prompt, label)`: model from config, timeout, code-fence stripping (still fragile: N-8), `json.loads`, must be an object.
+7. (roadmap) `add_videos(result, career)` adds `videos`, `video_search_url` and `video_query` per step (parallel YouTube lookups, 5 s timeout, in-memory cache; failures → `[]`).
+8. The parsed dict is returned (response shape still unvalidated: N-8).
 
-## Handler flow
-1. Check the `GEMINI_API_KEY` env var → 500 if missing.
-2. (career only) Check that `answers` is a non-empty dict → 400.
-3. `profile_text = "\n".join(f"{k}: {v}")`.
-4. Build an f-string prompt (see `docs/ai-system.md`).
-5. `client.models.generate_content(model="gemini-2.5-flash-lite", contents=prompt)` (blocking; FastAPI runs sync `def` handlers in a threadpool).
-6. Strip code fences with `text.strip("`").replace("json", "", 1)` (fragile), then `json.loads`.
-7. (roadmap only, since 2026-09-26) `add_videos(result, career)` adds `videos`, `video_search_url` and `video_query` to each step via `backend/youtube.py` (YouTube Data API v3, parallel, 5 s timeout, in-memory cache; optional `YOUTUBE_API_KEY`). API failures return `[]`, never an error; logs contain only the exception class because the request URL holds the key.
-8. Return the parsed dict (otherwise unvalidated).
+## Rate limiting (`rate_limit.py`, ADR-014)
+Sliding windows keyed by client IP (per minute, per day) plus one global daily window. Only allowed requests are recorded, so memory is bounded by the global cap. Checks the day window before the minute window so the message is accurate. Invalid (422) requests still count, since the dependency runs before body validation.
+- Client IP = `request.client.host`, which Uvicorn fills from `X-Forwarded-For` with `--proxy-headers --forwarded-allow-ips "*"`. A client that forges `X-Forwarded-For` might get a fresh per-IP bucket; the global cap still bounds total spend.
+- State is per process: resets on restart/deploy and isn't shared between instances. Move to Redis (Render Key Value) before running more than one instance.
 
 ## Error handling
-- Career: `JSONDecodeError` → 500 with `"Failed to parse AI response: {e}"`; other exceptions → 500 with `"AI generation failed: {e}. Check backend console."` (⚠ leaks internals).
-- Roadmap: any exception → 500 with a generic message (better).
-- No retries, no timeout, no fallback.
+Clients never see exception text.
+
+| Case | Status | `detail` |
+|---|---|---|
+| Invalid body | 422 | "Some quiz answers are missing or too long. Please retake the quiz and try again." |
+| Body too large | 413 | "Request is too large." |
+| Rate limited | 429 | Minute / day / global message |
+| `GEMINI_API_KEY` missing | 503 | "PathwayAI's AI service is temporarily unavailable. Please try again later." |
+| Gemini error, timeout, invalid JSON | 502 | "We couldn't generate results right now. Please try again." |
+| Anything unexpected | 500 | Same as 502 |
+
+No retries yet (N-8).
 
 ## Logging
-`print()` only. ⚠ Logs every user's full answers and the full parsed AI result. No request IDs, levels or structure.
+Python `logging` (`LOG_LEVEL`), format `time level logger: message`. Logged: Gemini timings, Gemini error code/status or exception class, invalid field names, rate-limit hits (scope only), YouTube error class, startup config warnings. **Never logged:** quiz answers, prompts, AI output, API keys. No request IDs yet (F-11). The `google_genai` and `httpx` libraries also log at INFO (request URLs without keys; Gemini sends its key in a header).
 
 ## Dependencies (`requirements.txt`)
-fastapi 0.128, uvicorn 0.40, pydantic 2.12, google-genai 2.25, python-dotenv, httpx, plus transitive packages. **`openai` 2.14 is listed but unused.** Two virtualenvs exist (repo root `.venv` and `backend/.venv`); consolidate to one.
+fastapi 0.128, uvicorn 0.40, pydantic 2.12, google-genai 2.25, python-dotenv, httpx, plus transitive packages. **`openai` 2.14 is listed but unused** (open question 4). Two virtualenvs exist (repo root `.venv`, which the owner's dev server uses, and `backend/.venv`); consolidate to one.
 
-## Security gaps
-- No auth or rate limiting → anyone who can reach the server can spend the Gemini quota.
-- Prompt injection through the free-text `curious_fields` answer and the `career` string.
-- No input size limits.
-- `.env` holds a real key. It is excluded by the root `.gitignore` (added 2026-09-25); keep it that way, and add a committed `.env.example` (ROADMAP N-5).
+## Remaining security gaps
+- No auth: anyone can call the AI endpoints within the rate limits.
+- Prompt injection is reduced (length limits, no control characters, unknown keys dropped) but not prevented: `curious_fields` and `career` are still free text in the prompt, and `career` is interpolated inside the JSON example (TD-13).
+- AI output isn't schema-validated; resource URLs are model-invented (TD-10, TD-21).
 
 ## Planned structure (🗺️)
 ```
 backend/
 ├── app/
 │   ├── main.py            # app factory, middleware, routers
-│   ├── config.py          # pydantic-settings (GEMINI_API_KEY, ALLOWED_ORIGINS, MODEL, …)
+│   ├── config.py          # pydantic-settings
 │   ├── api/               # routers: careers.py, roadmaps.py, progress.py, health.py
 │   ├── schemas/           # Pydantic request/response models (shared with AI response_schema)
 │   ├── services/llm.py    # prompt building, structured output, retries, caching, token logging

@@ -45,6 +45,7 @@ Every page file is now routed. Deleted as unreachable: the `/app/*` shell (`Dash
 - Persistent data goes through `lib/trackingEngine.js` (localStorage).
 
 ## lib/
+- **api.js** — the only backend client (since 2026-09-27). `request()` adds the `VITE_API_URL` base (no fallback; `vite build` fails without it), a 90 s timeout (Gemini + YouTube + Render free-plan wake-up), caller `signal` support, and throws `ApiError(message, status)`. Exports `requestCareers`, `requestRoadmap` (normalizes steps) and `errorMessage(error, fallback)`: 4xx/timeout/network errors show the specific message (e.g. rate limit), other failures the page's own copy.
 - **trackingEngine.js** — `trackEvent`, `trackMetric`, `trackProgress` (`started|completed|skipped|incomplete`), getters, sessions, export/import/clear. Validates against `data/trackingSchema.js`. ⚠ `getTrackingData()` writes back on every read; the event array is unbounded.
 - **scoringEngine.js** — `computeEmployabilityScore` (quiz 30, resume 40, roadmap 20, engagement 10), `computeCareerMomentumScore` (clarity 25, velocity 35, skill dev 20, consistency 20), `getCareerReadinessSummary` (average and recommendations). ⚠ Measures app engagement, not employability. The resume input (`resume_score` metric) is no longer written by any shipped code since the simulated analyzer was deleted, so that component is always 0 for real users. The roadmap % counts touched keys only.
 

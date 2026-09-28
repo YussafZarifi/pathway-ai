@@ -2,7 +2,7 @@
 
 ## Current implementation (✅)
 
-**Provider:** Google Gemini via `google-genai`. **Model:** `gemini-2.5-flash-lite` (hard-coded in two places). **Pattern:** single-shot prompt → free text → parse JSON.
+**Provider:** Google Gemini via `google-genai`. **Model:** `gemini-2.5-flash-lite` (from `GEMINI_MODEL`, default in `backend/config.py`; 30 s timeout since 2026-09-27). **Pattern:** single-shot prompt → free text → parse JSON.
 
 ### Workflow 1 — Career matching (`POST /api/ai/career`)
 Prompt structure (`backend/main.py:43-91`):

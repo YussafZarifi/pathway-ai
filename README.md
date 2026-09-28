@@ -30,14 +30,14 @@
 - **Local activity tracking** — events, metrics and progress stored in the browser (`localStorage`).
 
 ### 🟡 Partially implemented
-- **Progress tracking** — works within a session, but isn't scoped per roadmap and roadmaps aren't persisted (known bugs, see [`docs/technical-debt.md`](docs/technical-debt.md)).
+- **Persistence** — the current roadmap and its progress are saved in this browser only (one roadmap at a time; no accounts yet).
 
 ### 🗺️ Planned
 - Accounts and saved roadmaps (PostgreSQL), shareable roadmap links
 - Resume analysis and skill-gap detection
 - AI career coach (chat)
 - Streaming generation, grounded resources and real salary data
-- Tests, CI/CD, containerized deployment
+- Tests, CI/CD, live deployment
 
 ---
 
@@ -112,11 +112,7 @@ python -m venv .venv
 # Windows: .venv\Scripts\activate   ·   macOS/Linux: source .venv/bin/activate
 pip install -r requirements.txt
 ```
-Create `backend/.env`:
-```env
-GEMINI_API_KEY=your_key_here
-```
-Run:
+Copy `backend/.env.example` to `backend/.env` and set `GEMINI_API_KEY` (the example already allows the Vite dev origins in `ALLOWED_ORIGINS`). Run:
 ```bash
 uvicorn main:app --reload --port 8000
 ```
@@ -124,19 +120,22 @@ uvicorn main:app --reload --port 8000
 ### 2. Frontend
 ```bash
 cd frontend
+cp .env.example .env.local   # VITE_API_URL=http://127.0.0.1:8000
 npm install
-npm run dev          # http://localhost:5173
+npm run dev                  # http://localhost:5173
 ```
 
-> The frontend currently calls `http://127.0.0.1:8000` directly and the backend only allows CORS from `http://localhost:5173`. Both are hard-coded today. Making them configurable is a top-priority task.
-
 ### Environment variables
+Nothing is hard-coded: every URL and key comes from these (full list and defaults in `docs/deployment.md`).
 
-| Variable | Where | Required | Status | Description |
-|---|---|---|---|---|
-| `GEMINI_API_KEY` | `backend/.env` | Yes | In use | Google Gemini API key |
-| `VITE_API_URL` | `frontend/.env` | — | **Planned** | Backend base URL |
-| `ALLOWED_ORIGINS` | `backend/.env` | — | **Planned** | Comma-separated CORS origins |
+| Variable | Where | Required | Description |
+|---|---|---|---|
+| `GEMINI_API_KEY` | `backend/.env` | Yes | Google Gemini API key |
+| `ALLOWED_ORIGINS` | `backend/.env` | Yes | Comma-separated frontend origins allowed by CORS |
+| `YOUTUBE_API_KEY` | `backend/.env` | No | Real YouTube videos per roadmap step (otherwise a search link) |
+| `RATE_LIMIT_PER_MINUTE`, `RATE_LIMIT_PER_DAY`, `GLOBAL_AI_LIMIT_PER_DAY` | `backend/.env` | No | AI endpoint rate limits (defaults 8 / 50 / 500) |
+| `VITE_API_URL` | `frontend/.env.local` | Yes | Backend base URL; `npm run build` fails without it |
+
 
 ### Scripts (frontend)
 | Command | Description |
@@ -150,7 +149,7 @@ npm run dev          # http://localhost:5173
 
 ## Deployment
 
-Not deployed yet. The planned target is a static frontend (Vercel, Netlify or Render Static) plus a containerized FastAPI service (Render or Fly.io), with environment-based configuration. See [`docs/deployment.md`](docs/deployment.md).
+Not deployed yet, but ready for [Render](https://render.com): `render.yaml` is a Blueprint for the FastAPI service (health check `/health`) and the static React site. The backend validates requests, rate-limits the AI endpoints (per IP and globally), returns generic error messages and never logs quiz answers. See [`docs/deployment.md`](docs/deployment.md).
 
 ---
 

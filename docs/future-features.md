@@ -6,7 +6,7 @@ Everything here is **planned, not implemented**. Effort: Easy (1–2 h) · Mediu
 | Feature | Why it matters | Roadmap |
 |---|---|---|
 | 404 route + error boundary | Basic robustness | F-12 |
-| Env config (`VITE_API_URL`, `ALLOWED_ORIGINS`) + `.env.example` | Deployable | N-5 |
+| ~~Env config (`VITE_API_URL`, `ALLOWED_ORIGINS`) + `.env.example`~~ — done 2026-09-27 | Deployable | N-5 |
 | Brand consistency, title, favicon, OG tags | Professional polish | N-12 |
 | Reduced-motion + focus-visible | Accessibility | F-10 |
 | Accessible modals (Esc, focus trap, ARIA) | Accessibility | F-10 |
@@ -20,10 +20,10 @@ Everything here is **planned, not implemented**. Effort: Easy (1–2 h) · Mediu
 | Feature | Roadmap |
 |---|---|
 | Gemini structured output + Pydantic response models | N-8 |
-| Central API client (timeout, retry, typed errors) | N-6 |
+| ~~Central API client (timeout, typed errors)~~ — done 2026-09-27; retries still open | N-6 |
 | Per-roadmap localStorage persistence | N-7 |
 | Streaming roadmap (SSE) (Large if done with progressive UI) | F-6 |
-| Rate limiting + input limits | N-9 |
+| ~~Rate limiting + input limits~~ — done 2026-09-27 (in memory; Redis later) | N-9 |
 | Per-step notes and target dates | B-5 |
 | Regenerate one step / change difficulty | B-6 |
 | Weekly plan view | B-7 |

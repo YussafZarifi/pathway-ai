@@ -13,7 +13,7 @@ These describe the conventions already in the codebase plus rules adopted after 
 - Function components + hooks. One component per file, PascalCase filename matching the default export.
 - Match the existing style: 2-space indent, double quotes, semicolons, camelCase CSS class names (`careerCard`, `timelineStep`).
 - **Pages** in `src/pages/`, reusable UI in `src/components/`, non-UI logic in `src/lib/`, static data in `src/data/`.
-- **Network:** all requests go through `src/lib/api.js` (to be created) using `import.meta.env.VITE_API_URL`. No `fetch` with hard-coded URLs in components. Always handle abort, error and empty states.
+- **Network:** all requests go through `src/lib/api.js` (the only backend client since 2026-09-27) using `import.meta.env.VITE_API_URL`. No `fetch` with hard-coded URLs in components. Always handle abort, error and empty states.
 - **State:** keep state local where possible. Don't use router `state` as the only copy of important data; persist it.
 - **Pure render and pure updaters:** no side effects (tracking, storage, network) inside render bodies or `setState` updater functions. Put them in event handlers or effects.
 - **Effects:** complete dependency arrays. If you must suppress `react-hooks/exhaustive-deps`, explain why in a comment.

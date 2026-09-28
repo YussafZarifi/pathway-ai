@@ -19,6 +19,7 @@ ADR-001 to ADR-008 were **reconstructed on 2026-09-24** from the existing code d
 | ADR-011 | Entry points for unbuilt features must do something honest when clicked | Accepted |
 | ADR-012 | Roadmap videos come from the YouTube Data API, not the model | Accepted |
 | ADR-013 | Persist the current roadmap in localStorage; dashboard shows only real-data metrics | Accepted |
+| ADR-014 | Deployment readiness: env-only config, request validation, in-memory rate limits, Render Blueprint | Accepted |
 
 ---
 
@@ -114,6 +115,20 @@ ADR-001 to ADR-008 were **reconstructed on 2026-09-24** from the existing code d
   - The Employability/Momentum/Readiness scores are no longer displayed; `scoringEngine.js` is kept unchanged pending B-14.
 - **Alternatives considered:** keep the Readiness score with an explanation (rejected by the owner in favour of roadmap completion); an AI-generated insights endpoint (deferred, B-19); per-task minutes/difficulty from the model (rejected for now: step estimates already exist).
 - **Consequences:** `/dashboard` works after reloads and in new tabs and shows correct progress. Still one roadmap, one browser (supersedes step 1 of ADR-004; F-7/F-8 remain the real fix). Quiz answers, including free text, are now stored in localStorage to support "Regenerate" (same privacy class as TD-41). ADR-007's router state is no longer the only transport for the roadmap. ADR-008's scores are demoted from the UI.
+- **Status:** Accepted.
+
+## ADR-014 — Deployment readiness: env-only config, request validation, in-memory rate limits, Render Blueprint
+- **Date:** 2026-09-27
+- **Context:** the app couldn't be deployed: the frontend called a hard-coded `http://127.0.0.1:8000`, CORS allowed only `http://localhost:5173`, and the backend was an open, unvalidated proxy to Gemini and YouTube that returned raw exception text and printed users' quiz answers and AI output. The owner chose Render as the host and asked for the project to be made deployment-ready without deploying.
+- **Decision:**
+  - **Config only from the environment, no localhost defaults.** Backend `config.py` reads `GEMINI_API_KEY`, `ALLOWED_ORIGINS`, `GEMINI_MODEL`, timeouts, rate limits and `LOG_LEVEL`; an empty `ALLOWED_ORIGINS` allows no browser origin. The frontend reads `VITE_API_URL` and `vite build` fails without it, so a misconfigured build can't ship. Both sides have a committed `.env.example`; local values live in git-ignored `backend/.env` and `frontend/.env.local`.
+  - **One frontend client:** every request goes through `lib/api.js` (timeout, `ApiError` with user-safe messages).
+  - **Request validation with Pydantic** (`schemas.py`): quiz IDs with length/range limits, control characters stripped, unknown keys dropped; 16 KB body limit. Choice answers are length-limited strings rather than enumerated options so frontend copy changes don't break the API.
+  - **Rate limiting in memory** (`rate_limit.py`): per-IP per-minute and per-day windows plus a global daily cap, as a FastAPI dependency on the AI routes. Custom (~100 lines) rather than slowapi: no new dependency, and the global cap is a first-class limit.
+  - **Safe errors and logs:** fixed messages per status (413/422/429/502/503/500); logs contain timings, status codes, exception class names and failing field names, never answers, prompts or AI output.
+  - **Render Blueprint** (`render.yaml`): Python web service (`/health` check, Uvicorn proxy headers for real client IPs) and a static site with an SPA rewrite; secrets are `sync: false`.
+- **Alternatives considered:** keep `http://127.0.0.1:8000` as a dev fallback in `api.js` (rejected: a missing variable would silently ship a broken production build); slowapi (rejected for now, see above); Redis-backed limits (deferred: one free instance doesn't need shared state); a Dockerfile (deferred: Render's native Python runtime is simpler until there is more to package); enumerating every quiz option in the schema (rejected: couples backend to UI copy).
+- **Consequences:** the project can be deployed by applying the Blueprint and entering four values. Local dev needs one extra step (`cp .env.example .env.local`). Rate-limit state resets on every deploy/restart and isn't shared between instances; a client forging `X-Forwarded-For` may get a fresh per-IP bucket, but the global cap still bounds spend. Invalid requests count toward the limits. The free plan sleeps, so the frontend timeout is 90 s. Response validation (N-8), tests/CI (F-2–F-4) and error tracking (F-11) remain before a public launch.
 - **Status:** Accepted.
 
 ---

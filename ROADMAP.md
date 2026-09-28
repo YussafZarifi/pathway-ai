@@ -23,6 +23,9 @@
 | C-10 | (was N-3) Removed simulated `ResumeAnalyzer`, the `/app/*` shell, legacy pages/helpers/data/images, `dashboard.css`, `App.css`, root `.vite/`; `/home` kept and rebuilt as an honest empty-state hub (ADR-010) | 2026-09-25 |
 | C-11 | (was N-4) Removed dead buttons: Landing Log in/Sign Up, Save Roadmap, Mark as In Progress, fake Copy Link + account prompt (Settings/Upgrade went with the `/app/*` shell) | 2026-09-25 |
 | C-14 | `/home` visual polish: Landing glow, gradient CTA/title, aligned header, left-aligned cards with Landing's per-feature icon colours (green Resume, indigo Coach) that float on hover, small "Planned" pills, AA-safe planned cards, reduced motion, fits at 360px | 2026-09-26 |
+| C-20 | (was N-5) Env-only config: backend `config.py` (`ALLOWED_ORIGINS` CORS, `GEMINI_MODEL`, timeouts, limits), frontend `VITE_API_URL` (build fails without it), `.env.example` on both sides, `GET /health`, Render Blueprint `render.yaml`. ADR-014 | 2026-09-27 |
+| C-21 | (was N-6) `lib/api.js` is the only backend client: shared `request()` with timeout, `ApiError`, `errorMessage()`; the two hard-coded career fetches in `Results.jsx` moved into `requestCareers()` | 2026-09-27 |
+| C-22 | (was N-9) Backend hardening: Pydantic request models + 16 KB body limit, in-memory rate limits (per IP per minute/day + global per day), generic error messages, no answers/prompts/AI output in logs, Gemini timeout; Quiz no longer logs answers, text answer capped at 300 chars | 2026-09-27 |
 | C-19 | Final dashboard consistency pass: tokens on `:root`, dialogs on the app button system, one icon style in the rail, 3×2 achievement badges, no repeated "Up next" badges, centred finished-state focus card, gentler entrance animation. Dashboard considered complete; next: deployment | 2026-09-26 |
 | C-18 | Dashboard polish + consistent videos: shared `VideoCard` for every step (stacked, placeholder for missing/failed thumbnails, search-card fallback, lazy thumbnails), de-duplicated hero count, no hover lift on non-interactive cards, single-column quick actions, aligned step headers, type-scale cleanup, focus actions disabled while regenerating, smaller ring on phones | 2026-09-26 |
 | C-17 | Dashboard redesign: hero with progress ring, Today's focus, stat tiles, visual roadmap stepper, dated achievements, rule-based Insights, quick actions (regenerate with confirm + skeleton), empty state; shared `AppHeader` and `Dialog`; Employability/Momentum meters and fake resume banner removed from the UI; ~690 lines of dead CSS removed | 2026-09-26 |
@@ -39,14 +42,11 @@ _Nothing in progress._
 
 | ID | Task | Priority | Effort | Impact |
 |---|---|---|---|---|
-| N-5 | Env config: `VITE_API_URL` (frontend), `ALLOWED_ORIGINS` (backend); `.env.example` files | P0 | S | ★★★ |
-| N-6 | Single API client `src/lib/api.js` (timeout, typed errors); move the 2 career fetches in `Results.jsx` into it (the roadmap request moved 2026-09-26) | P1 | S | ★★ |
-| N-8 | Gemini structured output (`response_mime_type` + `response_schema`) + Pydantic request/response models + one retry | P1 | M | ★★★ |
-| N-9 | Backend hardening: rate limit (slowapi), request size/schema for `answers`, generic error messages, remove PII logging, request timeout | P0 | M | ★★★ |
+| N-8 | Gemini structured output (`response_mime_type` + `response_schema`) + Pydantic **response** models + one retry (request models done 2026-09-27). A malformed reply is a 502 today (seen 1 in 3 live roadmap calls on 2026-09-27) | P1 | M | ★★★ |
 | N-10 | Fix `ThemeGate`/page theme conflict — single theme mechanism | P2 | S | ★ |
 | N-11 | Fix per-keystroke tracking + side effect in state updater (`Quiz.jsx`) | P2 | XS | ★ |
 | N-12 | Brand consistency: `<title>`, favicon, meta/OG tags, "PathwayAI" everywhere | P1 | XS | ★★ |
-| N-13 | ESLint: add JSX-uses-vars (eslint-plugin-react) and fix real errors → 0 errors (17 left as of 2026-09-25) | P2 | S | ★★ |
+| N-13 | ESLint: add JSX-uses-vars (eslint-plugin-react) and fix real errors → 0 errors (12 left as of 2026-09-27) | P2 | S | ★★ |
 | N-14 | Prune dead CSS left in `index.css` by deleted components (e.g. `.roadmapStats`, `.primaryBtn`, `.comingSoonBadge` defined three times) | P3 | S | ★ |
 | N-15 | Link `/home` from Landing (the shared app header on `/home` and `/dashboard` links it since 2026-09-26) | P3 | XS | ★ |
 
@@ -54,7 +54,7 @@ _Nothing in progress._
 
 | ID | Task | Priority | Effort | Impact |
 |---|---|---|---|---|
-| F-1 | Deploy frontend + backend (live URL in README) | P1 | M | ★★★ |
+| F-1 | Deploy to Render via `render.yaml` (API web service + static site), live URL in README. Ready since 2026-09-27; waiting for the owner's review. Steps in `docs/deployment.md` | P0 | S | ★★★ |
 | F-17 | Make the GitHub repo public (owner decision) once README screenshots, env config and backend hardening are done | P1 | XS | ★★★ |
 | F-2 | Tests: Vitest (tracking/scoring engines, components), pytest (API with mocked Gemini) | P1 | L | ★★★ |
 | F-3 | Playwright E2E: quiz → results → dashboard with mocked API | P1 | M | ★★★ |

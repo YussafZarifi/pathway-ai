@@ -1,6 +1,8 @@
 # API Reference
 
-Base URL (local): `http://127.0.0.1:8000`. No versioning, no authentication. Content type: `application/json`.
+Base URL: `VITE_API_URL` in the frontend (local dev: `http://127.0.0.1:8000`). No versioning, no authentication. Content type: `application/json`. Request bodies over 16 KB → 413.
+
+Since 2026-09-27 (ADR-014) both AI endpoints validate requests with Pydantic (`backend/schemas.py`), are rate limited, and return only user-friendly `detail` messages, never exception text.
 
 > Status: ✅ implemented · 🗺️ planned
 
@@ -12,6 +14,14 @@ Health check.
 { "status": "ok", "message": "Backend is running" }
 ```
 Doesn't check Gemini connectivity.
+
+---
+
+## ✅ `GET /health`
+Liveness check used by Render. No external calls, no quota, not rate limited. Added 2026-09-27.
+```json
+{ "status": "ok" }
+```
 
 ---
 
@@ -33,7 +43,7 @@ Generates exactly 3 technology-career suggestions.
   }
 }
 ```
-`answers` is typed as a free-form `dict`. The keys above are the quiz question IDs from `frontend/src/data/questions.js`.
+`answers` is validated by `QuizAnswers` (`backend/schemas.py`). Keys are the quiz question IDs from `frontend/src/data/questions.js`: choice answers are required strings of 1–80 chars; `experience_level` is an int 0–10 and `education_comfort` an int 0–6; `curious_fields` is optional, ≤300 chars. Control characters are replaced with spaces; unknown keys are ignored.
 
 **Response 200** (shape requested from the model; not validated server-side)
 ```json
@@ -57,11 +67,11 @@ Rules in the prompt: exactly 3 careers, tech-only, `match_score` 70–95, 4–5 
 **Errors**
 | Status | When | Body |
 |---|---|---|
-| 400 | `answers` empty or not a dict | `{"detail":"Invalid answers format"}` |
-| 422 | Body fails Pydantic parsing | FastAPI validation error |
-| 500 | Missing key | `{"detail":"GEMINI_API_KEY missing in backend/.env"}` |
-| 500 | Model output isn't JSON | `{"detail":"Failed to parse AI response: …"}` ⚠ leaks the exception |
-| 500 | Gemini error | `{"detail":"AI generation failed: …. Check backend console."}` ⚠ leaks the exception |
+| 413 | Body over 16 KB | `{"detail":"Request is too large."}` |
+| 422 | Missing/invalid answers (incl. empty) | `{"detail":"Some quiz answers are missing or too long. Please retake the quiz and try again."}` |
+| 429 | Rate limit (per IP per minute/day, or global per day) | Friendly message + `Retry-After` header |
+| 502 | Gemini error, timeout, or output that isn't a JSON object | `{"detail":"We couldn't generate results right now. Please try again."}` |
+| 503 | `GEMINI_API_KEY` not configured | `{"detail":"PathwayAI's AI service is temporarily unavailable. Please try again later."}` |
 
 ---
 
@@ -72,6 +82,7 @@ Generates a roadmap of up to 5 steps for the chosen career.
 ```json
 { "answers": { "...": "same as above" }, "career": "Machine Learning Engineer" }
 ```
+`career`: 1–100 chars, control characters replaced.
 
 **Response 200**
 ```json
@@ -103,12 +114,12 @@ Generates a roadmap of up to 5 steps for the chosen career.
 ✅ `videos` (since 2026-09-26) are **real** YouTube Data API search results for the model's `video_query`, up to 2 per step. They are `[]` when `YOUTUBE_API_KEY` is unset or the API fails (e.g. quota exhausted). `video_search_url` is always present as the fallback. See ADR-012.
 Frontend normalization adds `step` (1-based) and defaults `time: "Varies"`, `resources: []`, `tasks: []`, `videos: []`.
 
-**Errors:** 500 `{"detail":"Roadmap generation failed. Check backend console."}` for any failure. No 400 check for empty answers.
+**Errors:** same table as `/api/ai/career` (413, 422, 429, 502, 503).
 
 ---
 
 ## CORS
-Only `http://localhost:5173` is allowed (hard-coded).
+Origins come from `ALLOWED_ORIGINS` (comma-separated, no default). Methods GET/POST, header `Content-Type`, no credentials. Error responses (413/429) carry CORS headers too, so the frontend can read their messages.
 
 ---
 

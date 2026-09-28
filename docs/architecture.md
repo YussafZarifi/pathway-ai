@@ -16,10 +16,10 @@ flowchart TB
     subgraph Server[FastAPI :8000 — backend/main.py]
         EP1[POST /api/ai/career]
         EP2[POST /api/ai/roadmap]
-        H[GET /]
+        H[GET / · GET /health]
     end
     GEM[(Google Gemini<br/>gemini-2.5-flash-lite)]
-    SPA -- "fetch http://127.0.0.1:8000 (hard-coded)" --> EP1
+    SPA -- "lib/api.js → VITE_API_URL" --> EP1
     SPA --> EP2
     EP1 --> GEM
     EP2 --> GEM
@@ -32,7 +32,7 @@ flowchart TB
 | Router state | Moves `answers` Quiz → Results; a fallback copy of `{career, roadmap}` Results → Dashboard | Since 2026-09-26 the dashboard reads the roadmap from localStorage first (ADR-013) |
 | Roadmap store | `pathwayai_roadmap`: the current roadmap with careerData and answers | One roadmap, this browser only (`lib/roadmapStore.js`) |
 | localStorage | Event log, metrics history, step progress | Single key `pathwayai_tracking`; unbounded growth; rewritten on every read |
-| FastAPI | Holds the Gemini key; builds prompts; parses JSON; returns results | Stateless; no auth, rate limit, validation or caching |
+| FastAPI | Holds the Gemini key; validates requests; rate limits; builds prompts; parses JSON; returns results | Config from env (`config.py`); Pydantic request models; in-memory rate limits; no auth or response validation (ADR-014) |
 | Gemini | Generates careers and roadmaps | Prompt-and-parse JSON; no response schema |
 
 ### Request lifecycle — career matches
@@ -50,10 +50,10 @@ flowchart TB
 ## Known architectural problems
 - No data ownership: the roadmap exists only in router state.
 - Progress is global, not per roadmap (keys collide across careers).
-- Hard-coded origins/URLs prevent any deployment.
+- ~~Hard-coded origins/URLs prevent any deployment~~ — resolved 2026-09-27 (ADR-014).
 - Two competing theme mechanisms (`ThemeGate` and per-page `useEffect` body classes).
 - ~~Two dashboard designs~~ — resolved 2026-09-25 (ADR-010): the unrouted `/app/*` shell was deleted; the tabbed `/dashboard` is the roadmap view and `/home` is the future signed-in hub.
-- The backend is an open proxy to a paid API.
+- The backend is an unauthenticated proxy to a paid API; since 2026-09-27 rate limits and input limits bound the spend (ADR-014).
 
 ## Target architecture (🗺️)
 
