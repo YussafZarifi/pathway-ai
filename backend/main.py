@@ -1,26 +1,24 @@
-import os, json
+import json
 from concurrent.futures import ThreadPoolExecutor
-from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from google import genai
 
+import config
 import youtube
-
-load_dotenv()
 
 app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=config.ALLOWED_ORIGINS,
+    allow_credentials=False,
+    allow_methods=["GET", "POST"],
+    allow_headers=["Content-Type"],
 )
 
-client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+client = genai.Client(api_key=config.GEMINI_API_KEY) if config.GEMINI_API_KEY else None
 
 class CareerRequest(BaseModel):
     answers: dict
@@ -31,7 +29,7 @@ class RoadmapRequest(BaseModel):
 
 @app.post("/api/ai/career")
 def career_ai(payload: CareerRequest):
-    if not os.getenv("GEMINI_API_KEY"):
+    if client is None:
         raise HTTPException(status_code=500, detail="GEMINI_API_KEY missing in backend/.env")
 
     answers = payload.answers
@@ -96,7 +94,7 @@ User answers:
     try:
         print(f"Calling Gemini API for careers, prompt length: {len(prompt)}")
         resp = client.models.generate_content(
-            model="gemini-2.5-flash-lite",
+            model=config.GEMINI_MODEL,
             contents=prompt,
         )
         text = (resp.text or "").strip()
@@ -123,9 +121,15 @@ User answers:
 def root():
     return {"status": "ok", "message": "Backend is running"}
 
+
+@app.get("/health")
+def health():
+    """Liveness check for the host. Makes no external calls and spends no quota."""
+    return {"status": "ok"}
+
 @app.post("/api/ai/roadmap")
 def roadmap_ai(payload: RoadmapRequest):
-    if not os.getenv("GEMINI_API_KEY"):
+    if client is None:
         raise HTTPException(status_code=500, detail="GEMINI_API_KEY missing in backend/.env")
 
     answers = payload.answers
@@ -169,7 +173,7 @@ Chosen career:
 
     try:
         resp = client.models.generate_content(
-            model="gemini-2.5-flash-lite",
+            model=config.GEMINI_MODEL,
             contents=prompt,
         )
         text = (resp.text or "").strip()
