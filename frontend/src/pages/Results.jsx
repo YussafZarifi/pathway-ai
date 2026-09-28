@@ -35,7 +35,7 @@ import {
   EVENT_TYPES,
   METRIC_NAMES,
 } from "../lib/trackingEngine";
-import { requestRoadmap } from "../lib/api";
+import { errorMessage, requestCareers, requestRoadmap } from "../lib/api";
 import { saveCurrentRoadmap } from "../lib/roadmapStore";
 
 export default function Results() {
@@ -162,21 +162,12 @@ export default function Results() {
 
     async function fetchCareers() {
       try {
-        const res = await fetch("http://127.0.0.1:8000/api/ai/career", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ answers }),
-          signal: controller.signal,
-        });
-
-        if (!res.ok) throw new Error("Career AI request failed");
-
-        const data = await res.json();
+        const data = await requestCareers(answers, { signal: controller.signal });
 
         setAiResult({
           explanation:
-            data?.explanation || "Here are a few options based on your answers.",
-          careers: Array.isArray(data?.careers) ? data.careers : [],
+            data.explanation || "Here are a few options based on your answers.",
+          careers: data.careers,
         });
 
         // Track career suggestions generated
@@ -187,7 +178,7 @@ export default function Results() {
       } catch (e) {
         console.error("Error fetching careers:", e);
         if (e.name !== "AbortError") {
-          setError("Could not generate results. Please try again.");
+          setError(errorMessage(e, "Could not generate results. Please try again."));
         }
       } finally {
         setLoadingCareers(false);
@@ -242,7 +233,7 @@ export default function Results() {
     } catch (e) {
       console.error("Error generating roadmap:", e);
       if (e.name !== "AbortError") {
-        setError("Could not generate roadmap. Please try again.");
+        setError(errorMessage(e, "Could not generate roadmap. Please try again."));
       }
     } finally {
       setLoadingRoadmap(false);
@@ -258,19 +249,11 @@ export default function Results() {
       setAiResult(null);
       setSelectedCareer("");
 
-      const res = await fetch("http://127.0.0.1:8000/api/ai/career", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ answers }),
-      });
-
-      if (!res.ok) throw new Error("Career AI request failed");
-
-      const data = await res.json();
+      const data = await requestCareers(answers);
       setAiResult({
         explanation:
-          data?.explanation || "Here are more options based on your answers.",
-        careers: Array.isArray(data?.careers) ? data.careers : [],
+          data.explanation || "Here are more options based on your answers.",
+        careers: data.careers,
       });
 
       // Track career regeneration
@@ -278,7 +261,7 @@ export default function Results() {
     } catch (e) {
       console.error("Error regenerating careers:", e);
       if (e.name !== "AbortError") {
-        setError("Could not regenerate results. Please try again.");
+        setError(errorMessage(e, "Could not regenerate results. Please try again."));
       }
     } finally {
       setLoadingCareers(false);

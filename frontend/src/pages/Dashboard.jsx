@@ -20,7 +20,7 @@ import {
   METRIC_NAMES,
 } from "../lib/trackingEngine";
 import { loadCurrentRoadmap, saveCurrentRoadmap, stepProgressKey } from "../lib/roadmapStore";
-import { requestRoadmap } from "../lib/api";
+import { errorMessage, requestRoadmap } from "../lib/api";
 import {
   getStepStatuses,
   summarizeProgress,
@@ -177,7 +177,9 @@ export default function Dashboard() {
       refreshTracking();
     } catch (e) {
       console.error("Error regenerating roadmap:", e);
-      setRegenError("Couldn't generate a new roadmap. Your current one is unchanged.");
+      setRegenError(
+        errorMessage(e, "Couldn't generate a new roadmap.") + " Your current one is unchanged."
+      );
     } finally {
       setRegenerating(false);
     }
