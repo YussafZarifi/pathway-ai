@@ -45,7 +45,7 @@ Found in the 2026-09-24 audit. When an item is resolved, strike it through and n
 | ~~TD-23~~ | Duplication | ~~Near-identical fetch blocks~~ — **resolved 2026-09-27** (`de7a1d2`: every request goes through `lib/api.js`) | — |
 | TD-24 | Duplication | Roadmap % logic in two places (`dashboardData.js` is the displayed one; `scoringEngine.js` keeps the old count). Headers unified for `/home` + `/dashboard` via `AppHeader` (2026-09-26); Landing still has its own | `scoringEngine.js`, `Landing.jsx` |
 | TD-25 | Architecture | Two competing theme mechanisms (was three; `DashboardLayout` deleted 2026-09-25); `ThemeGate` removes the page's `theme-landing` class | `ThemeGate.jsx`, `Landing.jsx`, `Home.jsx`, `Dashboard.jsx` |
-| TD-26 | Bug | Tracking side effect inside `setAnswers` updater; one event per keystroke on text input | `Quiz.jsx:61-67` |
+| ~~TD-26~~ | Bug | ~~Tracking side effect inside `setAnswers` updater; one event per keystroke on text input~~ — **resolved 2026-09-28** (`9b97b5b`: tracking outside the updater, free text not tracked per keystroke) | — |
 | TD-27 | Performance | `getTrackingData()` writes on every read; each track call parses and rewrites the whole blob; unbounded `events[]` | `trackingEngine.js:77-93,129-154` |
 | TD-28 | Bug | `resumeQuality` (0–40) compared to `< 60` → unreachable | `scoringEngine.js:327-339` |
 | TD-29 | Product | "Employability" and "Momentum" measure app engagement, not employability. **Mitigated 2026-09-26:** no longer shown on the dashboard; code remains (B-14) | `scoringEngine.js` |
@@ -57,7 +57,7 @@ Found in the 2026-09-24 audit. When an item is resolved, strike it through and n
 | TD-35 | Quality | 12 ESLint errors, 1 warning as of 2026-09-26 (was 17); most are false positives from missing `jsx-uses-vars` | `eslint.config.js` + various |
 | TD-36 | Observability | `print`/`console.log` only; no request IDs, error tracking or metrics | FE + BE |
 | TD-37 | AI | No caching (timeout, `GEMINI_MODEL` config and one retry added 2026-09-27) | `llm.py` |
-| TD-38 | AI | Prompt references "location" but the quiz doesn't ask for it | `main.py:156` |
+| TD-38 | AI | Prompt references "location" but the quiz doesn't ask for it — **resolved for v2 prompts 2026-09-28**; the unchanged v1 prompt keeps it until v1 support is removed | `prompts.py` (v1) |
 | TD-39 | Type safety | No TypeScript; field-name drift (`name` vs `title`, `salary_range` vs `salaryRange`) | FE |
 | TD-40 | UX | "Try again" does `window.location.reload()`; PDF export uses `alert()` on error | `Results.jsx:367`, `ShareModal.jsx:33` |
 | TD-41 | Privacy | Raw quiz answers (incl. free text) stored in the localStorage event log | `Quiz.jsx:79`, `trackingEngine.js` |

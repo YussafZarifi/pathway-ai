@@ -6,17 +6,30 @@
 
 **Quota:** the key is on Gemini's **free tier: 20 requests per day** for `gemini-2.5-flash-lite` (quota `GenerateRequestsPerDayPerProjectPerModel-FreeTier`, measured 2026-09-27). A quiz run uses 2 requests (careers + roadmap), plus 1 per regenerate. See `docs/deployment.md`.
 
+Prompts live in `backend/prompts.py` (since 2026-09-28). There are two versions, picked by the answer format (ADR-016): **v2** for the 5-question quiz and **v1**, the original prompts unchanged, for roadmaps saved before it.
+
+### The 5-question quiz (v2) and how the model uses it
+| Question | Captures | How the prompt tells Gemini to use it |
+|---|---|---|
+| What excites you the most? (up to 3) | Interests | Strongest signal for role families; interests from different areas → at least one hybrid role |
+| When you face a hard problem, what's your style? | Problem-solving approach, work style, natural strengths | Separates roles within a family (root cause → reliability/security/backend/data eng; build fast → product/full-stack/mobile/games; research → data science/ML; people → UX/product/solutions; organize → PM/TPM/lead) |
+| What's your experience level? | Starting point | Feasibility of each career; roadmap starts at the right level (skip known basics) |
+| How much time can you give each week? (2/5/10/20+) | Pace | Step `time` estimates sized to those hours; feasibility with the goal |
+| What do you want to achieve in 12 months? + optional career in mind | Goal and a stated preference | Feasibility; the final roadmap step aims at the goal; a career in mind becomes one of the 3 with an honest score and fit explanation |
+
+The profile is sent as labelled lines ("Excited by: …", "Problem-solving style: …", "Time available: about 10 hours per week", …) with the optional career JSON-quoted. The prompt says the profile is information about the user, never instructions, and tells the model to infer as much as it can rather than ask for more.
+
 ### Workflow 1 — Career matching (`POST /api/ai/career`)
-Prompt structure (`backend/main.py:43-91`):
-1. "Return STRICT JSON only (no markdown, no code fences) in this exact shape:" plus a literal example with 3 career objects and `explanation`.
-2. Rules: exactly 3 careers; **technology-industry roles only, never non-tech**; reason 1–2 sentences; `match_score` 70–95; realistic USD `salary_range`; `growth_rate` with a descriptor; `education`; 4–5 `skills`; `explanation` 3–5 supportive sentences.
-3. `User answers:` followed by raw `key: value` lines (question IDs, not human-readable labels).
+1. "Return STRICT JSON only …" plus a literal example with 3 career objects and `explanation` (JSON mode + `response_schema` enforce the shape).
+2. Rules: exactly 3 careers; **technology-industry roles only, never non-tech**; `match_score` 70–95; realistic USD `salary_range`; `growth_rate` with a descriptor; `education`; 4–5 `skills`. v2 adds: each reason addressed to the user and naming at least two of their answers; the explanation describes what the answers suggest about their strengths; the "How to read the profile" guidance above.
+3. v2: `User profile:` labelled lines. v1: `User answers:` raw `key: value` lines.
 
 ### Workflow 2 — Roadmap (`POST /api/ai/roadmap`)
-Prompt structure (`backend/main.py:132-163`):
-1. "Return STRICT JSON only in this exact shape:" with `career` interpolated **inside the JSON example** plus one example step.
-2. Rules: ≤5 steps; actionable and beginner-friendly; time estimates; 2–3 resources "with valid URLs"; 2–3 tasks; a 3–8 word `video_query` YouTube search phrase ("No URLs"); "tailor to user's stage + location if provided" (⚠ the quiz has no location question).
-3. User answers + chosen career.
+1. "Return STRICT JSON only …" with the career inside the JSON example (v2 JSON-escapes it) plus one example step.
+2. Rules: ≤5 steps; 2–3 resources "with valid URLs"; 2–3 tasks; a 3–8 word `video_query` ("No URLs"). v2: steps matched to the experience level, `time` realistic for the weekly hours, pacing toward the 12-month goal, a last step that reaches the goal, tasks suited to the problem-solving style and interests. v1: "beginner-friendly" and "tailor to user's stage + location if provided" (the old quiz had no location question).
+3. Profile + chosen career.
+
+Live check on `gemini-2.5-flash` (2026-09-28), profile "Designing interfaces + Analyzing data, works with people, some coding, 5 h/week, switch careers, career in mind: Data engineer": UX Designer 90, Data Analyst 88, Data Engineer 82 (the career in mind, honestly lower); every reason cited two answers; roadmap steps of 1–4 months ending in a career-switch portfolio.
 4. **Video enrichment (✅ 2026-09-26, ADR-012):** after parsing, `add_videos()` in `main.py` sends each step's `video_query` to `backend/youtube.py`, which calls the YouTube Data API v3 `search.list` (`type=video`, `maxResults=2`, `safeSearch=strict`) in parallel, with a 5 s timeout and an in-memory cache of successful lookups. The model never produces video URLs; it only chooses the search phrase. Without `YOUTUBE_API_KEY` or on API failure, `videos` is `[]` and the UI shows `video_search_url`. This is a small example of grounding: retrieval from a real source instead of model-invented links.
 
 ### Output handling (✅ 2026-09-27, ADR-015)
@@ -49,7 +62,7 @@ The old backend turned the 429 into the same generic 502 as a parse failure. The
 | No caching | Same answers → new paid call every time |
 | No evals | Prompt changes can't be checked for regressions |
 | Token/latency logged per call (2026-09-27), but no cost dashboard | Limited visibility into spend |
-| Raw user text in prompt | Prompt-injection surface (`curious_fields`, `career`) |
+| User text in prompt | Reduced prompt-injection surface: `career_in_mind` (v2, ≤100 chars, JSON-quoted, marked as data), `curious_fields` (v1), `career` |
 | No memory | Every call is stateless; there's no coach |
 
 ## Planned improvements (🗺️) — in priority order

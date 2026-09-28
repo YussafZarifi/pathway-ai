@@ -1,13 +1,13 @@
 # CLAUDE.md — PathwayAI (repo: `roadmap-ai`)
 
 > Permanent project memory. Read this first in every session. Then read `SESSION.md` (latest state) and `ROADMAP.md` (what's next).
-> Last updated: 2026-09-27 (**deployment-ready for Render, not deployed**: env-only config with `ALLOWED_ORIGINS` / `VITE_API_URL`, every request through `lib/api.js`, Pydantic request validation, in-memory rate limits, generic errors, no user data in logs, `/health`, `render.yaml`; ADR-014. Then the "intermittent roadmap failure" investigation: 0 malformed JSON in 25 live calls, the real limit is Gemini's free tier of **20 requests/day**; AI output now uses JSON mode + schema, per-item validation, one retry, safe diagnostics with request IDs, 60 backend tests; ADR-015. Next: owner enables Gemini billing, reviews, then deploy F-1).
+> Last updated: 2026-09-28 (**new 5-question quiz** (ADR-016): interests, problem-solving style, experience, weekly time, 12-month goal + optional career in mind; v2 labelled-profile prompts; the API still accepts the old 8-answer format so saved roadmaps regenerate. Earlier (2026-09-27): deployment-ready for Render (ADR-014), validated AI output (ADR-015), Gemini free tier = 20 requests/day. Not deployed. Next: N-17/N-18 checks, Gemini billing decision, then deploy F-1).
 
 ---
 
 ## 1. Project overview
 
-**PathwayAI** is an AI-assisted tech-career guidance web app. A user answers an 8-question quiz; Gemini suggests 3 **technology-industry** careers with match %, salary, growth and skills; the user picks one; Gemini generates a ≤5-step learning roadmap; the user tracks step completion on a dashboard that shows "Career Readiness" meters.
+**PathwayAI** is an AI-assisted tech-career guidance web app. A user answers a 5-question quiz (interests, problem-solving style, experience, weekly time, 12-month goal + optional career in mind; since 2026-09-28, ADR-016); Gemini suggests 3 **technology-industry** careers with match %, salary, growth and skills; the user picks one; Gemini generates a ≤5-step learning roadmap; the user tracks step completion on a dashboard that shows "Career Readiness" meters.
 
 - **Vision:** the most honest, practical path from "I'm curious about tech" to "I'm job-ready" — grounded in real data, tracked over time.
 - **Mission:** turn vague career interest into a concrete, personalized, trackable plan in under 5 minutes.
@@ -32,7 +32,8 @@ Naming: the product brand is **PathwayAI**. The repo/folder is `roadmap-ai`. The
 | Git / GitHub | **Implemented 2026-09-25.** `main` with a root `.gitignore` (excludes `backend/.env`); remote `origin` = https://github.com/YussafZarifi/pathway-ai (**private** — keep it private until the owner decides otherwise). `main` tracks `origin/main` |
 | Deployment readiness | **Implemented 2026-09-27** (ADR-014): no hard-coded URLs (`VITE_API_URL`, `ALLOWED_ORIGINS`; `vite build` fails without `VITE_API_URL`), `.env.example` in `backend/` and `frontend/`, `GET /health`, Pydantic request models, 16 KB body limit, in-memory rate limits (per IP 8/min + 50/day, global 500/day), generic error messages, no answers/prompts/AI output in logs, `render.yaml` Blueprint (validated against Render's schema). **Not deployed yet**: the owner reviews first |
 | AI output reliability | **Implemented 2026-09-27** (ADR-015): Gemini JSON mode + `response_schema`; `ai_output.py` validates per item (defaults for missing fields, invalid items dropped); `llm.py` retries once (unusable reply, 5xx, timeout, short per-minute 429); 503 quota/busy messages; per-attempt logs with request IDs and no content. **Gemini key is on the free tier: 20 requests/day** for flash-lite (N-16) |
-| Tests | **Backend: 60 pytest tests** (`backend/tests`, `requirements-dev.txt`, `python -m pytest -q`, no network). Frontend: none |
+| Quiz (redesigned 2026-09-28) | **Implemented** (ADR-016): 5 owner-approved questions, v2 labelled-profile prompts; API also accepts the old 8-answer format (v1) so saved roadmaps still regenerate. Live-checked on `gemini-2.5-flash`; not yet on flash-lite (quota) and not yet visually checked in a foreground browser (N-17, N-18) |
+| Tests | **Backend: 80 pytest tests** (`backend/tests`, `requirements-dev.txt`, `python -m pytest -q`, no network). Frontend: none |
 | CI, Docker, live deployment | **None** |
 
 ## 3. Architecture (current)
@@ -72,12 +73,13 @@ roadmap-ai/
 ├── backend/
 │   ├── main.py                app, middleware, error handlers, endpoints, prompts
 │   ├── config.py              settings from environment variables
-│   ├── schemas.py             Pydantic request models (quiz answers, career)
+│   ├── schemas.py             Pydantic request models: quiz answers v2 + v1 (discriminated), career
 │   ├── rate_limit.py          in-memory per-IP + global rate limiter
 │   ├── llm.py                 Gemini client, JSON mode + schema, retry policy, safe per-attempt logs
 │   ├── ai_output.py           generation schemas, output models, JSON extraction, per-item validation
 │   ├── request_log.py         logging with a request ID (X-Request-ID)
-│   ├── tests/                 60 pytest tests (fake Gemini); requirements-dev.txt adds pytest
+│   ├── prompts.py             prompt builders: v2 (5-question quiz) + v1 (original, unchanged)
+│   ├── tests/                 80 pytest tests (fake Gemini); requirements-dev.txt adds pytest
 │   ├── youtube.py             YouTube Data API lookup for roadmap step videos
 │   ├── .env.example           template: GEMINI_API_KEY, YOUTUBE_API_KEY, ALLOWED_ORIGINS, limits…
 │   ├── requirements.txt
@@ -131,7 +133,7 @@ Output comes from Gemini JSON mode and is validated in `backend/ai_output.py`. R
 
 ## 9. Important design decisions (see `docs/decisions.md` for ADRs)
 
-- ADR-001 React + Vite SPA · ADR-002 FastAPI backend as an AI proxy (keeps key server-side) · ADR-003 Gemini Flash-Lite (cheap/fast) · ADR-004 localStorage persistence (MVP, no accounts) · ADR-005 tech-only career scope (pivot from general careers) · ADR-006 plain CSS · ADR-007 router state as data transport · ADR-008 client-side tracking/scoring engines · ADR-009 docs-as-memory (update CLAUDE/ROADMAP/SESSION/decisions every session) · ADR-010 one dashboard: keep `/dashboard`, keep `/home` as the future signed-in hub, delete the `/app/*` shell · ADR-011 unbuilt-feature entry points open an honest explanation · ADR-012 roadmap videos come from the YouTube Data API, never the model · ADR-013 current roadmap persisted in localStorage, progress scoped per roadmap, dashboard shows only real-data metrics · ADR-014 deployment readiness: env-only config (no localhost defaults), one API client, request validation, in-memory rate limits, safe errors/logs, Render Blueprint · ADR-015 validated AI output: JSON mode + schema, per-item validation, one retry, content-free diagnostics.
+- ADR-001 React + Vite SPA · ADR-002 FastAPI backend as an AI proxy (keeps key server-side) · ADR-003 Gemini Flash-Lite (cheap/fast) · ADR-004 localStorage persistence (MVP, no accounts) · ADR-005 tech-only career scope (pivot from general careers) · ADR-006 plain CSS · ADR-007 router state as data transport · ADR-008 client-side tracking/scoring engines · ADR-009 docs-as-memory (update CLAUDE/ROADMAP/SESSION/decisions every session) · ADR-010 one dashboard: keep `/dashboard`, keep `/home` as the future signed-in hub, delete the `/app/*` shell · ADR-011 unbuilt-feature entry points open an honest explanation · ADR-012 roadmap videos come from the YouTube Data API, never the model · ADR-013 current roadmap persisted in localStorage, progress scoped per roadmap, dashboard shows only real-data metrics · ADR-014 deployment readiness: env-only config (no localhost defaults), one API client, request validation, in-memory rate limits, safe errors/logs, Render Blueprint · ADR-015 validated AI output: JSON mode + schema, per-item validation, one retry, content-free diagnostics · ADR-016 5-question quiz; the API accepts both the new (v2) and old 8-question (v1) answer formats.
 
 ## 10. Known limitations & bugs (top items — full list in `docs/technical-debt.md`)
 
@@ -139,12 +141,12 @@ Output comes from Gemini JSON mode and is validated in `backend/ai_output.py`. R
 2. **Gemini free tier: 20 requests/day** (≈10 quiz runs); then users see "usage limit" until the reset. Enable billing before a public launch (N-16). Hard-coded URLs fixed 2026-09-27 (ADR-014); AI output validated + retried (ADR-015).
 3. Quiz answers (incl. free text) are stored in localStorage for "Regenerate" (same device only; see TD-41).
 4. `ThemeGate` effect removes the `theme-landing` class that `Landing`/`Home` add (parent effect runs after child).
-5. Quiz text input logs one tracking event per keystroke, from inside a state updater.
+5. ~~Quiz per-keystroke tracking inside a state updater~~ — fixed 2026-09-28 (TD-26). Two quiz answer formats (v1/v2) coexist until N-19.
 6. Rate limits live in process memory: reset on every deploy/restart, not shared across instances; forged `X-Forwarded-For` may bypass the per-IP limit (the global cap still holds).
 7. AI endpoints are unauthenticated (rate-limited and validated since 2026-09-27; raw exception text and answer logging removed).
 8. ~~Fake data and dead buttons~~ — fixed 2026-09-25. Remaining honesty gap: Employability/Momentum scores mostly measure app engagement (TD-29).
 9. Invalid nested interactive HTML: checkbox inside button in Results (the RoadmapTimeline part was fixed 2026-09-26).
-10. Backend tests only (60), no frontend tests, no CI; 12 ESLint errors (most are `motion` false positives from the missing jsx-uses-vars rule; none in files added 2026-09-26).
+10. Backend tests only (80), no frontend tests, no CI; 12 ESLint errors (most are `motion` false positives from the missing jsx-uses-vars rule; none in files added 2026-09-26).
 
 ## 11. Current priorities (in order)
 
@@ -160,14 +162,14 @@ See `ROADMAP.md` → *Next Sprint*.
 
 - The **tech-only** career scope (enforced in the career prompt).
 - The Gemini API key must stay **server-side**; the frontend never calls Gemini directly.
-- The quiz question IDs in `data/questions.js` (`stage, goal, interest_area, work_style, experience_level, education_comfort, environment, curious_fields`) — prompts, tracking and scoring depend on them.
+- The quiz question IDs in `data/questions.js` (`interests, problem_style, experience, weekly_hours, goal, career_in_mind`, since ADR-016) — `backend/schemas.py` (QuizAnswersV2) and `backend/prompts.py` depend on them. The old IDs (`stage, goal, interest_area, work_style, experience_level, education_comfort, environment, curious_fields`) are still accepted as the v1 format for saved roadmaps' "Regenerate"; don't remove v1 before N-19.
 - The AI response field names (`title, reason, match_score, salary_range, growth_rate, education, skills`; roadmap `title, description, time, resources[{name,url}], tasks`) — frontend renders them directly.
 - The `EVENT_TYPES` / `METRIC_NAMES` string values — existing users' localStorage data depends on them.
 - The brand name **PathwayAI**.
 
 ## 13. Features
 
-**Implemented:** landing page (header Log in / Sign up → honest "coming soon" dialog, native `<dialog>`) · honest `/home` hub (empty state) · 8-question animated quiz (choice / slider / text) · AI career matches (3) with match %, salary, growth, skills, reason · expand card · compare 2–3 careers · regenerate · "none of these" → retake · AI roadmap generation · real YouTube videos per step (YouTube Data API; search-link fallback) · dashboard (hero + progress ring, Today's focus, stat tiles, roadmap stepper with videos/resources/tasks and mark done/undo, achievements, Insights, quick actions incl. regenerate) · persisted current roadmap · PDF download & print of results · localStorage event/metric/progress tracking.
+**Implemented:** landing page (header Log in / Sign up → honest "coming soon" dialog, native `<dialog>`) · honest `/home` hub (empty state) · 5-question animated quiz (multi-select, single choice, large buttons, optional career field) · AI career matches (3) with match %, salary, growth, skills, reason · expand card · compare 2–3 careers · regenerate · "none of these" → retake · AI roadmap generation · real YouTube videos per step (YouTube Data API; search-link fallback) · dashboard (hero + progress ring, Today's focus, stat tiles, roadmap stepper with videos/resources/tasks and mark done/undo, achievements, Insights, quick actions incl. regenerate) · persisted current roadmap · PDF download & print of results · localStorage event/metric/progress tracking.
 
 **Partially implemented:** persistence (one roadmap, this browser only) · `/home` hub (no personal data until accounts exist) · theming (two competing mechanisms).
 

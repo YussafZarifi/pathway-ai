@@ -1,10 +1,11 @@
 # Testing
 
 ## Current state
-- **Backend: 60 pytest tests** (since 2026-09-27) in `backend/tests/`, run with `cd backend && pip install -r requirements-dev.txt && python -m pytest -q` (under 1 s, no network: Gemini is a scripted fake, no keys needed).
+- **Backend: 80 pytest tests** (since 2026-09-27; 80 since 2026-09-28) in `backend/tests/`, run with `cd backend && pip install -r requirements-dev.txt && python -m pytest -q` (under 1 s, no network: Gemini is a scripted fake, no keys needed).
   - `test_ai_output.py` (34): JSON extraction (fences, prose, trailing commas, truncation), defaults for missing fields, dropped bad items, score normalization, limits, content-free errors.
   - `test_llm.py` (16): retry policy (unusable reply, 5xx, timeouts, per-minute vs daily 429, 400), and logs that describe failures without reply content.
   - `test_api.py` (10): `/health`, response shape, user-friendly 502/503 messages with CORS headers, `Retry-After`, 422 before any Gemini call, rate limit, disallowed origin.
+  - `test_quiz_formats.py` (20): v1 answers ("Regenerate" on old roadmaps) still work with the original prompts; v2 prompts carry the labelled profile and weekly-hour pacing; v2 validation and cleaning (interests 1–3 and deduplicated, weekly hours 2/5/10/20, optional career in mind, newlines removed, leftover keys ignored).
   - Privacy guard: a marker planted in answers and replies must never appear in logs or responses.
 - **Frontend: no tests.** `npm run lint` (ESLint 9): 12 errors and 1 warning as of 2026-09-27. Most are `motion` false positives from the missing `jsx-uses-vars` rule, plus real unused imports (ROADMAP N-13).
 - No CI yet (F-4).
@@ -20,7 +21,7 @@ Priority targets (pure logic first, since they're cheap and high value):
 | `lib/trackingEngine.js` | init on empty or corrupt storage; `trackEvent` rejects unknown types and missing fields; `trackMetric` stats (current/avg/min/max); `trackProgress` status transitions incl. `incomplete`; import/export round-trip |
 | `lib/scoringEngine.js` | each score component in isolation; caps at 100; **regression: 1 of 5 steps done ≠ 100%** (TD-07); recommendation thresholds (TD-28) |
 | Progress persistence (after N-7) | **regression: progress for career A doesn't appear on career B** (TD-08) |
-| `Quiz` | Continue disabled until answered; slider 0 is a valid answer; text requires non-whitespace; last step navigates with answers |
+| `Quiz` | Continue disabled until answered; multi-select stops at 3 and re-enables on deselect; weekly-hours buttons; optional career field sent only when non-empty; last step navigates with answers |
 | `Results` | loading → success render; error state; empty state; compare needs ≥2; "None of these" swaps CTA |
 | `RoadmapTimeline` | expand/collapse; mark done updates count; keyboard access |
 | API client (after N-6) | base URL from env; timeout; error mapping |
@@ -53,5 +54,5 @@ See `ai-system.md` §6. A golden set of about 30 profiles; schema and rule check
 ```bash
 cd frontend && npm test          # vitest
 cd frontend && npm run test:e2e  # playwright
-cd backend  && python -m pytest -q   # ✅ exists (60 tests)
+cd backend  && python -m pytest -q   # ✅ exists (80 tests)
 ```

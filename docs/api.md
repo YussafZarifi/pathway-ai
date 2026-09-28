@@ -32,18 +32,23 @@ Generates exactly 3 technology-career suggestions.
 ```json
 {
   "answers": {
-    "stage": "College / University",
-    "goal": "Get an internship/job",
-    "interest_area": "AI / Machine Learning",
-    "work_style": "Analytical & problem-solving",
-    "experience_level": 2,
-    "education_comfort": 4,
-    "environment": "Startup (fast-paced)",
-    "curious_fields": "ML engineer"
+    "interests": ["Building apps", "Analyzing data"],
+    "problem_style": "Dig in until I find the root cause",
+    "experience": "Built a few projects",
+    "weekly_hours": 10,
+    "goal": "Get my first tech job",
+    "career_in_mind": "Data engineer"
   }
 }
 ```
-`answers` is validated by `QuizAnswers` (`backend/schemas.py`). Keys are the quiz question IDs from `frontend/src/data/questions.js`: choice answers are required strings of 1–80 chars; `experience_level` is an int 0–10 and `education_comfort` an int 0–6; `curious_fields` is optional, ≤300 chars. Control characters are replaced with spaces; unknown keys are ignored.
+`answers` is validated by `QuizAnswers` (`backend/schemas.py`), which accepts **two formats** (ADR-016). The format is chosen by the presence of `interests`; no version field is needed.
+
+| Format | Sent by | Fields |
+|---|---|---|
+| **v2** (5-question quiz, since 2026-09-28) | the quiz | `interests`: 1–3 strings (≤80 chars each, duplicates removed) · `problem_style`, `experience`, `goal`: strings 1–80 chars · `weekly_hours`: one of `2, 5, 10, 20` (20 = "20+") · `career_in_mind`: optional, ≤100 chars |
+| **v1** (original 8-question quiz) | "Regenerate" on roadmaps saved before the new quiz | `stage, goal, interest_area, work_style, environment`: strings 1–80 · `experience_level`: int 0–10 · `education_comfort`: int 0–6 · `curious_fields`: optional, ≤300 chars |
+
+Keys match the question IDs in `frontend/src/data/questions.js`. Control characters are replaced with spaces; unknown keys are ignored. v1 support is temporary: remove it once no saved roadmap needs it.
 
 **Response 200** (shape requested from the model; not validated server-side)
 ```json

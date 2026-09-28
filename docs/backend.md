@@ -6,13 +6,14 @@ A small FastAPI app in `backend/`. Run locally with `uvicorn main:app --reload -
 |---|---|
 | `main.py` | App, middleware, error handlers, endpoints, prompts, `generate_json()` Gemini helper, `add_videos()` |
 | `config.py` | Settings read once from environment variables (added 2026-09-27) |
-| `schemas.py` | Pydantic request models (added 2026-09-27) |
+| `schemas.py` | Pydantic request models: `QuizAnswersV2` (5-question quiz) and `QuizAnswersV1` (8-question quiz, temporary) behind one discriminated `QuizAnswers` (added 2026-09-27; v2 2026-09-28) |
+| `prompts.py` | Prompt builders: v2 prompts for the 5-question quiz, v1 prompts unchanged (added 2026-09-28, ADR-016) |
 | `rate_limit.py` | In-memory rate limiter used as a FastAPI dependency (added 2026-09-27) |
 | `youtube.py` | YouTube Data API lookups for roadmap step videos (ADR-012) |
 | `llm.py` | Gemini client, JSON mode + response schema, retry policy, per-attempt diagnostics (added 2026-09-27, ADR-015) |
 | `ai_output.py` | Generation schemas, output models, JSON extraction and per-item validation (added 2026-09-27) |
 | `request_log.py` | Logging setup with a per-request ID (`X-Request-ID`) (added 2026-09-27) |
-| `tests/` | 60 pytest tests (`requirements-dev.txt`); see `docs/testing.md` |
+| `tests/` | 80 pytest tests (`requirements-dev.txt`); see `docs/testing.md` |
 
 ## Configuration (`config.py`)
 `load_dotenv()` reads `backend/.env` locally; on Render the service environment is used. Template: `backend/.env.example`.
@@ -43,8 +44,8 @@ Full contracts: `docs/api.md`.
 1. **CORS** (outermost middleware): only `ALLOWED_ORIGINS`, methods GET/POST, header `Content-Type`, no credentials.
 2. **Body size**: `Content-Length` over 16 KB → 413 before parsing.
 3. **Rate limit** (`Depends(limit_ai_requests)` on the AI routes) → 429 with `Retry-After`.
-4. **Validation** (`schemas.py`): `QuizAnswers` has the 8 quiz IDs. Choice answers 1–80 chars; `experience_level` 0–10 and `education_comfort` 0–6 as ints; `curious_fields` optional, ≤300 chars; `career` 1–100 chars. Control characters (newlines etc.) are replaced with spaces. Unknown keys are ignored. Failure → 422 with a friendly message; the log lists failing field names only.
-5. **Prompt**: `answers.as_profile_text()` builds `question_id: answer` lines from the validated model (so unknown keys never reach the prompt). Prompt text itself is unchanged from before 2026-09-27.
+4. **Validation** (`schemas.py`): `QuizAnswers` is v2 when `interests` is present, else v1 (field rules in `docs/api.md`); `career` 1–100 chars. Control characters (newlines etc.) are replaced with spaces. Unknown keys are ignored. Failure → 422 with a friendly message; the log lists failing field paths only (e.g. `answers.v2.weekly_hours`).
+5. **Prompt** (`prompts.py`): v2 → labelled profile + "How to read the profile" guidance; v1 → the original prompts, byte-identical. Built from the validated model, so unknown keys never reach the prompt. Log labels include the format (`roadmap v1 attempt 1: ok`).
 6. **Gemini** via `llm.generate(prompt, label, schema, parse)`: JSON mode + response schema, 30 s timeout, at most 2 attempts (retry policy in `docs/ai-system.md`).
 7. **Validation** via `ai_output.parse_careers` / `parse_roadmap`: extraction, per-item Pydantic validation, defaults for missing fields, invalid items dropped.
 8. (roadmap) `add_videos(result, career)` adds `videos`, `video_search_url` and `video_query` per step (parallel YouTube lookups, 5 s timeout, in-memory cache; failures → `[]`).
@@ -81,7 +82,7 @@ fastapi 0.128, uvicorn 0.40, pydantic 2.12, google-genai 2.25, python-dotenv, ht
 
 ## Remaining security gaps
 - No auth: anyone can call the AI endpoints within the rate limits.
-- Prompt injection is reduced (length limits, no control characters, unknown keys dropped) but not prevented: `curious_fields` and `career` are still free text in the prompt, and `career` is interpolated inside the JSON example (TD-13).
+- Prompt injection is reduced (length limits, no control characters, unknown keys dropped, v2 free text JSON-quoted and marked as data) but not prevented: `career_in_mind` (v2), `curious_fields` (v1) and `career` are still free text in the prompt (TD-13).
 - Resource URLs are still model-invented; only non-http(s) URLs are filtered (TD-21).
 
 ## Planned structure (🗺️)

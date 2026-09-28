@@ -15,7 +15,7 @@ How this project is likely to be perceived, and what increases its portfolio val
 | Production readiness | 1.5 | 7 |
 
 ## What impresses recruiters (already present)
-- A polished, animated quiz with an accessible custom slider.
+- A polished, animated 5-question assessment (reduced from 8 on 2026-09-28) whose answers are turned into a labelled profile the AI reasons over.
 - A Results page with real product thinking: compare, regenerate, expand, share and export.
 - A tracking schema with validation and a documented scoring formula.
 - A clear, relevant problem (career guidance for students entering tech).

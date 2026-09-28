@@ -4,7 +4,7 @@
 - **Mood:** dark "AI startup": pure black background, soft purple/pink and blue radial glows at the edges.
 - **Accent:** purple → pink gradient (`#a855f7` → `#ff37d0`), used on the primary CTA (`.uiverseBtn`), logo, headline highlight, progress fills and radial meters.
 - **Type:** system UI stack (`ui-sans-serif, system-ui, …`). `"Inter"` appears in one rule but is never loaded.
-- **Motion:** framer-motion. Staggered hero entrance, card lift on hover, quiz slide/fade between questions, spring slider bubble, ring stroke animation, timeline stagger.
+- **Motion:** framer-motion. Staggered hero entrance, card lift on hover, quiz slide/fade between questions, ring stroke animation, timeline stagger.
 - **Surfaces:** near-black cards (`#0b0b0b`–`#111`), 1px translucent borders, 12–20px radii.
 
 ## Page review (from the 2026-09-24 audit)
@@ -12,7 +12,7 @@
 |---|---|---|
 | Landing | Clear value prop, CTA, feature cards | Narrow content column with empty space on wide screens; small low-contrast subtext; 2 of 3 features "Coming soon"; no "how it works", product shot or proof; hero hidden until JS animates |
 | Home | Honest empty state and planned-feature labels (2026-09-25); visual polish pass 2026-09-26 (Landing glow, gradient CTA and title, left-aligned cards, small "Planned" pills, reduced-motion); focus-visible outlines; no horizontal scroll at 360px | Different header from other pages; unreachable from Landing; nothing personal to show until accounts and saved roadmaps exist |
-| Quiz | Best screen: focused card, progress, accessible slider | Dim disabled CTA; no keyboard shortcuts; answers lost on refresh; no time-remaining hint |
+| Quiz | Best screen: focused card, progress; 5 questions since 2026-09-28 (multi-select grid, four large weekly-hours buttons, optional career field with chips) | Dim disabled CTA; no keyboard shortcuts; answers lost on refresh; no time-remaining hint |
 | Results | Rich cards, compare, regenerate, share, states | Copied letter loader clashes with the style; hover-only tooltip on "None of these"; compare hidden behind a mode toggle; PDF is a screenshot of a dark page; "Try again" reloads the page |
 | Dashboard | Redesigned 2026-09-26: above-the-fold hero + Today's focus + stat tiles, visual stepper, achievements, insights, quick actions; only real data; skeleton while regenerating; reduced-motion; no horizontal scroll at 360px | Insights are rule-based (no AI yet); one roadmap at a time. Polish pass + shared `VideoCard` 2026-09-26 |
 

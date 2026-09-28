@@ -21,6 +21,7 @@ ADR-001 to ADR-008 were **reconstructed on 2026-09-24** from the existing code d
 | ADR-013 | Persist the current roadmap in localStorage; dashboard shows only real-data metrics | Accepted |
 | ADR-014 | Deployment readiness: env-only config, request validation, in-memory rate limits, Render Blueprint | Accepted |
 | ADR-015 | Validated AI output: JSON mode + response schema, per-item validation, one retry, content-free diagnostics | Accepted |
+| ADR-016 | A 5-question quiz, with temporary support for the 8-question answer format | Accepted |
 
 ---
 
@@ -144,6 +145,18 @@ ADR-001 to ADR-008 were **reconstructed on 2026-09-24** from the existing code d
   - First automated tests: 60 pytest tests with a scripted fake Gemini.
 - **Alternatives considered:** only improving the fence parser (rejected: the evidence showed parsing wasn't the failing part); saving raw failed replies to disk for debugging (rejected: replies can echo the user's free text); retrying with the validation error appended to the prompt (deferred: no malformed replies observed to tune against); unlimited or exponential retries (rejected: each retry spends the 20/day quota and the frontend waits at most 90 s); using the output models as `response_model` (deferred; the explicit parse keeps per-item dropping).
 - **Consequences:** a malformed or partial reply no longer fails the request when a usable part exists, transient errors get a second chance, and every failure is identifiable in the logs by type. A retry costs one more quota request. JSON mode + schema was verified live on `gemini-2.5-flash`; on `gemini-2.5-flash-lite` it still has to be checked once the daily quota resets (same API; the schema converts locally). The free-tier quota, not parsing, is now the main blocker to a public launch: the owner should enable billing before sharing the URL widely.
+- **Status:** Accepted.
+
+## ADR-016 — A 5-question quiz, with temporary support for the 8-question answer format
+- **Date:** 2026-09-28
+- **Context:** the owner believes users lose interest during the 8-question quiz. Analysis: three questions asked "where am I now?" (`stage`, `goal`, `experience_level`), two asked about preferences (`work_style`, `environment`), `interest_area` asked users to pick the answer the product should find (and anchored all 3 suggestions to one field), the "years" sliders were ambiguous for beginners, and nothing captured problem-solving style or weekly time. Roadmaps saved before a change store the old answers, and "Regenerate" sends them back to the API.
+- **Decision:**
+  - Five questions, all taps, under 2 minutes (owner-approved wording): **interests** (up to 3 of 9), **problem-solving style** (5 approaches; also reveals work style and strengths), **experience level** (5 levels), **weekly time** (four large buttons: 2/5/10/20+ h), **12-month goal** (5 outcomes) with an **optional "Already have a career in mind?"** field. No sixth question: the AI infers strengths and work style from these.
+  - The prompt receives a labelled profile and explicit guidance on how to read each answer (hybrid roles for mixed interests, style separating roles in a family, feasibility from experience + hours + goal, honest fit for a career in mind, reasons citing at least two answers, steps paced to the weekly hours, last step aimed at the goal).
+  - The API accepts **both formats** through a discriminated union (`interests` present → v2, else v1), with no version field. v1 answers get the original prompts, byte-identical, so old roadmaps regenerate exactly as before.
+  - Question IDs change from `stage, goal, interest_area, work_style, experience_level, education_comfort, environment, curious_fields` to `interests, problem_style, experience, weekly_hours, goal, career_in_mind`. Choice answers stay length-limited strings rather than enumerated options.
+- **Alternatives considered:** the analysis's own 5-question draft with scenario-based interests and a strengths question (owner kept their wording, added the problem-solving question, and declined a sixth question); a sixth "strengths" question (rejected: speed matters more; strengths are inferred); converting saved v1 answers to v2 in the browser (rejected: the mapping would invent answers the user never gave); a `version` field in requests (unnecessary: the fields identify the format).
+- **Consequences:** faster quiz, richer signal per question, and results whose reasons point back to the user's answers. Two answer formats and two prompt versions exist until v1 is removed. Removal condition: once no saved roadmap in the wild uses v1 (with accounts/F-8 a stored-data migration can do it; before that, keep v1 for at least a few weeks after deploy). The tracking event log now contains both answer shapes. The "career in mind" free text reaches the prompt (≤100 chars, JSON-quoted, marked as data; TD-13).
 - **Status:** Accepted.
 
 ---

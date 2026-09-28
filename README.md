@@ -19,7 +19,7 @@
 ## Features
 
 ### ✅ Implemented
-- **Career quiz** — 8 animated questions (multiple choice, sliders, free text) with a progress bar.
+- **Career quiz** — 5 quick questions (interests, problem-solving style, experience, weekly time, 12-month goal, plus an optional career in mind), under 2 minutes.
 - **AI career matches** — Gemini suggests 3 technology careers with match %, salary range, growth outlook, education, key skills and a personalized reason.
 - **Compare careers** — side-by-side comparison of 2–3 suggestions.
 - **Regenerate** suggestions, or choose "None of these" to retake the quiz.
