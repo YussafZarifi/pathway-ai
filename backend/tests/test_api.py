@@ -68,7 +68,7 @@ def test_invalid_answers_are_rejected_before_gemini(client, fake_gemini, caplog)
     r = client.post("/api/ai/career", json={"answers": {**ANSWERS, "experience_level": 99}})
     assert r.status_code == 422
     assert models.calls == 0
-    assert "answers.experience_level" in caplog.text and SECRET not in caplog.text
+    assert "answers.v1.experience_level" in caplog.text and SECRET not in caplog.text
 
 
 def test_rate_limit(client, fake_gemini, monkeypatch):

@@ -11,6 +11,7 @@ import llm
 import request_log
 import youtube
 from ai_output import CareerSchema, RoadmapSchema, parse_careers, parse_roadmap
+from prompts import build_career_prompt, build_roadmap_prompt
 from rate_limit import limit_ai_requests
 from schemas import CareerRequest, RoadmapRequest
 
@@ -104,102 +105,18 @@ def health():
 
 @app.post("/api/ai/career", dependencies=[Depends(limit_ai_requests)])
 def career_ai(payload: CareerRequest):
-    profile_text = payload.answers.as_profile_text()
-
-    prompt = f"""
-Return STRICT JSON only (no markdown, no code fences) in this exact shape:
-{{
-  "careers": [
-    {{
-      "title":"...",
-      "reason":"...",
-      "match_score": 85,
-      "salary_range":"$80k - $120k",
-      "growth_rate":"+15% (Faster than average)",
-      "education":"Bachelor's degree",
-      "skills":["Skill1","Skill2","Skill3","Skill4"]
-    }},
-    {{
-      "title":"...",
-      "reason":"...",
-      "match_score": 80,
-      "salary_range":"$75k - $110k",
-      "growth_rate":"+12% (Faster than average)",
-      "education":"Bachelor's or certificate",
-      "skills":["Skill1","Skill2","Skill3","Skill4"]
-    }},
-    {{
-      "title":"...",
-      "reason":"...",
-      "match_score": 75,
-      "salary_range":"$70k - $100k",
-      "growth_rate":"+10% (Faster than average)",
-      "education":"Associate degree",
-      "skills":["Skill1","Skill2","Skill3","Skill4"]
-    }}
-  ],
-  "explanation": "..."
-}}
-
-Rules:
-- careers: exactly 3
-- ALL careers must be technology-industry roles only (e.g., software engineering, AI/ML, data science, cybersecurity, cloud/DevOps, IT, product/UX for tech products). Never suggest non-tech careers, even if some answers seem general.
-- reason: 1–2 sentences each
-- match_score: 70-95 (higher means better match)
-- salary_range: realistic range in USD (e.g., "$60k - $100k")
-- growth_rate: percentage with descriptor (e.g., "+20% (Much faster than average)")
-- education: typical requirements
-- skills: exactly 4-5 relevant skills
-- explanation: 3–5 sentences max, simple and supportive
-
-User answers:
-{profile_text}
-"""
-
-    return generate(prompt, "career", CareerSchema, parse_careers)
+    prompt = build_career_prompt(payload.answers)
+    return generate(prompt, f"career v{payload.answers.version}", CareerSchema, parse_careers)
 
 
 @app.post("/api/ai/roadmap", dependencies=[Depends(limit_ai_requests)])
 def roadmap_ai(payload: RoadmapRequest):
     career = payload.career
-    profile_text = payload.answers.as_profile_text()
-
-    prompt = f"""
-Return STRICT JSON only in this exact shape:
-{{
-  "career": "{career}",
-  "roadmap": [
-    {{
-      "title":"Step title",
-      "description":"Brief description of what to do",
-      "time":"2-4 weeks",
-      "resources":[
-        {{"name":"Resource name","url":"https://example.com"}},
-        {{"name":"Another resource","url":"https://example.com"}}
-      ],
-      "tasks":["Task 1","Task 2","Task 3"],
-      "video_query":"short YouTube search phrase"
-    }}
-  ]
-}}
-
-Rules:
-- roadmap: 5 steps max
-- each step: actionable, beginner-friendly
-- time: estimate (e.g., "2-4 weeks", "1-2 months")
-- resources: 2-3 learning resources with valid URLs
-- tasks: 2-3 actionable items
-- video_query: 3-8 word YouTube search phrase for a beginner tutorial covering this step (e.g. "Python basics for beginners"). No URLs.
-- tailor to user's stage + location if provided
-
-User answers:
-{profile_text}
-
-Chosen career:
-{career}
-"""
-
-    result = generate(prompt, "roadmap", RoadmapSchema, lambda text: parse_roadmap(text, career))
+    prompt = build_roadmap_prompt(payload.answers, career)
+    result = generate(
+        prompt, f"roadmap v{payload.answers.version}", RoadmapSchema,
+        lambda text: parse_roadmap(text, career),
+    )
     add_videos(result, career)
     return result
 

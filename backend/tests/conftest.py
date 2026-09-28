@@ -15,6 +15,18 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # Planted in answers and model replies; must never appear in logs or errors.
 SECRET = "SECRET-MARKER-7f3a"
 
+# The 5-question quiz (v2), as the new frontend sends it.
+ANSWERS_V2 = {
+    "interests": ["Building apps", "Analyzing data"],
+    "problem_style": "Dig in until I find the root cause",
+    "experience": "Built a few projects",
+    "weekly_hours": 10,
+    "goal": "Get my first tech job",
+    "career_in_mind": f"data engineer {SECRET}",
+}
+
+# The original 8-question quiz (v1): still sent by "Regenerate" for
+# roadmaps saved before the new quiz.
 ANSWERS = {
     "stage": "College / University",
     "goal": "Get an internship/job",
@@ -63,9 +75,11 @@ class FakeModels:
     def __init__(self, script):
         self.script = list(script)
         self.calls = 0
+        self.prompts = []
 
     def generate_content(self, model, contents, config=None):
         self.calls += 1
+        self.prompts.append(contents)
         item = self.script.pop(0)
         if isinstance(item, BaseException):
             raise item
