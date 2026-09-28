@@ -98,5 +98,6 @@ export const QUESTIONS = [
     title: "Any specific tech roles you’re curious about?",
     subtitle: "Optional — this helps the AI personalize suggestions.",
     placeholder: "e.g., backend developer, ML engineer, cybersecurity analyst, DevOps, UX designer…",
+    maxLength: 300, // the backend rejects longer answers (backend/schemas.py)
   },
 ];

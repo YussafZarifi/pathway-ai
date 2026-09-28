@@ -85,8 +85,6 @@ export default function Quiz() {
     trackMetric(METRIC_NAMES.QUIZ_TIME_SPENT, timeSpent);
 
     // last question: go to /results and pass answers through navigation state
-    console.log("=== Quiz Complete ===");
-    console.log("Navigating to /results with answers:", answers);
     navigate("/results", { state: { answers } });
   }
 
@@ -167,6 +165,7 @@ export default function Quiz() {
               <input
                 className="textInput"
                 placeholder={q.placeholder || ""}
+                maxLength={q.maxLength}
                 value={answers[q.id] || ""}
                 onChange={(e) => setAnswer(e.target.value)}
               />
