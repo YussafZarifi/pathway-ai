@@ -30,7 +30,7 @@ export default function Home() {
               Welcome to <span className="titleGradient">PathwayAI</span>
             </h1>
             <p className="homeSubtitle">
-              Answer 8 questions, get three tech careers matched to you, and turn one into a
+              Answer 5 quick questions, get three tech careers matched to you, and turn one into a
               step-by-step learning roadmap.
             </p>
 

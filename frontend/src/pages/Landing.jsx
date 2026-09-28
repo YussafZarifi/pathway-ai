@@ -108,7 +108,7 @@ export default function Landing() {
             </motion.div>
 
             <motion.p variants={heroItem} className="heroHint">
-              Free to try &middot; Takes about 3 minutes
+              Free to try &middot; 5 questions, under 2 minutes
             </motion.p>
           </motion.div>
 
