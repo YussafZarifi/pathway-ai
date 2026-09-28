@@ -1,31 +1,28 @@
-import json
 import logging
-import time
 from concurrent.futures import ThreadPoolExecutor
 
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from google import genai
-from google.genai import errors as genai_errors
-from google.genai import types as genai_types
 
 import config
+import llm
+import request_log
 import youtube
+from ai_output import CareerSchema, RoadmapSchema, parse_careers, parse_roadmap
 from rate_limit import limit_ai_requests
 from schemas import CareerRequest, RoadmapRequest
 
-logging.basicConfig(
-    level=config.LOG_LEVEL,
-    format="%(asctime)s %(levelname)s %(name)s: %(message)s",
-)
+request_log.setup(config.LOG_LEVEL)
 logger = logging.getLogger("pathwayai")
 
 # Answers are a handful of short strings; anything bigger is not a quiz.
 MAX_BODY_BYTES = 16 * 1024
 
 AI_UNAVAILABLE = "PathwayAI's AI service is temporarily unavailable. Please try again later."
+AI_QUOTA = "PathwayAI has reached its AI usage limit for now. Please try again later."
+AI_BUSY = "PathwayAI's AI service is busy right now. Please wait a minute and try again."
 AI_FAILED = "We couldn't generate results right now. Please try again."
 INVALID_ANSWERS = "Some quiz answers are missing or too long. Please retake the quiz and try again."
 
@@ -36,14 +33,6 @@ if not config.ALLOWED_ORIGINS:
 if not config.GEMINI_API_KEY:
     logger.error("GEMINI_API_KEY is not set: AI endpoints will return 503")
 
-client = (
-    genai.Client(
-        api_key=config.GEMINI_API_KEY,
-        http_options=genai_types.HttpOptions(timeout=config.GEMINI_TIMEOUT_SECONDS * 1000),
-    )
-    if config.GEMINI_API_KEY
-    else None
-)
 
 
 @app.middleware("http")
@@ -52,6 +41,14 @@ async def limit_body_size(request: Request, call_next):
     if length and (not length.isdigit() or int(length) > MAX_BODY_BYTES):
         return JSONResponse(status_code=413, content={"detail": "Request is too large."})
     return await call_next(request)
+
+
+@app.middleware("http")
+async def add_request_id(request: Request, call_next):
+    rid = request_log.new_request_id()
+    response = await call_next(request)
+    response.headers["X-Request-ID"] = rid
+    return response
 
 
 # Added last so it wraps everything, including the 413 above and 429s.
@@ -78,37 +75,20 @@ async def unexpected_error(request: Request, exc: Exception):
     return JSONResponse(status_code=500, content={"detail": AI_FAILED})
 
 
-def generate_json(prompt: str, label: str) -> dict:
-    """Ask Gemini for a JSON object. Raises a user-safe HTTPException on failure."""
-    if client is None:
-        raise HTTPException(status_code=503, detail=AI_UNAVAILABLE)
-
-    started = time.perf_counter()
+def generate(prompt: str, label: str, schema, parse) -> dict:
+    """Run llm.generate and turn its failures into user-safe HTTP errors."""
     try:
-        resp = client.models.generate_content(model=config.GEMINI_MODEL, contents=prompt)
-    except genai_errors.APIError as e:
-        logger.error("Gemini %s request failed: %s %s", label, e.code, e.status)
+        return llm.generate(prompt, label, schema, parse)
+    except llm.AIServiceError as e:
+        if e.kind == "unavailable":
+            raise HTTPException(status_code=503, detail=AI_UNAVAILABLE) from None
+        if e.kind == "quota":
+            raise HTTPException(status_code=503, detail=AI_QUOTA) from None
+        if e.kind == "busy":
+            raise HTTPException(
+                status_code=503, detail=AI_BUSY, headers={"Retry-After": str(e.retry_after or 60)}
+            ) from None
         raise HTTPException(status_code=502, detail=AI_FAILED) from None
-    except Exception as e:
-        logger.error("Gemini %s request failed: %s", label, type(e).__name__)
-        raise HTTPException(status_code=502, detail=AI_FAILED) from None
-
-    text = (resp.text or "").strip()
-    if text.startswith("```"):
-        text = text.strip("`").replace("json", "", 1).strip()
-
-    try:
-        result = json.loads(text)
-    except json.JSONDecodeError:
-        logger.error("Gemini %s response was not valid JSON (%d chars)", label, len(text))
-        raise HTTPException(status_code=502, detail=AI_FAILED) from None
-
-    if not isinstance(result, dict):
-        logger.error("Gemini %s response was %s, not an object", label, type(result).__name__)
-        raise HTTPException(status_code=502, detail=AI_FAILED)
-
-    logger.info("Gemini %s generated in %.1fs", label, time.perf_counter() - started)
-    return result
 
 
 @app.get("/")
@@ -176,7 +156,7 @@ User answers:
 {profile_text}
 """
 
-    return generate_json(prompt, "career")
+    return generate(prompt, "career", CareerSchema, parse_careers)
 
 
 @app.post("/api/ai/roadmap", dependencies=[Depends(limit_ai_requests)])
@@ -219,7 +199,7 @@ Chosen career:
 {career}
 """
 
-    result = generate_json(prompt, "roadmap")
+    result = generate(prompt, "roadmap", RoadmapSchema, lambda text: parse_roadmap(text, career))
     add_videos(result, career)
     return result
 
