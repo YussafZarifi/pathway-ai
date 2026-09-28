@@ -27,6 +27,7 @@ def _origins(raw: str) -> list[str]:
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "").strip()
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "").strip() or "gemini-2.5-flash-lite"
+GEMINI_TIMEOUT_SECONDS = _int("GEMINI_TIMEOUT_SECONDS", 30)
 
 # Comma-separated frontend origins, e.g. "https://pathwayai.onrender.com".
 ALLOWED_ORIGINS = _origins(os.getenv("ALLOWED_ORIGINS", ""))
@@ -36,3 +37,5 @@ ALLOWED_ORIGINS = _origins(os.getenv("ALLOWED_ORIGINS", ""))
 RATE_LIMIT_PER_MINUTE = _int("RATE_LIMIT_PER_MINUTE", 8)
 RATE_LIMIT_PER_DAY = _int("RATE_LIMIT_PER_DAY", 50)
 GLOBAL_AI_LIMIT_PER_DAY = _int("GLOBAL_AI_LIMIT_PER_DAY", 500)
+
+LOG_LEVEL = os.getenv("LOG_LEVEL", "").strip().upper() or "INFO"

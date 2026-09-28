@@ -1,22 +1,49 @@
 import json
+import logging
+import time
 from concurrent.futures import ThreadPoolExecutor
+
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from google import genai
+from google.genai import errors as genai_errors
+from google.genai import types as genai_types
 
 import config
 import youtube
 from rate_limit import limit_ai_requests
 from schemas import CareerRequest, RoadmapRequest
 
+logging.basicConfig(
+    level=config.LOG_LEVEL,
+    format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+)
+logger = logging.getLogger("pathwayai")
+
 # Answers are a handful of short strings; anything bigger is not a quiz.
 MAX_BODY_BYTES = 16 * 1024
 
+AI_UNAVAILABLE = "PathwayAI's AI service is temporarily unavailable. Please try again later."
+AI_FAILED = "We couldn't generate results right now. Please try again."
 INVALID_ANSWERS = "Some quiz answers are missing or too long. Please retake the quiz and try again."
 
 app = FastAPI(title="PathwayAI API")
+
+if not config.ALLOWED_ORIGINS:
+    logger.warning("ALLOWED_ORIGINS is empty: browsers on other origins can't call this API")
+if not config.GEMINI_API_KEY:
+    logger.error("GEMINI_API_KEY is not set: AI endpoints will return 503")
+
+client = (
+    genai.Client(
+        api_key=config.GEMINI_API_KEY,
+        http_options=genai_types.HttpOptions(timeout=config.GEMINI_TIMEOUT_SECONDS * 1000),
+    )
+    if config.GEMINI_API_KEY
+    else None
+)
 
 
 @app.middleware("http")
@@ -37,24 +64,67 @@ app.add_middleware(
 )
 
 
-
 @app.exception_handler(RequestValidationError)
 async def invalid_request(request: Request, exc: RequestValidationError):
-    # Report which fields failed, never their values (they are user answers).
+    # Log which fields failed, never their values (they are user answers).
     fields = sorted({".".join(str(p) for p in err["loc"][1:]) for err in exc.errors()})
-    print(f"Rejected {request.url.path}: invalid fields {fields}")
+    logger.info("Rejected %s: invalid fields %s", request.url.path, fields)
     return JSONResponse(status_code=422, content={"detail": INVALID_ANSWERS})
 
 
-client = genai.Client(api_key=config.GEMINI_API_KEY) if config.GEMINI_API_KEY else None
+@app.exception_handler(Exception)
+async def unexpected_error(request: Request, exc: Exception):
+    logger.error("Unhandled %s on %s", type(exc).__name__, request.url.path)
+    return JSONResponse(status_code=500, content={"detail": AI_FAILED})
+
+
+def generate_json(prompt: str, label: str) -> dict:
+    """Ask Gemini for a JSON object. Raises a user-safe HTTPException on failure."""
+    if client is None:
+        raise HTTPException(status_code=503, detail=AI_UNAVAILABLE)
+
+    started = time.perf_counter()
+    try:
+        resp = client.models.generate_content(model=config.GEMINI_MODEL, contents=prompt)
+    except genai_errors.APIError as e:
+        logger.error("Gemini %s request failed: %s %s", label, e.code, e.status)
+        raise HTTPException(status_code=502, detail=AI_FAILED) from None
+    except Exception as e:
+        logger.error("Gemini %s request failed: %s", label, type(e).__name__)
+        raise HTTPException(status_code=502, detail=AI_FAILED) from None
+
+    text = (resp.text or "").strip()
+    if text.startswith("```"):
+        text = text.strip("`").replace("json", "", 1).strip()
+
+    try:
+        result = json.loads(text)
+    except json.JSONDecodeError:
+        logger.error("Gemini %s response was not valid JSON (%d chars)", label, len(text))
+        raise HTTPException(status_code=502, detail=AI_FAILED) from None
+
+    if not isinstance(result, dict):
+        logger.error("Gemini %s response was %s, not an object", label, type(result).__name__)
+        raise HTTPException(status_code=502, detail=AI_FAILED)
+
+    logger.info("Gemini %s generated in %.1fs", label, time.perf_counter() - started)
+    return result
+
+
+@app.get("/")
+def root():
+    return {"status": "ok", "message": "Backend is running"}
+
+
+@app.get("/health")
+def health():
+    """Liveness check for the host. Makes no external calls and spends no quota."""
+    return {"status": "ok"}
+
 
 @app.post("/api/ai/career", dependencies=[Depends(limit_ai_requests)])
 def career_ai(payload: CareerRequest):
-    if client is None:
-        raise HTTPException(status_code=500, detail="GEMINI_API_KEY missing in backend/.env")
-
     profile_text = payload.answers.as_profile_text()
-    print(f"Processing career request with answers: {profile_text}")
 
     prompt = f"""
 Return STRICT JSON only (no markdown, no code fences) in this exact shape:
@@ -106,47 +176,11 @@ User answers:
 {profile_text}
 """
 
-    try:
-        print(f"Calling Gemini API for careers, prompt length: {len(prompt)}")
-        resp = client.models.generate_content(
-            model=config.GEMINI_MODEL,
-            contents=prompt,
-        )
-        text = (resp.text or "").strip()
-        print(f"API Response received, length: {len(text)}")
+    return generate_json(prompt, "career")
 
-        if text.startswith("```"):
-            text = text.strip("`").replace("json", "", 1).strip()
-
-        result = json.loads(text)
-        print(f"Parsed result: {result}")
-        return result
-
-    except json.JSONDecodeError as e:
-        print(f"JSON Decode Error: {e}")
-        print(f"Raw response: {text}")
-        raise HTTPException(status_code=500, detail=f"Failed to parse AI response: {str(e)}")
-    except Exception as e:
-        print(f"Gemini API Error: {e}")
-        print(f"Error type: {type(e).__name__}")
-        raise HTTPException(status_code=500, detail=f"AI generation failed: {str(e)}. Check backend console.")
-
-
-@app.get("/")
-def root():
-    return {"status": "ok", "message": "Backend is running"}
-
-
-@app.get("/health")
-def health():
-    """Liveness check for the host. Makes no external calls and spends no quota."""
-    return {"status": "ok"}
 
 @app.post("/api/ai/roadmap", dependencies=[Depends(limit_ai_requests)])
 def roadmap_ai(payload: RoadmapRequest):
-    if client is None:
-        raise HTTPException(status_code=500, detail="GEMINI_API_KEY missing in backend/.env")
-
     career = payload.career
     profile_text = payload.answers.as_profile_text()
 
@@ -185,22 +219,7 @@ Chosen career:
 {career}
 """
 
-    try:
-        resp = client.models.generate_content(
-            model=config.GEMINI_MODEL,
-            contents=prompt,
-        )
-        text = (resp.text or "").strip()
-
-        if text.startswith("```"):
-            text = text.strip("`").replace("json", "", 1).strip()
-
-        result = json.loads(text)
-
-    except Exception as e:
-        print("Gemini error:", repr(e))
-        raise HTTPException(status_code=500, detail="Roadmap generation failed. Check backend console.")
-
+    result = generate_json(prompt, "roadmap")
     add_videos(result, career)
     return result
 

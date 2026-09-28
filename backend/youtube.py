@@ -8,6 +8,7 @@ search link.
 """
 
 import html
+import logging
 import os
 from urllib.parse import quote_plus
 
@@ -20,6 +21,8 @@ CACHE_LIMIT = 256
 # query -> list of videos. Only successful lookups are cached, so a
 # temporary failure (quota, network) is retried on the next roadmap.
 _cache: dict[str, list[dict]] = {}
+
+logger = logging.getLogger("pathwayai.youtube")
 
 
 def search_url(query: str) -> str:
@@ -55,7 +58,7 @@ def search_videos(query: str, max_results: int = 2) -> list[dict]:
         items = resp.json().get("items", [])
     except (httpx.HTTPError, ValueError) as e:
         # Log the error class only: the request URL contains the API key.
-        print(f"YouTube search failed: {type(e).__name__}")
+        logger.warning("YouTube search failed: %s", type(e).__name__)
         return []
 
     videos = []
