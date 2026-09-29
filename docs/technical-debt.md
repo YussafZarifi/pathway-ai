@@ -30,12 +30,15 @@ Found in the 2026-09-24 audit. When an item is resolved, strike it through and n
 | TD-13 | Security | Prompt injection via `curious_fields` and `career`; `career` interpolated inside the JSON example. **Reduced 2026-09-27** (`dc0f4d1`): length limits, control characters stripped, unknown keys dropped | `main.py` prompts |
 | ~~TD-14~~ | Security | ~~No input size/shape limits (`answers: dict`)~~ — **resolved 2026-09-27** (`dc0f4d1`: `schemas.py`, 16 KB body limit) | — |
 | ~~TD-15~~ | UX | ~~Dead buttons and fake Copy Link~~ — **resolved 2026-09-25**: Settings/Upgrade deleted with AppShell (`2375759`); Home auth buttons (`058d07a`); Landing Log in/Sign Up (`b1edc7f`); Save Roadmap/Mark as In Progress (`d8354b3`); Copy Link (`f76ff22`) | — |
-| TD-16 | Routing | ~~Links to non-existent `/login`, `/signup`, `/profile`, `/app/*`~~ (removed 2026-09-25); **still no 404 route** (ROADMAP F-12) | `App.jsx` |
+| TD-16 | Routing | ~~Links to non-existent `/login`, `/signup`, `/profile`, `/app/*`~~ (removed 2026-09-25); **still no 404 route** (ROADMAP F-12). QA 2026-09-28: an unknown URL renders a completely blank page, and on Render every path is rewritten to `index.html` | `App.jsx` |
 | TD-17 | Testing | ~~Zero tests~~ Backend: 80 pytest tests (60 since 2026-09-27, 80 since 2026-09-28; `backend/tests`). Frontend: none. No CI | `frontend/` |
 | TD-18 | CI/CD | No CI or Docker. ~~No deployment config~~ — `render.yaml` added 2026-09-27 (`e7b461f`), not deployed | — |
 | TD-19 | A11y | Invalid nested interactive HTML: checkbox in `<button>` (still open); ~~`<a>` in `<button>`~~ fixed 2026-09-26 (`639da18`: the step header is the toggle button, links sit outside it) | `Results.jsx` compare checkbox (~line 443) |
 | TD-20 | A11y | Modals lack dialog role, focus trap, Esc, labels | `CareerCompareModal.jsx`, `ShareModal.jsx` |
-| TD-21 | AI | Salaries and resource URLs invented by the model, shown as fact (non-http(s) URLs dropped since 2026-09-27) | prompts in `main.py` |
+| TD-21 | AI | Salaries and resource URLs invented by the model, shown as fact (non-http(s) URLs dropped since 2026-09-27). QA 2026-09-28: of 13 URLs in one roadmap, 10 returned 200, 2 blocked automated checks (403), 1 was invented (a LinkedIn article that redirects to "article not found") | `prompts.py` |
+| TD-50 | Bug | Ticking a compare checkbox also changes the **selected career**: the checkbox's click bubbles to the card `<button>` (`stopPropagation` is on `onChange`, not `onClick`), so "Generate roadmap" can silently use a different career. Found in QA 2026-09-28 | `Results.jsx` compare checkbox |
+| TD-51 | Bug | Route changes don't reset scroll: on a phone, "Generate roadmap" (bottom of Results) opens `/dashboard` scrolled ~976 px down, past the hero. No scroll-to-top on navigation. Found in QA 2026-09-28 | `App.jsx` |
+| TD-52 | Copy | Outdated copy since ADR-013/016: the dashboard empty state says "Take the 8-question quiz"; `/home` says roadmaps "aren't saved" and last "for the current session" and shows "No saved roadmaps yet" even when a roadmap is stored. Found in QA 2026-09-28 | `Dashboard.jsx:199`, `Home.jsx:59-60` |
 
 ## 🟡 Medium
 
@@ -60,6 +63,10 @@ Found in the 2026-09-24 audit. When an item is resolved, strike it through and n
 | TD-38 | AI | Prompt references "location" but the quiz doesn't ask for it — **resolved for v2 prompts 2026-09-28**; the unchanged v1 prompt keeps it until v1 support is removed | `prompts.py` (v1) |
 | TD-39 | Type safety | No TypeScript; field-name drift (`name` vs `title`, `salary_range` vs `salaryRange`) | FE |
 | TD-40 | UX | "Try again" does `window.location.reload()`; PDF export uses `alert()` on error | `Results.jsx:367`, `ShareModal.jsx:33` |
+| TD-53 | Quality | Results logs every aborted career request with `console.error` ("Error fetching careers: AbortError", on every Results load in dev) and its `finally` clears the loading state even for the aborted run. In dev, StrictMode's double effect makes 2 Gemini calls per Results load (the first is aborted in the browser but still reaches Gemini) | `Results.jsx` career effect |
+| TD-54 | A11y | Focus is lost to `<body>` when a quiz question changes (the Continue button unmounts) and after regenerating the roadmap, so keyboard users restart from the top of the page | `Quiz.jsx`, `Dashboard.jsx` |
+| TD-55 | A11y | The Landing "Roadmap Generator" card is focusable (`tabindex=0` from framer-motion `whileTap`) but has no role and ignores Enter/Space (click-only `onClick`). The Results career card has no `aria-pressed`/`aria-expanded`, and the compare checkbox has no accessible name | `Landing.jsx`, `Results.jsx` |
+| TD-56 | Honesty | The compare modal shows a "Work environment: N/A" row for every career (no data source fills it) | `CareerCompareModal.jsx` |
 | TD-41 | Privacy | Raw quiz answers (incl. the optional career-in-mind text) stored in the localStorage event log and in `pathwayai_roadmap` | `Quiz.jsx`, `trackingEngine.js`, `roadmapStore.js` |
 
 ## 🟢 Low
@@ -73,4 +80,6 @@ Found in the 2026-09-24 audit. When an item is resolved, strike it through and n
 | TD-46 | UX | `CareerCompareModal` returns `null` → exit animations never run | `CareerCompareModal.jsx:5` |
 | TD-47 | Metrics | `totalScreensViewed` incremented on every event | `trackingEngine.js:145` |
 | TD-48 | Perf | No route-level code splitting (main chunk 427 KB, 137 KB gzip, 2026-09-28) | `App.jsx` |
+| TD-57 | UX | At 360 px the Results title wraps to 3 lines and the long AI explanation pushes the first career card below the fold | `Results.jsx`, `index.css` |
+| TD-58 | Observability | `google_genai` logs a WARNING about automatic function calling on every Gemini request (noise in production logs); disable AFC in the request config | `llm.py` |
 | ~~TD-49~~ | Dead file | ~~`App.css` intentionally empty~~ — **resolved 2026-09-25** (`aaa8c6e`) | — |

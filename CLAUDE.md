@@ -1,13 +1,13 @@
 # CLAUDE.md — PathwayAI (repo: `roadmap-ai`)
 
 > Permanent project memory. Read this first in every session. Then read `SESSION.md` (latest state) and `ROADMAP.md` (what's next).
-> Last updated: 2026-09-28 (**new 5-question quiz** (ADR-016): interests, problem-solving style, experience, weekly time, 12-month goal + optional career in mind; v2 labelled-profile prompts; the API still accepts the old 8-answer format so saved roadmaps regenerate. Earlier (2026-09-27): deployment-ready for Render (ADR-014), validated AI output (ADR-015), Gemini free tier = 20 requests/day. Not deployed. Next: N-17/N-18 checks, Gemini billing decision, then deploy F-1).
+> Last updated: 2026-09-28, evening (**pre-flight QA done, not deployed**: docs synced with the code; the 5-question quiz verified live on `gemini-2.5-flash-lite` (7/7 calls ok) and walked through on desktop, 360 px and keyboard; findings TD-50–TD-58 → pre-deploy fix batch N-20. Next: N-20, owner decides Gemini billing (N-16), then deploy F-1). Earlier the same day: **new 5-question quiz** (ADR-016): interests, problem-solving style, experience, weekly time, 12-month goal + optional career in mind; v2 labelled-profile prompts; the API still accepts the old 8-answer format so saved roadmaps regenerate. Earlier (2026-09-27): deployment-ready for Render (ADR-014), validated AI output (ADR-015), Gemini free tier = 20 requests/day.
 
 ---
 
 ## 1. Project overview
 
-**PathwayAI** is an AI-assisted tech-career guidance web app. A user answers a 5-question quiz (interests, problem-solving style, experience, weekly time, 12-month goal + optional career in mind; since 2026-09-28, ADR-016); Gemini suggests 3 **technology-industry** careers with match %, salary, growth and skills; the user picks one; Gemini generates a ≤5-step learning roadmap; the user tracks step completion on a dashboard that shows "Career Readiness" meters.
+**PathwayAI** is an AI-assisted tech-career guidance web app. A user answers a 5-question quiz (interests, problem-solving style, experience, weekly time, 12-month goal + optional career in mind; since 2026-09-28, ADR-016); Gemini suggests 3 **technology-industry** careers with match %, salary, growth and skills; the user picks one; Gemini generates a ≤5-step learning roadmap; the user tracks step completion on a dashboard (progress ring, today's focus, stepper, achievements; ADR-013).
 
 - **Vision:** the most honest, practical path from "I'm curious about tech" to "I'm job-ready" — grounded in real data, tracked over time.
 - **Mission:** turn vague career interest into a concrete, personalized, trackable plan in under 5 minutes.
@@ -32,7 +32,7 @@ Naming: the product brand is **PathwayAI**. The repo/folder is `roadmap-ai`. The
 | Git / GitHub | **Implemented 2026-09-25.** `main` with a root `.gitignore` (excludes `backend/.env`); remote `origin` = https://github.com/YussafZarifi/pathway-ai (**private** — keep it private until the owner decides otherwise). `main` tracks `origin/main` |
 | Deployment readiness | **Implemented 2026-09-27** (ADR-014): no hard-coded URLs (`VITE_API_URL`, `ALLOWED_ORIGINS`; `vite build` fails without `VITE_API_URL`), `.env.example` in `backend/` and `frontend/`, `GET /health`, Pydantic request models, 16 KB body limit, in-memory rate limits (per IP 8/min + 50/day, global 500/day), generic error messages, no answers/prompts/AI output in logs, `render.yaml` Blueprint (validated against Render's schema). **Not deployed yet**: the owner reviews first |
 | AI output reliability | **Implemented 2026-09-27** (ADR-015): Gemini JSON mode + `response_schema`; `ai_output.py` validates per item (defaults for missing fields, invalid items dropped); `llm.py` retries once (unusable reply, 5xx, timeout, short per-minute 429); 503 quota/busy messages; per-attempt logs with request IDs and no content. **Gemini key is on the free tier: 20 requests/day** for flash-lite (N-16) |
-| Quiz (redesigned 2026-09-28) | **Implemented** (ADR-016): 5 owner-approved questions, v2 labelled-profile prompts; API also accepts the old 8-answer format (v1) so saved roadmaps still regenerate. Live-checked on `gemini-2.5-flash`; not yet on flash-lite (quota) and not yet visually checked in a foreground browser (N-17, N-18) |
+| Quiz (redesigned 2026-09-28) | **Implemented** (ADR-016): 5 owner-approved questions, v2 labelled-profile prompts; API also accepts the old 8-answer format (v1) so saved roadmaps still regenerate. Verified live on `gemini-2.5-flash-lite` (v1 + v2) and by a manual desktop / 360 px / keyboard pass on 2026-09-28 |
 | Tests | **Backend: 80 pytest tests** (`backend/tests`, `requirements-dev.txt`, `python -m pytest -q`, no network). Frontend: none |
 | CI, Docker, live deployment | **None** |
 
@@ -61,7 +61,7 @@ No database, no auth, no queue, no shared cache (rate limits and the YouTube cac
 
 - **Frontend:** React 19.2, Vite 7, React Router 7 (`BrowserRouter`), framer-motion 12, lucide-react, html2pdf.js (lazy-imported). Plain JavaScript (no TypeScript). ESLint 9 flat config. Plain CSS (`src/index.css` ~4,400 lines; the only stylesheet).
 - **Backend:** Python, FastAPI 0.128, Uvicorn, Pydantic 2, `google-genai`, python-dotenv. (`openai` is in requirements.txt but unused.)
-- **AI:** Gemini 2.5 Flash-Lite via prompt-and-parse JSON.
+- **AI:** Gemini 2.5 Flash-Lite, JSON mode + `response_schema`, validated in `ai_output.py` (ADR-015).
 - **Storage:** browser localStorage only.
 
 ## 5. Folder structure
@@ -126,7 +126,7 @@ See `docs/ui-design.md`.
 
 ## 8. AI architecture (current)
 
-Two single-shot prompts in `backend/main.py`:
+Two single-shot prompts in `backend/prompts.py` (v2 for the 5-question quiz, v1 unchanged for old saved answers):
 1. **Career:** answers → exactly 3 tech-only careers `{title, reason, match_score 70–95, salary_range, growth_rate, education, skills[4–5]}` + `explanation`.
 2. **Roadmap:** answers + chosen career → `{career, roadmap: [{title, description, time, resources[{name,url}], tasks[], video_query}]}` (≤5 steps). The backend then adds `videos[{id,title,channel,thumbnail,url}]` (real YouTube Data API results) and `video_search_url` to each step (ADR-012).
 Output comes from Gemini JSON mode and is validated in `backend/ai_output.py`. Requests are validated (length limits, control characters stripped, unknown keys dropped) and rate limited. Since ADR-015: Gemini JSON mode with a `response_schema`, per-item output validation with defaults, one retry, 30 s timeout, distinct 503 quota/busy and 502 failure messages, content-free diagnostics. Still no streaming, no caching, no grounding (salaries and URLs are model-invented; only non-http(s) URLs are dropped). User free text (≤300 chars) and the career title still go into the prompt (reduced prompt-injection surface, not closed). Improvement plan: `docs/ai-system.md`.
@@ -145,7 +145,7 @@ Output comes from Gemini JSON mode and is validated in `backend/ai_output.py`. R
 6. Rate limits live in process memory: reset on every deploy/restart, not shared across instances; forged `X-Forwarded-For` may bypass the per-IP limit (the global cap still holds).
 7. AI endpoints are unauthenticated (rate-limited and validated since 2026-09-27; raw exception text and answer logging removed).
 8. ~~Fake data and dead buttons~~ — fixed 2026-09-25. Remaining honesty gap: Employability/Momentum scores mostly measure app engagement (TD-29).
-9. Invalid nested interactive HTML: checkbox inside button in Results (the RoadmapTimeline part was fixed 2026-09-26).
+9. Invalid nested interactive HTML: checkbox inside button in Results — and it has a visible effect: ticking a compare checkbox changes the selected career (TD-50, found in QA 2026-09-28). Other QA findings before deploy: no scroll reset on route change (TD-51), outdated "8-question"/"not saved" copy (TD-52), blank page for unknown URLs (F-12). All in ROADMAP N-20.
 10. Backend tests only (80), no frontend tests, no CI; 12 ESLint errors (most are `motion` false positives from the missing jsx-uses-vars rule; none in files added 2026-09-26).
 
 ## 11. Current priorities (in order)
@@ -154,7 +154,7 @@ Output comes from Gemini JSON mode and is validated in `backend/ai_output.py`. R
 2. ~~Remove fake data / dead code; hide unbuilt features honestly~~ ✅ 2026-09-25.
 3. ~~Env-based API URL + CORS; single API client (N-5, N-6)~~ ✅ 2026-09-27.
 4. ~~Fix progress bugs; persist roadmaps per career (N-7)~~ ✅ 2026-09-26 (with the dashboard redesign).
-5. ~~Backend hardening (N-9)~~ ✅ 2026-09-27. ~~Gemini structured output + response validation (N-8)~~ ✅ 2026-09-27 (ADR-015). **Next: the owner enables Gemini billing (N-16) and reviews, then deploy to Render (F-1).**
+5. ~~Backend hardening (N-9)~~ ✅ 2026-09-27. ~~Gemini structured output + response validation (N-8)~~ ✅ 2026-09-27 (ADR-015). ~~Pre-flight QA (N-17, N-18)~~ ✅ 2026-09-28. **Next: pre-deploy fix batch (N-20), the owner decides Gemini billing (N-16), then deploy to Render (F-1).**
 6. Tests + CI, then deploy.
 See `ROADMAP.md` → *Next Sprint*.
 

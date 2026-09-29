@@ -4,73 +4,99 @@
 
 ---
 
-## Current session — 2026-09-28 · 5-question quiz (ADR-016)
+## Current session — 2026-09-28 (evening) · Pre-flight: docs sync, live flash-lite check, manual QA, readiness report
 
 ### Goal (owner request)
-Rethink the quiz: at most 5 questions that give **more** signal than the 8 old ones, feel like a premium AI product, take under 2 minutes. Design first, implement only after approval. Before implementing, make the backend accept both the old 8-question and new 5-question formats so saved roadmaps and "Regenerate" keep working.
-
-### Design process
-1. Analysis of the 8 questions:
-   - "Where am I now?" was asked 3×; preferences were asked 2×.
-   - `interest_area` asked users to pick the answer, which anchored all 3 suggestions.
-   - The "years" sliders were ambiguous.
-   - No question captured problem-solving style, strengths or weekly time.
-   - I proposed a 5-question design.
-2. The owner sent their own 5 questions. My review:
-   - Q1 and Q2 overlapped (4 of 7 Q2 options repeated Q1).
-   - Q5 mixed goals with target roles.
-   - Strengths, problem-solving style and work style were missing.
-   - I suggested a problem-solving Q2, buttons for time, and target roles in an optional field.
-3. Owner's final decisions: exactly 5 questions; the improved Q2; four large buttons for weekly time; Q5 about the goal only; an optional "Already have a career in mind?" field under Q5; no sixth question; the AI infers the rest.
+Pre-flight only, before deciding whether to deploy: (1) make every doc match the application, (2) verify the 5-question quiz on the production model `gemini-2.5-flash-lite`, (3) manual QA on desktop, 360 px and keyboard through Landing → Quiz → Results → Dashboard → Regenerate, (4) check links, layout, console errors and accessibility, (5) write a deployment readiness report. **No deploy, no push, no code changes.**
 
 ### What was done
-1. **Backend first** (`a1242f6`):
-   - `schemas.py`: `QuizAnswersV2` + unchanged `QuizAnswersV1` behind a discriminated `QuizAnswers` (`interests` present → v2, else v1; no version field).
-   - New `prompts.py`:
-     - v2 prompts: labelled profile; guidance on reading each answer; reasons must cite ≥2 answers; steps paced to weekly hours; last step aimed at the goal.
-     - v1 prompts moved verbatim (verified byte-identical against the previous commit).
-   - 20 new tests (80 total).
-2. **New quiz** (`9b97b5b`):
-   - `questions.js`: the 5 approved questions.
-   - `Quiz.jsx`: multi-select grid (limit enforced, "n of 3 selected"), four large weekly-hours buttons, and the optional career field with 5 suggestion chips, sent only when non-empty. `aria-pressed` and labelled groups throughout.
-   - Slider type and CSS removed. Tracking moved outside the state updater (TD-26 fixed). Two React lint issues (impure `Date.now()` in render, setState in an effect) fixed; the old exhaustive-deps warning is gone.
-3. **Copy** (`6f31949`): Landing "5 questions, under 2 minutes"; `/home` "Answer 5 quick questions".
-4. **Docs:** ADR-016; CLAUDE.md (§12 question-ID contract updated); ROADMAP C-24, N-17 extended, new N-18 (visual check), N-19 (remove v1); `docs/ai-system.md` (question → signal → prompt usage table); `docs/api.md` (both formats), `docs/backend.md`, `docs/frontend.md`, `docs/testing.md`, `docs/technical-debt.md` (TD-26 resolved, TD-38 resolved for v2), `docs/ui-design.md`, `docs/recruiter-notes.md`, README; this file.
+1. **Docs** (`767de72`):
+   - README: the dashboard description (the Employability/Momentum meters are gone), data flow, AI pipeline, scripts, folder structure.
+   - `architecture.md`, `database.md` (both localStorage keys), `frontend.md`, `testing.md`, `deployment.md`, `technical-debt.md`, `ui-design.md`, `recruiter-notes.md`, `backend.md`, `ai-system.md`: facts from before 2026-09-26 corrected (unscoped progress, hard-coded URL, 60 tests, lint counts, line counts).
+   - ROADMAP: N-11 closed by C-24.
+2. **Live check on `gemini-2.5-flash-lite`:**
+   - How it ran: a separate API on :8001 and Vite on :5174, so the owner's :8000/:5173 servers were untouched and the logs were readable.
+   - Result: 7 calls, **7 ok on the first attempt**, all `strategy=direct finish=STOP`, 2.0–4.0 s: career v2 ×3, roadmap v2 ×3, roadmap v1 ×1 (an old saved-answers Regenerate).
+   - Quota: these 7 calls used 7 of today's 20 free requests.
+3. **Manual QA** in Chrome:
+   - Desktop: 2560 px viewport.
+   - Mobile: 360 px, via a same-origin 360×780 iframe, because the window couldn't be resized.
+   - Keyboard: the whole desktop quiz and Results flow.
+   - Note: the Chrome window was occluded between tool calls (`visibilityState: hidden`), so framer-motion only advanced while screenshots were being taken. Every transition completed.
+4. **Findings** recorded as TD-50–TD-58 and ROADMAP N-20 (P0 pre-deploy batch) + N-21 (P1 a11y/quality batch). Nothing was fixed (pre-flight only). No ADR: no architectural change.
+
+### Deployment readiness report
+
+**Verdict: not ready to share publicly yet. It's ready after a small fix batch (N-20, about 1–2 h) and your Gemini billing decision.** The core flow works end to end on the production model. The remaining issues are a few visible bugs and copy problems that a recruiter would notice in the first minute, not infrastructure problems.
+
+#### Passed
+| Area | Result |
+|---|---|
+| Full flow Landing → Quiz → Results → Dashboard → Regenerate | Works on desktop (keyboard only) and at 360 px (pointer) |
+| Production model | 7/7 first-attempt successes, v1 + v2 formats, 2–4 s per call |
+| AI quality | Reasons cite 2–4 of the user's answers; career in mind included with an honest score; step times paced to weekly hours (10 h/week → ~4–6 months; the dashboard's "time left" = the sum of the steps) |
+| Persistence | Mark done → reload → 20% and a dated achievement kept; undo works; regenerate replaces the roadmap and resets progress, as the confirm dialog says |
+| Quiz a11y | Labelled groups, `aria-pressed`, `aria-live` "n of 3 selected", limit of 3 enforced, visible focus rings, labelled optional field, Back keeps answers |
+| Dialogs on the native `Dialog` (Accounts, Regenerate) | Focus moves in, Esc closes, focus returns |
+| Layout | No horizontal scroll on any page at 360 px or on desktop; Q1 grid 3→2 columns, hours 4→2×2 |
+| Links | Internal nav links valid; external links `target=_blank rel="noopener noreferrer"`; YouTube search fallback works (no `YOUTUBE_API_KEY`) |
+| Edge routes | `/results` opened directly → `/quiz`; dashboard empty state renders |
+| Server | No 4xx/5xx, no retries; backend 80/80 tests; build passes |
+
+#### Must fix before sharing the URL (N-20)
+| # | Issue | Evidence |
+|---|---|---|
+| 1 | **Ticking a compare checkbox changes the selected career** (TD-50) | Checked Data Scientist while ML Engineer was selected → Data Scientist became "Selected"; "Generate roadmap" would have used it |
+| 2 | **Mobile lands mid-dashboard** (TD-51) | After "Generate roadmap" at 360 px, `/dashboard` opened at `scrollTop` 976, past the hero |
+| 3 | **Outdated copy** (TD-52) | Dashboard empty state: "Take the **8-question** quiz"; `/home`: "roadmaps aren't saved… for the current session" + "No saved roadmaps yet" while a roadmap was stored |
+| 4 | **Blank page for unknown URLs** (F-12) | `/definitely-not-a-page` → empty `#root`; Render rewrites every path to `index.html` |
+| 5 | Tab title "roadmap-ai", Vite favicon (N-12) | First thing seen in a shared link / browser tab |
+
+#### Owner decisions (blocking a *public* launch, not a private test deploy)
+- **Gemini billing (N-16):** the free tier is 20 requests/day. QA used 7 today; a dev quiz run costs 2–3 (StrictMode duplicate, TD-53), a production run 2.
+- **Push approval:** `main` is 40 commits ahead of `origin/main` (including this session's 2 docs commits); Render builds from GitHub.
+- Render plan (free sleeps ~1 min on first request), `YOUTUBE_API_KEY` (optional; steps show a search link without it).
+
+#### Should fix soon (N-21, not blocking)
+- Console error on every Results load: `Error fetching careers: AbortError` (TD-53).
+- Focus drops to `<body>` after each quiz step and after regenerate (TD-54).
+- Landing "Roadmap Generator" card is focusable but ignores Enter/Space; career cards lack `aria-pressed`; compare checkbox unlabelled (TD-55).
+- Compare and Share modals: no Esc, no focus move (TD-20).
+- framer-motion ignores `prefers-reduced-motion` (TD-33).
+- AI resource links: 1 of 13 invented (a LinkedIn article that redirects to "article not found") (TD-21).
+- Compare modal "Work environment: N/A" row (TD-56).
+- Mobile Results: the first card is below the fold (TD-57).
+- SDK AFC WARNING on every Gemini call (TD-58).
+- Lint 12 errors; no frontend tests; no CI.
 
 ### Verification
 | Check | Result |
 |---|---|
-| `python -m pytest -q` | 80 passed (v1 careers + regeneration with original prompts; v2 profile/pacing; v2 validation: 0 or 4 interests, bad hours, empty goal, long career field → 422 before Gemini; newline removal; duplicate interests merged; leftover v1 keys ignored) |
-| v1 prompts | Byte-identical to the previous commit's prompts (scripted comparison) |
-| Live `gemini-2.5-flash` (3 calls) | v2 careers: UX Designer 90 / Data Analyst 88 / Data Engineer 82 (career in mind, honestly lower); every reason cites 2 answers; explanation describes inferred strengths. v2 roadmap: 5 steps of 1–4 months at 5 h/week, ending in a career-switch portfolio. v1 regenerate: 200, 5 steps |
-| Live `gemini-2.5-flash-lite` | Not possible: daily quota still exhausted; the frontend client showed the friendly "usage limit" 503 for both formats |
-| Chrome (dev server) | The window was in the background (`visibilityState: hidden`), so framer-motion transitions can't run and the quiz can't advance past Q1 there. Checked in the page: 3-column grid with square checkboxes, "2 of 3 selected" state, progress "2 / 5". **Full visual walk-through not done (N-18).** localStorage backed up in the browser and restored byte-for-byte |
-| `npm run lint` / `npm run build` | 12 errors, **0 warnings** (was 1) / passes |
+| `python -m pytest -q` | 80 passed |
+| `npm run lint` / `npm run build` | 12 errors, 0 warnings / passes (main chunk 427 KB, 137 KB gzip) |
+| `git check-ignore backend/.env frontend/.env.local` | both ignored; docs commit contained only docs |
+| Owner's servers | :8000 and :5173 still running, untouched; QA servers stopped |
 
 ### Open issues / notes
-- **N-18:** walk through the quiz in a visible browser (desktop + 360 px + keyboard). I can do it once the Chrome window is in the foreground.
-- **N-17:** after the flash-lite quota resets, run one quiz end to end and check the log for `career v2 attempt 1: ok … strategy=direct`.
-- Two answer formats coexist until N-19. The tracking event log in localStorage will contain both shapes.
-- Carried over from 2026-09-27: Gemini free tier = 20 requests/day (N-16, owner decision); Render deploy not done (F-1); `YOUTUBE_API_KEY` unset.
-- **Git:** 3 code commits + 1 docs commit this session; `main` is **38 commits ahead of `origin/main` (including this fix), not pushed.**
+- **Git:** 1 docs commit so far this session (+ this end-of-session docs commit); **`main` is ahead of `origin/main`, not pushed** (owner said don't push).
+- The QA browser origin (:5174) holds test roadmap data in its own localStorage; the owner's :5173 data wasn't touched.
 
 ### Next recommended task
-1. N-18 visual check + N-17 live check (small; needs a visible browser and the quota reset).
-2. Owner decision on Gemini billing (N-16), then **F-1 deploy to Render**.
-3. Frontend tests + CI (F-2–F-4); the quiz's multi-select and optional-field logic are good first Vitest targets.
+1. **N-20 pre-deploy fix batch** (TD-50, TD-51, TD-52, F-12 404 route, N-12 title/favicon), each with a lint/build check and a quick browser re-check.
+2. Owner: Gemini billing (N-16) + push approval → **F-1 deploy to Render**.
+3. N-21 accessibility/quality batch, then frontend tests + CI (F-2–F-4).
 
 ### Open questions (for the owner)
-1. Enable Gemini billing before deploying, or deploy on the free tier first (≈10 quiz runs/day)?
-2. Render API plan: free (sleeps) or Starter (always on)?
-3. How long to keep v1 answer support after deploy (suggest a few weeks, or until accounts can migrate data)?
-4. Target market: Canada-first (CAD salaries, EN/FR) or US?
-5. Database/auth preference: Supabase vs self-managed Postgres + FastAPI JWT?
-6. Stay on Gemini, or add a provider abstraction? (`openai` is in requirements but unused.)
-7. When should the GitHub repo go public (F-17)?
+1. Fix N-20 first and then deploy, or deploy privately now and fix on the live site?
+2. Enable Gemini billing before deploying, or start on the free tier (≈10 quiz runs/day)?
+3. Render API plan: free (sleeps) or Starter (always on)?
+4. Add a `YOUTUBE_API_KEY` for real videos before launch?
+5. Carried over: target market (Canada-first?), database/auth choice, provider abstraction, when to make the repo public (F-17).
 
 ---
 
 ## History
+- 2026-09-28 (day) — 5-question quiz (ADR-016): backend accepts v1 + v2 answer formats (v1 prompts byte-identical), new quiz UI (multi-select, weekly-hours buttons, optional career field), TD-26 fixed, 80 backend tests; verified on `gemini-2.5-flash`.
 - 2026-09-27 (part 2) — Investigated the "intermittent roadmap failure": 25 live calls, 0 malformed JSON; the real limit is Gemini's free tier (20 requests/day). Added JSON mode + response schema, per-item validation, one retry, 503 quota/busy messages, content-free diagnostics with request IDs, and the first 60 backend tests (ADR-015).
 - 2026-09-27 (part 1) — Deployment readiness (ADR-014): env-only config (`ALLOWED_ORIGINS`, `VITE_API_URL`, build fails without it), every request through `lib/api.js`, Pydantic request validation, in-memory rate limits, generic errors, no user data in logs, `/health`, `render.yaml` (Render chosen, not deployed). Local `backend/.env` gained `ALLOWED_ORIGINS`; `frontend/.env.local` created.
 - 2026-09-26 — Landing Log in / Sign up → "accounts coming soon" dialog; `/home` polish; real YouTube videos per step (ADR-012); dashboard redesign with persisted roadmap and per-roadmap progress (ADR-013); polish passes and shared `VideoCard`.
