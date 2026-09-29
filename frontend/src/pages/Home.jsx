@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Map,
@@ -8,11 +8,23 @@ import {
   ArrowRight,
 } from "lucide-react";
 import AppHeader from "../components/AppHeader";
+import { loadCurrentRoadmap } from "../lib/roadmapStore";
+import { getAllProgress } from "../lib/trackingEngine";
+import { getStepStatuses, summarizeProgress } from "../lib/dashboardData";
 
-// Future signed-in hub. Until accounts and saved roadmaps exist it shows an
-// honest empty state: no numbers, activity or achievements that aren't real.
+// The browser-saved roadmap (ADR-013), if any, with its real progress.
+function loadSavedRoadmap() {
+  const record = loadCurrentRoadmap();
+  if (!record) return null;
+  const statuses = getStepStatuses(record.roadmap, getAllProgress(), record.id);
+  return { career: record.career, summary: summarizeProgress(statuses) };
+}
+
+// Future signed-in hub. Until accounts exist it shows the one roadmap saved
+// in this browser, or an honest empty state: nothing that isn't real.
 export default function Home() {
   const navigate = useNavigate();
+  const [saved] = useState(loadSavedRoadmap);
 
   useEffect(() => {
     document.body.classList.add("theme-landing");
@@ -48,22 +60,39 @@ export default function Home() {
         </section>
 
         <section className="homeSection" aria-labelledby="homeRoadmapsTitle">
-          <h2 className="homeSectionTitle" id="homeRoadmapsTitle">Your roadmaps</h2>
+          <h2 className="homeSectionTitle" id="homeRoadmapsTitle">Your roadmap</h2>
 
-          <div className="homeEmpty">
-            <div className="homeEmptyIcon">
-              <FolderOpen size={28} aria-hidden="true" />
+          {saved ? (
+            <div className="homeEmpty">
+              <div className="homeEmptyIcon">
+                <Map size={28} aria-hidden="true" />
+              </div>
+              <h3 className="homeEmptyTitle">{saved.career}</h3>
+              <p className="homeEmptyText">
+                {saved.summary.done} of {saved.summary.total} steps done. Your roadmap and
+                progress are saved in this browser. PathwayAI keeps one roadmap at a time, so
+                generating a new one replaces it. Saving across devices will come with accounts.
+              </p>
+              <button type="button" className="ghostBtn" onClick={() => navigate("/dashboard")}>
+                Open your dashboard
+              </button>
             </div>
-            <h3 className="homeEmptyTitle">No saved roadmaps yet</h3>
-            <p className="homeEmptyText">
-              PathwayAI doesn't have accounts yet, so roadmaps aren't saved here. When you
-              generate one from the quiz, it opens on your dashboard for the current session.
-              Saved roadmaps and progress history will appear here once sign-in is available.
-            </p>
-            <button type="button" className="ghostBtn" onClick={() => navigate("/quiz")}>
-              Generate a roadmap
-            </button>
-          </div>
+          ) : (
+            <div className="homeEmpty">
+              <div className="homeEmptyIcon">
+                <FolderOpen size={28} aria-hidden="true" />
+              </div>
+              <h3 className="homeEmptyTitle">No roadmap yet</h3>
+              <p className="homeEmptyText">
+                Take the quiz and pick a career. Your roadmap and progress are saved in this
+                browser, so they'll be here when you come back. Saving across devices will come
+                with accounts.
+              </p>
+              <button type="button" className="ghostBtn" onClick={() => navigate("/quiz")}>
+                Generate a roadmap
+              </button>
+            </div>
+          )}
         </section>
 
         <section className="homeSection" aria-labelledby="homeFeaturesTitle">

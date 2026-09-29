@@ -60,7 +60,7 @@ export default function ShareModal({ isOpen, onClose, selectedCareer }) {
               <Download size={24} />
               <div>
                 <h3 className="shareOptionTitle">Download as PDF</h3>
-                <p className="shareOptionDesc">Save your complete roadmap as a PDF file</p>
+                <p className="shareOptionDesc">Save your career matches as a PDF file</p>
               </div>
             </button>
 

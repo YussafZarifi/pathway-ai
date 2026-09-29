@@ -198,8 +198,8 @@ export default function Dashboard() {
             </span>
             <h1 className="dashEmptyTitle">No roadmap yet</h1>
             <p className="dashEmptyText">
-              Take the 8-question quiz, pick a career, and your roadmap and progress will
-              live here.
+              Take the 5-question quiz and pick a career. Your roadmap and progress will
+              live here, saved in this browser.
             </p>
             <button type="button" className="homePrimaryBtn" onClick={() => navigate("/quiz")}>
               Take the career quiz
