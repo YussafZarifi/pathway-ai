@@ -1,7 +1,14 @@
 # Deployment
 
 ## Current state
-**Deployment-ready for Render, not deployed yet** (as of 2026-09-27). The owner reviews the changes first.
+**Deployment-ready for Render and code-complete for an initial release, not deployed, not pushed** (as of 2026-09-29). Pre-flight QA, the pre-deploy fix batch (C-27) and a full regression QA are done. Waiting only for the owner's decisions: Gemini billing, the Render plan, the push to the private GitHub repo, and the optional `YOUTUBE_API_KEY`.
+
+### Launch sequence (ROADMAP → Ready to Deploy)
+1. **D-1** Push `main` to the private repo (check `git check-ignore backend/.env` first).
+2. **D-2** Choose the Render plan for `pathwayai-api` (free sleeps; Starter is always on).
+3. **D-3** Apply the Blueprint (steps below).
+4. **D-4** Verify production: `/health`, the full flow Landing → Quiz → Results → Dashboard → Regenerate, the 404 page, CORS, request-ID logs, no console errors; add the live URL to the README; then `og:url` / `og:image` (N-22).
+5. Before **sharing the URL publicly**: Gemini billing + budget alert (D-6) and `YOUTUBE_API_KEY` (D-5, otherwise every step shows a "No video found yet" placeholder); ideally also the presentation fixes P-1–P-6 (built-by footer, About, How it works, sorted matches, AI-estimate labels, fewer "Coming soon").
 
 Done (ADR-014):
 - No hard-coded URLs: the frontend reads `VITE_API_URL` (the build fails without it); the backend reads `ALLOWED_ORIGINS`.
@@ -12,7 +19,7 @@ Done (ADR-014):
 
 Still missing before a public launch (not blockers for a first deploy):
 - No frontend tests and no CI (F-2–F-4; the backend has 80 pytest tests run locally); no error tracking (F-11).
-- **Gemini free-tier quota: 20 requests per day** for `gemini-2.5-flash-lite` (measured 2026-09-27). That's about 10 quiz runs a day in total; after that, users see "PathwayAI has reached its AI usage limit for now" until the daily reset. Before sharing the URL widely, enable billing on the Google AI Studio / Cloud project (paid tier) and set `GLOBAL_AI_LIMIT_PER_DAY` to the spend you accept. (AI output is validated and retried since ADR-015.)
+- **Gemini free-tier quota: 20 requests per day** for `gemini-2.5-flash-lite` (measured 2026-09-27). That's about 7–10 quiz runs a day in total (a run uses 2–3 requests, plus any retry); after that, users see "PathwayAI has reached its AI usage limit for now" until the daily reset. Before sharing the URL widely, enable billing on the Google AI Studio / Cloud project (paid tier) and set `GLOBAL_AI_LIMIT_PER_DAY` to the spend you accept. (AI output is validated and retried since ADR-015.)
 - No Gemini budget alert. The global daily cap (`GLOBAL_AI_LIMIT_PER_DAY`) is the only spend guard.
 
 ## Local development
@@ -85,4 +92,6 @@ Both have `buildFilter` paths, so a frontend-only change doesn't redeploy the AP
 - [x] AI output validated with one retry; failures logged with request IDs (ADR-015)
 - [x] Backend tests (80, pytest; run locally)
 - [ ] Frontend tests + CI
+- [ ] `YOUTUBE_API_KEY` set (owner: required before public launch)
+- [ ] Production verified (D-4)
 - [ ] README has the live URL

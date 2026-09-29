@@ -169,6 +169,17 @@ ADR-001 to ADR-008 were **reconstructed on 2026-09-24** from the existing code d
 - **Consequences:** every route change starts at the top on desktop and mobile; unknown links land on a branded page with two ways back. The 404 page returns HTTP 200, so crawlers may index unknown URLs; add `noindex` or a real 404 status if that ever matters. A React error boundary (the rest of F-12) is still missing: a render crash still shows a blank page.
 - **Status:** Accepted.
 
+## ADR-018 — Next phase: Supabase for authentication and PostgreSQL (proposed)
+- **Date:** 2026-09-29
+- **Context:** the app is code-complete for an initial release with browser-only persistence (ADR-004, ADR-013): one roadmap per browser, no accounts. Accounts, saved roadmaps and the planned Resume Analyzer / AI Coach all need user identity and server-side data. The docs listed Supabase, Clerk or self-managed FastAPI JWT + Postgres as options (open question since 2026-09-24). At the end of the 2026-09-29 session the owner set the post-launch order: push → deploy → verify → **Supabase Authentication** → **PostgreSQL** → Resume Analyzer → AI Coach.
+- **Decision (proposed):** use Supabase for both.
+  - **Auth:** Supabase Auth in the frontend (`@supabase/supabase-js`, email and OAuth providers to be chosen). The FastAPI backend verifies the Supabase access token (JWT) on endpoints that read or write user data. The Gemini and YouTube keys stay server-side; only Supabase's public anon key reaches the browser.
+  - **Database:** Supabase Postgres with the schema sketched in `docs/database.md` (users, quiz_sessions, roadmaps, roadmap_steps, progress_events), versioned migrations and row-level security. On first sign-in, the roadmap saved in the browser (`pathwayai_roadmap` + its progress) is offered for import.
+  - To confirm when implementation starts: the OAuth providers; whether the backend or the browser (with RLS) writes each table; the migration tool; the free vs paid Supabase plan.
+- **Alternatives considered:** Clerk for auth + Render/Neon Postgres (two vendors, and Clerk's free tier is for auth only); self-managed FastAPI JWT + Render Postgres (more code to own: password reset, email verification, OAuth); staying browser-only (blocks cross-device use and the planned features).
+- **Consequences:** a new vendor and new configuration (`SUPABASE_URL`, `SUPABASE_ANON_KEY` public; a service-role key server-only, if the backend needs one), documented in the `.env.example` files and `docs/deployment.md`. `AccountsSoonDialog` (ADR-011) is replaced by real sign-in, `/home` becomes the signed-in hub (ADR-010), and `/dashboard` may become per-roadmap. ADR-004/ADR-013's browser persistence remains for signed-out visitors unless a later ADR changes it. Rate limits could then key on user id as well as IP.
+- **Status:** Proposed. To be accepted, or revised, when F-7 starts.
+
 ---
 
 ## Template

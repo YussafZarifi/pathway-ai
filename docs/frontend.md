@@ -9,7 +9,7 @@
 | Route | Page | Status |
 |---|---|---|
 | `/` | `Landing` | ✅ Hero + 3 feature cards (2 say "Coming soon"); header and hero CTAs → `/quiz` |
-| `/home` | `Home` | 🟡 Hub: quiz CTA, the browser-saved roadmap with real progress and "Open your dashboard" (or an accurate "No roadmap yet" empty state, since 2026-09-29), planned-feature cards. Linked from the shared `AppHeader` on `/home` and `/dashboard`, not from Landing (N-15). Becomes the signed-in dashboard after auth (ADR-010) |
+| `/home` | `Home` | 🟡 Hub: quiz CTA, the browser-saved roadmap with real progress and "Open your dashboard" (or an accurate "No roadmap yet" empty state, since 2026-09-29), planned-feature cards. Linked from the shared `AppHeader` on `/home` and `/dashboard`, not from Landing (ROADMAP P-9, was N-15). Becomes the signed-in dashboard after auth (ADR-010) |
 | `/quiz` | `Quiz` | ✅ |
 | `/results` | `Results` | ✅ Redirects to `/quiz` without `location.state.answers` |
 | `/dashboard` | `Dashboard` | ✅ Redesigned 2026-09-26. Loads the stored roadmap (`lib/roadmapStore.js`), falls back to router state, shows an empty state (not a redirect) when there's none |

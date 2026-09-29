@@ -4,63 +4,91 @@
 
 ---
 
-## Current session — 2026-09-29 · Pre-deploy fix batch (N-20, ADR-017)
+## Current session — 2026-09-29 · Pre-deploy fixes, full QA, recruiter review, handoff
 
-### Goal (owner request)
-Implement **only** the "must fix before sharing" list from the 2026-09-28 readiness report, then run a complete QA pass again and confirm no regressions. No deploy, no push.
+### Summary
+- **Code-complete for an initial public release.** No production code was written after the final QA pass.
+- **Not deployed. Not pushed** to GitHub: `main` is 47 commits ahead of `origin/main`, including this handoff commit.
+- The app passed the deployment pre-flight (2026-09-28). The 5 must-fix launch issues were fixed and verified. A full QA pass on desktop, 360 px, keyboard and the complete flow passed.
+- 80/80 backend tests pass; the frontend build passes.
+- Live `gemini-2.5-flash-lite` testing succeeded, including one temporary Gemini `503 UNAVAILABLE` recovered by the automatic retry (ADR-015).
 
-### What was done (5 code commits)
+### 1. Pre-deploy fix batch (5 code commits, ADR-017)
 | Commit | Change |
 |---|---|
-| `4c916c2` fix(results) | **Comparing never changes the selection (TD-50).** The compare checkbox moved out of the card `<button>` into a labelled `<label>` beside the card. This also fixes the last nested interactive element (TD-19). Up to 3 careers, an accessible name ("Compare DevOps Engineer"), a focus ring, and a toggle reading "Done comparing" with `aria-pressed`. The disabled checkbox on "None of these" is gone. On phones the card header may wrap, so compare mode can't overflow |
-| `bd30106` fix(nav) | **Every page starts at the top (TD-51).** `ScrollToTop` (layout effect on every pathname change) inside `BrowserRouter`. Dashboard and Results "Regenerate" stay on the same route, so they scroll to the top themselves. Browser Back keeps native scroll restoration |
-| `279c747` fix(copy) | **Honest, current copy (TD-52).** `/home` shows the browser-saved roadmap (career, real steps done, "one roadmap at a time… replaces it", "Open your dashboard") or an accurate "No roadmap yet" state. The dashboard empty state says 5 questions and "saved in this browser". The Results PDF option says it saves the career matches (it never saved a roadmap). No "8-question" text is left in the frontend |
-| `00ca5f1` feat(routing) | **Branded 404 page (F-12's 404 part).** Catch-all route → `NotFound`: shared header, gradient "404", "This page isn't on the map", "Return home" (`/home`), "Take the quiz", tab title "Page not found · PathwayAI" |
-| `1c9a3a4` feat(brand) | **Title, favicon, metadata (N-12, TD-42).** `<title>PathwayAI</title>`, a recruiter-friendly meta description, OG/Twitter tags (no `og:image`/`og:url` until there's a live URL, N-22), black `theme-color`, `favicon.svg` (the in-app "PA" gradient mark). `public/vite.svg` deleted |
+| `4c916c2` | Comparing careers never changes the selected career (TD-50): the compare checkbox is a labelled sibling of the card, not inside its `<button>` (also closes TD-19). On phones the header wraps, so compare mode can't overflow |
+| `bd30106` | Every page starts at the top (`ScrollToTop`); Regenerate on the dashboard and on Results scrolls to the top too (TD-51) |
+| `279c747` | Honest copy (TD-52): `/home` shows the browser-saved roadmap with real progress, or an accurate empty state; "5-question quiz"; the Results PDF option says it saves career matches |
+| `00ca5f1` | Branded 404 page for unknown URLs (F-12's 404 part, TD-16) |
+| `1c9a3a4` | "PathwayAI" title, favicon, meta description, OG/Twitter tags; Vite favicon removed (TD-42) |
 
-Docs: ADR-017 (routing shell); CLAUDE.md, ROADMAP (C-27; N-20 and N-12 closed; new N-22 `og:image`), technical debt (TD-16, TD-19, TD-42, TD-50, TD-51, TD-52 resolved), frontend, UI, recruiter notes, future features, README.
+### 2. Full QA pass (after the fixes)
+All passed, on desktop, at 360 px and by keyboard:
+- Compare independence, verified end to end: the roadmap was generated for the selected career while two others were ticked.
+- Scroll resets on every route (Results at 1,393 px → dashboard at 0) and after Regenerate.
+- Both copy states on `/home` and the dashboard.
+- 404 page.
+- Metadata.
+- The full flow, with no horizontal scroll anywhere and no console errors.
+- 5 live AI calls, all 200.
 
-### QA pass (regression)
-Same setup as before: my own API on :8001 and Vite on :5174, so your :8000/:5173 servers were untouched. Desktop at 2560 px, mobile through a 360×780 same-origin iframe, keyboard on the key controls.
+One regression was found and fixed during QA: compare mode overflowed at 360 px.
 
-| Check | Result |
+### 3. Recruiter-style review (no code changes)
+I walked through the running app as a first-time visitor. **The core loop is strong; the gaps are mostly presentation and trust, not engineering.** The full ranked list is in `docs/recruiter-notes.md`. Tasks are ROADMAP P-1–P-11; debt is TD-21 and TD-59–TD-63.
+
+- **Critical:**
+  - No "built by" or About anywhere.
+  - Free-tier quota and Render cold start can make the live site look broken or slow.
+  - 3 of 13 AI resource links were broken in one roadmap.
+  - "Coming soon" is promoted: the Sign up button and 2 of 3 Landing cards.
+- **High:**
+  - "No video found yet" placeholders (no YouTube key).
+  - Unsorted matches (90/85/88) and salaries/growth not labelled as AI estimates.
+  - Thin Landing: no "how it works", no screenshot.
+  - Inconsistent headers, and no way back to a saved roadmap from Landing.
+  - Padded first-visit dashboard stats and insights.
+- **Medium/Low:** typography, the quiz card jumping between questions, naming consistency, error message wording and placement, keyboard focus, Esc on dialogs, reduced motion.
+
+### 4. Docs and project memory (this handoff)
+- ROADMAP restructured into Completed · 🚀 Ready to Deploy (D-1–D-6) · 🌱 Post-Launch Improvements (P-1–P-11, N-21…) · 🔮 Future Features (F-7 Supabase Auth → F-8 Postgres → F-13 Resume Analyzer → F-18 AI Coach → tests/CI …).
+- ADR-018 (proposed): Supabase for authentication and PostgreSQL.
+- CLAUDE.md: a "state at a glance" header and §11 rewritten as the Next Session order.
+- `docs/deployment.md`: launch sequence and checklist.
+- `docs/technical-debt.md`: TD-59–TD-63 added, TD-21 evidence updated.
+- `docs/recruiter-notes.md`: review section added.
+- `docs/future-features.md`, `docs/frontend.md`: IDs updated.
+- README unchanged: it already reflects today's code.
+
+### Deployment readiness
+| Item | Status |
 |---|---|
-| Compare independence | Selected Cloud Security; ticked DevOps + SRE by keyboard (Space), click and label click → selection unchanged. Clicking a card changed the selection without touching the ticks. The compare modal showed DevOps + SRE. **Generate roadmap with compare mode on → roadmap for Cloud Security Engineer** |
-| Compare layout | Desktop: checkbox centred on the title row (±1 px). 360 px: **found and fixed a regression during QA** (the narrower card overflowed horizontally in compare mode) → header wraps on phones, no overflow |
-| Scroll reset | Landing (396 px) → Quiz: 0 · Dashboard (1,500) → Home: 0 · Home (905) → Dashboard: 0 · Dashboard → Quiz: 0 · Quiz bottom → Results: 0 · **Results (1,393) → Generate → Dashboard: 0** (was 976) · Dashboard quick actions (2,411) → Regenerate → 0 with a new roadmap · Back → previous position (native) |
-| Copy | `/home` with a roadmap: "Full-Stack Developer · 0 of 5 steps done…" + "Open your dashboard"; without one: "No roadmap yet…"; dashboard empty state: "Take the 5-question quiz…" (roadmap key stashed and restored) |
-| 404 | `/definitely/not-a-page`, `/nope`, `/some/old-link` → branded page; both buttons work by keyboard with visible focus; title set and restored; no overflow at 360 px (buttons stack) |
-| Metadata | Title "PathwayAI", `/favicon.svg` 200, description + 4 OG tags present; `/vite.svg` no longer served |
-| Full flow | Landing → Quiz → Results → Dashboard → Regenerate on desktop and 360 px; no horizontal scroll anywhere |
-| Live Gemini (`flash-lite`) | 5 calls, all 200. One real **Gemini `503 UNAVAILABLE` on the first attempt was recovered by the automatic retry** (ADR-015), so the user saw no error |
-| Console | No errors in this pass |
-| `python -m pytest -q` | 80 passed (no backend changes) |
-| `npm run lint` / `npm run build` | 12 errors (all pre-existing; 0 in new or changed code) / passes. Each of the 5 commits also builds on its own (checked in temporary worktrees) |
+| Code, tests, build, QA | ✅ Ready |
+| Render Blueprint (`render.yaml`) + steps (`docs/deployment.md`) | ✅ Ready |
+| Push to private GitHub (D-1) | ⏳ Owner decision |
+| Render plan for the API (D-2) | ⏳ Owner decision: free sleeps ~1 min; Starter is always on |
+| Gemini billing + budget alert (D-6) | ⏳ Owner decision; required before **sharing publicly** (free tier ≈ 7–10 quiz runs/day) |
+| `YOUTUBE_API_KEY` (D-5) | ⏳ Owner, optional for the deploy; required before **public launch** |
 
-### Open issues / notes
-- Quota: this pass used 6 Gemini requests (5 calls + 1 retry); the previous pass used 7.
-- The `AbortError` console error (TD-53) didn't appear this time, but the code is unchanged, so it's still open in N-21.
-- The 404 page is served with HTTP 200 (static host + SPA rewrite); fine for users (ADR-017).
-- **Git:** `main` is **45 commits ahead of `origin/main`** before this docs commit (46 with it), not pushed.
+**Current blockers:** only the four owner decisions above. There are no code blockers.
 
-### Deployment readiness (updated)
-Every "must fix before sharing" item from the 2026-09-28 report is done and verified. **Code-wise it's ready for a first deploy.** What's left is your decisions:
-1. **Gemini billing (N-16):** the free tier is 20 requests/day (≈10 quiz runs).
-2. **Push approval:** Render builds from GitHub.
-3. Render API plan (free sleeps ~1 min) and an optional `YOUTUBE_API_KEY`.
+### Next Session (exact order)
+1. **Push to private GitHub** (D-1). Wait for the owner's go-ahead; run `git check-ignore backend/.env`; never change repo visibility.
+2. **Deploy to Render** (D-2, D-3): apply the Blueprint and set `GEMINI_API_KEY`, `ALLOWED_ORIGINS`, `VITE_API_URL` (+ `YOUTUBE_API_KEY`).
+3. **Verify production** (D-4): `/health`, Landing → Quiz → Results → Dashboard → Regenerate, 404, CORS, request-ID logs, console. Then add the live URL to the README and `og:url`/`og:image` (N-22).
+4. **Add Supabase Authentication** (F-7): confirm ADR-018's open details first (OAuth providers, token verification in FastAPI, env vars).
+5. **Add the PostgreSQL database** (F-8, Supabase Postgres): schema + migrations + RLS, and import the browser-saved roadmap on first sign-in.
+6. **Build the Resume Analyzer** (F-13).
+7. **Build the AI Coach** (F-18).
 
-Not blocking: N-21 (focus after quiz steps/regenerate, Landing card keyboard, `aria-pressed` on career cards, quiet aborted requests, Esc on Compare/Share, reduced motion), N-22 (`og:image`), tests + CI.
-
-### Next recommended task
-1. Owner: billing decision + push approval → **F-1 deploy to Render** (steps in `docs/deployment.md`), then add `og:url`/`og:image` (N-22) and the live URL to the README.
-2. N-21 accessibility/quality batch.
-3. Frontend tests + CI (F-2–F-4).
+Before sharing the URL with recruiters: D-5, D-6, and ideally P-1–P-6 (built-by footer, About, How it works + screenshot, sorted matches, AI-estimate labels, fewer "Coming soon").
 
 ### Open questions (for the owner)
-1. Enable Gemini billing before deploying, or start on the free tier?
-2. Render API plan: free (sleeps) or Starter?
-3. Add a `YOUTUBE_API_KEY` before launch?
-4. Carried over: target market (Canada-first?), database/auth choice, provider abstraction, when to make the repo public (F-17).
+1. Gemini billing now, or deploy privately on the free tier first?
+2. Render API plan: free or Starter?
+3. Supabase details (ADR-018): which sign-in methods (email, GitHub, Google)? Free or paid Supabase plan?
+4. The name and links for the "Built by" footer (GitHub, LinkedIn, portfolio).
+5. Carried over: target market (Canada-first, CAD salaries, EN/FR?); when to make the repo public (F-17).
 
 ---
 

@@ -38,7 +38,7 @@ Everything here is **planned, not implemented**. Effort: Easy (1–2 h) · Mediu
 ## Large
 | Feature | Roadmap |
 |---|---|
-| Auth (Supabase/Clerk or FastAPI JWT) | F-7 |
+| Auth: Supabase Authentication (ADR-018, proposed) | F-7 |
 | PostgreSQL persistence (schema in `database.md`) | F-8 |
 | Real resume analyzer (PDF → Gemini multimodal → structured critique) | F-13 |
 | Skill-gap analysis feeding the roadmap | F-14 |
@@ -47,7 +47,7 @@ Everything here is **planned, not implemented**. Effort: Easy (1–2 h) · Mediu
 | TypeScript + OpenAPI-generated types | F-16 |
 | Product analytics funnel (PostHog) | B-10 |
 | Sentry FE + BE | F-11 |
-| Deploy with preview environments | F-1 |
+| Deploy with preview environments | D-3 (was F-1) |
 | Design system + skeleton loaders | F-9 |
 | Streaks and activity heatmap | B-17 |
 | Weekly digest / inactivity emails (background job) | B-16 |
@@ -55,7 +55,7 @@ Everything here is **planned, not implemented**. Effort: Easy (1–2 h) · Mediu
 ## Huge
 | Feature | Roadmap |
 |---|---|
-| AI coach: memory + tool calling (read/update roadmap, find resources, search jobs) | S-1 |
+| AI coach: memory + tool calling (read/update roadmap, find resources, search jobs) | F-18 (was S-1) |
 | RAG over a curated resource catalogue + link-health job | S-2 |
 | Real job-market data (Job Bank / Adzuna) for salary, demand, skills by city | S-3 |
 | Prompt eval harness in CI | S-4 |

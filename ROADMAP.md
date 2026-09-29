@@ -1,6 +1,6 @@
 # ROADMAP.md — Living roadmap
 
-> Update at the end of every coding session. Move items between sections, set dates when completed.
+> Sections: ✅ Completed · 🚀 Ready to Deploy · 🌱 Post-Launch Improvements · 🔮 Future Features · 📦 Backlog · 🌟 Stretch. Update at the end of every coding session. Move items between sections, set dates when completed.
 > **Priority:** P0 = blocker/critical · P1 = high · P2 = medium · P3 = nice-to-have
 > **Effort:** XS < 1h · S 1–2h · M ~half day · L 1–3 days · XL multiple days
 > **Recruiter impact:** ★★★ high · ★★ medium · ★ low
@@ -23,6 +23,7 @@
 | C-10 | (was N-3) Removed simulated `ResumeAnalyzer`, the `/app/*` shell, legacy pages/helpers/data/images, `dashboard.css`, `App.css`, root `.vite/`; `/home` kept and rebuilt as an honest empty-state hub (ADR-010) | 2026-09-25 |
 | C-11 | (was N-4) Removed dead buttons: Landing Log in/Sign Up, Save Roadmap, Mark as In Progress, fake Copy Link + account prompt (Settings/Upgrade went with the `/app/*` shell) | 2026-09-25 |
 | C-14 | `/home` visual polish: Landing glow, gradient CTA/title, aligned header, left-aligned cards with Landing's per-feature icon colours (green Resume, indigo Coach) that float on hover, small "Planned" pills, AA-safe planned cards, reduced motion, fits at 360px | 2026-09-26 |
+| C-28 | Recruiter-style review of the running app (no code changes): findings ranked by recruiter impact → Post-Launch Improvements P-1–P-11 and TD-59–TD-62; session docs handoff | 2026-09-29 |
 | C-27 | (was N-20, N-12, F-12's 404 part) Pre-deploy fix batch: compare and select are independent (TD-50, TD-19); scroll to top on navigation and after regenerate (TD-51); copy matches browser-saved roadmaps and the 5-question quiz (TD-52); branded 404 page; PathwayAI title, favicon, description, OG tags (TD-42). Full QA pass again (desktop, 360 px, keyboard; 5 live calls incl. one Gemini 503 recovered by the retry). ADR-017 | 2026-09-29 |
 | C-26 | (was N-17, N-18) Pre-flight QA before deploy: live `gemini-2.5-flash-lite` check (7 calls, all first-attempt `ok strategy=direct`, v1 and v2 formats); manual pass on desktop, 360 px and keyboard through Landing → Quiz → Results → Dashboard → Regenerate; findings recorded as TD-50–TD-58 and N-20/N-21; deployment readiness report in SESSION.md | 2026-09-28 |
 | C-25 | Docs brought in line with the code: README (dashboard, data flow, AI pipeline, structure), architecture, database, frontend, testing, deployment, debt, UI, recruiter notes | 2026-09-28 |
@@ -39,43 +40,71 @@
 | C-13 | Landing header: Log in / Sign up buttons open an accessible "Accounts are coming soon" dialog (native `<dialog>`: focus trap, Esc, focus return); no auth built (F-7 still planned) | 2026-09-26 |
 | C-12 | (was N-2) Pushed full history to the **private** GitHub repo `YussafZarifi/pathway-ai`; `main` tracks `origin/main` (placeholder README commits from repo creation replaced with `--force-with-lease`) | 2026-09-25 |
 
-## 🔄 In Progress
+## 🚀 Ready to Deploy
 
-_Nothing in progress._
+**Status (2026-09-29): code-complete for an initial release.** The pre-flight, the 5 must-fix launch issues (C-27) and a full QA pass are done. Render config (`render.yaml`) is complete. Nothing is deployed and nothing is pushed. Remaining steps, in order:
 
-## 🎯 Next Sprint — Foundation (≈ 3–4 days total)
+| ID | Step | Who | Priority | Notes |
+|---|---|---|---|---|
+| D-1 | Push `main` to the **private** GitHub repo (46+ unpushed commits) | Owner approves | P0 | Render builds from GitHub. Run `git check-ignore backend/.env` first; never change repo visibility |
+| D-2 | Choose the Render plan for `pathwayai-api` | Owner | P0 | Free sleeps (first request ~1 min); Starter is always on |
+| D-3 | Deploy with the Blueprint (was F-1) | Claude, after D-1/D-2 | P0 | Steps in `docs/deployment.md`; set `GEMINI_API_KEY`, `ALLOWED_ORIGINS`, `VITE_API_URL` (+ `YOUTUBE_API_KEY` if D-5 is done) |
+| D-4 | Verify production | Claude | P0 | `/health`, full flow Landing → Quiz → Results → Dashboard → Regenerate, 404 page, CORS, logs with request IDs, no console errors; add the live URL to README; then N-22 (`og:url` + `og:image`) |
+| D-5 | `YOUTUBE_API_KEY` | Owner | P1, **before public launch** | Without it every step shows a "No video found yet" placeholder |
+| D-6 | Gemini billing + budget alert; set `GLOBAL_AI_LIMIT_PER_DAY` to match (was N-16) | Owner | P0, **before sharing publicly** | Free tier = 20 requests/day ≈ 7–10 quiz runs; after that visitors see "usage limit" |
+
+"Sharing publicly" (sending the URL to recruiters) should wait for D-5, D-6 and ideally P-1–P-6 below.
+
+## 🌱 Post-Launch Improvements
+
+### High priority — presentation & trust (from the 2026-09-29 recruiter review)
+| ID | Task | Effort | Impact |
+|---|---|---|---|
+| P-1 | "Built by <owner>" footer with GitHub, LinkedIn and portfolio links on every page | XS | ★★★ |
+| P-2 | About section: what PathwayAI is, why it exists, the tech stack and architecture, link to the repo | S | ★★★ |
+| P-3 | Landing: "How PathwayAI works" (3 steps) and a dashboard preview screenshot; render the hero without waiting for JS (B-13) | M | ★★★ |
+| P-4 | Sort career matches by match % (observed 90 / 85 / 88) | XS | ★★ |
+| P-5 | Label salaries, growth and match % as AI estimates (salaries are US$, full-time); a short "how matches work" note (TD-21) | S | ★★★ |
+| P-6 | Reduce / consolidate "Coming soon": header Log in / Sign up, 2 of 3 Landing cards, `/home` and dashboard "Soon" items (one honest "What's next" spot instead) | S | ★★★ |
+| P-7 | Check AI resource links before showing them (3 of 13 broken in one review roadmap, incl. an invented YouTube video): server-side HEAD check or drop unverifiable links (TD-21, B-3). Added from the review evidence | M | ★★★ |
+
+### Medium / low priority
+| ID | Task | Priority | Effort |
+|---|---|---|---|
+| N-21 | Accessibility + quality batch: keyboard focus after quiz steps and regenerate (TD-54); keyboard-operable Landing card, `aria-pressed` on career cards (TD-55); quiet aborted requests (TD-53); Esc + focus for Compare and Share dialogs via the shared `Dialog` (TD-20); reduced-motion support with `MotionConfig reducedMotion="user"` (TD-33) | P1 | M |
+| P-8 | Typography consistency: one font on buttons, hour choices and headings (buttons don't inherit the body font; heavy Results heading) (TD-59) | P2 | S |
+| P-9 | Header consistency: brand header on Quiz and Results; a Landing link back to a saved roadmap for returning visitors (was N-15); Results "Back to home" target matches the header's Home (TD-60) | P2 | S |
+| P-10 | Animation polish: the quiz card no longer jumps between questions (Continue moves); no card overlap while Results cards animate (TD-61) | P2 | S |
+| P-11 | Remaining UI polish from the review (TD-62): naming (Resume Feedback vs Resume Analyzer, Share icon opens download/print), error message placement/wording, hint on the disabled "Generate roadmap", reveal "+1" skills, no check marks on undone tasks, first-visit dashboard stats/achievements/insights, compare "Work environment: N/A" (TD-56), mobile Results fold (TD-57), dashboard footer, Landing icon alignment | P2 | M |
+| N-22 | `og:image` link-preview card (1200×630) + `og:url` once the live URL exists | P2 | XS |
+| N-13 | ESLint: add jsx-uses-vars and fix real errors → 0 (12 left: 6 `motion` false positives, 6 real unused vars) | P2 | S |
+| F-12 | React error boundary (the 404 route shipped in C-27) | P1 | XS |
+| N-10 | Single theme mechanism (`ThemeGate` vs page effects) | P2 | S |
+| N-14 | Prune dead CSS in `index.css` | P3 | S |
+| N-19 | Remove v1 (8-question) answer support once no saved roadmap needs it (ADR-016) | P3 | XS |
+| — | SDK AFC warning noise in logs (TD-58) | P3 | XS |
+
+## 🔮 Future Features
+
+In the recommended order (see "Next Session" in `SESSION.md`):
 
 | ID | Task | Priority | Effort | Impact |
 |---|---|---|---|---|
-| N-16 | **Gemini quota:** the key is on the free tier (20 requests/day for `gemini-2.5-flash-lite` ≈ 10 quiz runs). Owner: enable billing (paid tier) + a budget alert, then set `GLOBAL_AI_LIMIT_PER_DAY` to match. Needed before sharing the live URL widely | P0 | XS | ★★★ |
-| N-21 | Accessibility + quality batch: focus the new question/section after quiz steps and regenerate (TD-54); keyboard-operable Landing card, `aria-pressed` on career cards, labelled compare checkbox (TD-55); quiet aborted requests (TD-53); Esc/focus for Compare and Share modals via the shared `Dialog` (TD-20); `MotionConfig reducedMotion="user"` (TD-33) | P1 | M | ★★ |
-| N-19 | Remove v1 (8-question) answer support from `schemas.py`/`prompts.py` once no saved roadmap needs it (ADR-016) | P3 | XS | ★ |
-| N-10 | Fix `ThemeGate`/page theme conflict — single theme mechanism | P2 | S | ★ |
-| N-22 | `og:image` link-preview card (1200×630) + `og:url` once the live URL exists (title, description and favicon done in C-27) | P2 | XS | ★★ |
-| N-13 | ESLint: add JSX-uses-vars (eslint-plugin-react) and fix real errors → 0 errors (12 left as of 2026-09-28: 6 `motion` false positives, 6 real unused vars) | P2 | S | ★★ |
-| N-14 | Prune dead CSS left in `index.css` by deleted components (e.g. `.roadmapStats`, `.primaryBtn`, `.comingSoonBadge` defined three times) | P3 | S | ★ |
-| N-15 | Link `/home` from Landing (the shared app header on `/home` and `/dashboard` links it since 2026-09-26) | P3 | XS | ★ |
-
-## 🚀 Future Features — Production baseline & persistence (≈ 2–3 weeks)
-
-| ID | Task | Priority | Effort | Impact |
-|---|---|---|---|---|
-| F-1 | Deploy to Render via `render.yaml` (API web service + static site), live URL in README. Ready since 2026-09-27; waiting for the owner's review. Steps in `docs/deployment.md` | P0 | S | ★★★ |
-| F-17 | Make the GitHub repo public (owner decision) once README screenshots, env config and backend hardening are done | P1 | XS | ★★★ |
-| F-2 | Tests: Vitest (`api.js`, `roadmapStore.js`, `dashboardData.js`, tracking engine, Quiz). Backend pytest exists since 2026-09-27 (80 tests) | P1 | L | ★★★ |
+| F-7 | **Supabase Authentication** (owner's choice for the next phase, ADR-018 proposed); replaces the "Accounts are coming soon" dialog (ADR-011) | P1 | L | ★★★ |
+| F-8 | **PostgreSQL** (Supabase Postgres): users, quiz_sessions, roadmaps, roadmap_steps, progress_events + migrations; migrate the browser-saved roadmap on first sign-in (`docs/database.md`) | P1 | L | ★★★ |
+| F-13 | **Resume Analyzer**: PDF upload → Gemini multimodal → structured critique vs target career | P1 | L | ★★★ |
+| F-18 | **AI Coach**: chat with memory and tool calling (read/update roadmap, find resources); was S-1 | P1 | XL | ★★★ |
+| F-2 | Tests: Vitest (`api.js`, `roadmapStore.js`, `dashboardData.js`, tracking engine, Quiz). Backend pytest has 80 tests | P1 | L | ★★★ |
 | F-3 | Playwright E2E: quiz → results → dashboard with mocked API | P1 | M | ★★★ |
 | F-4 | GitHub Actions CI: lint, test, build (+ E2E) | P1 | S | ★★★ |
-| F-5 | Dockerfiles + `docker-compose.yml` | P2 | M | ★★ |
-| F-6 | Streaming roadmap generation (SSE) | P1 | L | ★★★ |
-| F-7 | Auth (Supabase/Clerk or FastAPI JWT) | P1 | L | ★★★ |
-| F-8 | PostgreSQL: users, quiz_sessions, roadmaps, roadmap_steps, progress_events (+ migrations) | P1 | L | ★★★ |
-| F-9 | Design-system pass: tokens, type scale, one app shell, one button system, skeleton loaders | P1 | L | ★★ |
-| F-10 | Accessibility: dialog semantics + focus trap + Esc, focus-visible, reduced motion, contrast, fix nested interactive HTML | P1 | M | ★★ |
-| F-11 | Sentry (FE+BE) + structured JSON logging with request IDs | P2 | M | ★★ |
-| F-12 | React error boundary (the 404 route shipped in C-27) | P1 | XS | ★ |
-| F-13 | Real resume analyzer: PDF upload → Gemini multimodal → structured critique vs target career | P1 | L | ★★★ |
+| F-17 | Make the GitHub repo public (owner decision) | P1 | XS | ★★★ |
 | F-14 | Skill-gap analysis (resume skills vs career skills) feeding the roadmap | P2 | L | ★★★ |
+| F-6 | Streaming roadmap generation (SSE) | P1 | L | ★★★ |
+| F-9 | Design-system pass: tokens, type scale, one app shell, one button system | P1 | L | ★★ |
+| F-10 | Accessibility audit (axe in CI), contrast | P1 | M | ★★ |
+| F-11 | Sentry (FE+BE) | P2 | M | ★★ |
 | F-15 | Shareable public roadmap pages `/r/:slug` | P2 | M | ★★ |
+| F-5 | Dockerfiles + `docker-compose.yml` | P2 | M | ★★ |
 | F-16 | TypeScript migration + API types generated from FastAPI OpenAPI | P2 | L | ★★ |
 
 ## 📦 Backlog
@@ -107,7 +136,6 @@ _Nothing in progress._
 
 | ID | Task | Effort | Impact |
 |---|---|---|---|
-| S-1 | AI coach chat with memory + tool calling (read/update roadmap, find resources) | XL | ★★★ |
 | S-2 | RAG over a curated resource catalogue with link-health checks | XL | ★★★ |
 | S-3 | Real job-market data (Job Bank / Adzuna): salaries, demand, skills by city | XL | ★★★ |
 | S-4 | Prompt eval harness (golden profiles, schema/rule checks, LLM-as-judge) in CI | L | ★★★ |

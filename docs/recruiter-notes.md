@@ -26,10 +26,30 @@ How this project is likely to be perceived, and what increases its portfolio val
 3. ~~**No git history.**~~ — repo initialized 2026-09-25 with small, explained commits. Pushed to a private GitHub repo on 2026-09-25; it becomes visible to recruiters once made public (ROADMAP F-17).
 4. ~~Default Vite README, "roadmap-ai" tab title, Vite favicon~~ — README replaced; PathwayAI title, favicon, description and link-preview tags since 2026-09-29.
 5. ~~**Dead buttons** and fake Copy Link~~ — removed 2026-09-25.
-6. ~~**Not deployable:** hard-coded localhost~~ — env-only config and a Render Blueprint since 2026-09-27. **Still no live demo** (F-1).
+6. ~~**Not deployable:** hard-coded localhost~~ — env-only config and a Render Blueprint since 2026-09-27; code-complete for an initial release since 2026-09-29. **Still no live demo** (ROADMAP D-1–D-4).
 7. **No frontend tests or CI.** The backend has 80 pytest tests since 2026-09-28.
 8. ~~**Visible bugs:** "Roadmap 100%" after one step; progress leaking between careers~~ — fixed 2026-09-26 with the dashboard redesign (ADR-013).
 9. ~~**About 40% dead code** in the repo~~ — unreachable files deleted 2026-09-25; some dead CSS rules remain in `index.css`.
+
+## Recruiter-style review (2026-09-29)
+A walkthrough of the running app as a first-time visitor (desktop with a mouse, plus 360 px and keyboard from the QA passes), looking only at what a recruiter would see. **Verdict:** the core loop (quiz → matches → roadmap → dashboard) is strong and the dashboard feels like a real product; what reads as "student project" is mostly presentation and trust around it, not engineering. Findings, ranked by recruiter impact (tracked as ROADMAP P-1–P-11, TD-21, TD-59–TD-63):
+
+**Critical**
+1. No attribution: no name, GitHub, LinkedIn, About or "how it's built"; the footer is only "© 2026 PathwayAI" (P-1, P-2).
+2. The live site can look broken or slow: the Gemini free tier runs out after ~7–10 visitors ("usage limit"), and Render's free plan wakes in ~1 min (D-2, D-6).
+3. AI resource links: 3 of 13 broken in one roadmap (two 404s, an invented YouTube video) (P-7, TD-21).
+4. Unbuilt features are promoted: 2 of 3 Landing cards say "Coming soon"; the gradient Sign up button opens "Accounts are coming soon"; "Soon" repeats on `/home` and the dashboard (P-6).
+
+**High**
+5. "No video found yet" placeholders on every step and in Today's focus (no `YOUTUBE_API_KEY`) (D-5).
+6. Results trust: unsorted matches (90/85/88), one icon for every career, full-time US$ salaries for an internship goal, unsourced growth figures, no "AI estimate" label (P-4, P-5, TD-63).
+7. Thin Landing: one short screen, no "how it works", no product screenshot; the hero waits for JS (P-3).
+8. Inconsistent navigation: three header styles, no brand on Quiz/Results, no way back to a saved roadmap from Landing (P-9, TD-60).
+9. Dashboard padding on a first visit: streak 1, active days 1/14, 3 achievements in a minute, an out-of-order "Quick win", check marks on undone tasks (P-11, TD-62).
+
+**Medium / Low:** mixed typography and misaligned Landing icon (P-8); quiz card jumps between questions (P-10); inconsistent names (Resume Feedback / Analyzer, Share icon = download); easy-to-miss error wording; disabled "Generate roadmap" without a hint; mobile Results fold; compare "N/A" row; Esc and focus for keyboard users (N-21).
+
+**Already impressive:** a fast 5-question quiz; AI reasons that quote the user's own answers; roadmaps paced to weekly hours; honest progress, dates and empty states; a real 404; a Gemini 503 absorbed by the retry without the user noticing.
 
 ## How to reach production quality
 1. Git + clean commits + GitHub repo with description, topics and a pinned live URL.

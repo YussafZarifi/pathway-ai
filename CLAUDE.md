@@ -1,7 +1,10 @@
 # CLAUDE.md — PathwayAI (repo: `roadmap-ai`)
 
 > Permanent project memory. Read this first in every session. Then read `SESSION.md` (latest state) and `ROADMAP.md` (what's next).
-> Last updated: 2026-09-29 (**pre-deploy fix batch N-20 done, not deployed, not pushed**: comparing careers no longer changes the selection, every page starts at the top, copy matches browser-saved roadmaps and the 5-question quiz, branded 404 page, PathwayAI title/favicon/metadata (ADR-017); full QA pass repeated. Next: owner decides Gemini billing (N-16) + push, then deploy F-1). 2026-09-28, evening (**pre-flight QA done**: docs synced with the code; the 5-question quiz verified live on `gemini-2.5-flash-lite` (7/7 calls ok) and walked through on desktop, 360 px and keyboard; findings TD-50–TD-58 → pre-deploy fix batch N-20. Next: N-20, owner decides Gemini billing (N-16), then deploy F-1). Earlier the same day: **new 5-question quiz** (ADR-016): interests, problem-solving style, experience, weekly time, 12-month goal + optional career in mind; v2 labelled-profile prompts; the API still accepts the old 8-answer format so saved roadmaps regenerate. Earlier (2026-09-27): deployment-ready for Render (ADR-014), validated AI output (ADR-015), Gemini free tier = 20 requests/day.
+> Last updated: 2026-09-29 (end of session).
+> **State at a glance:** code-complete for an initial public release · **not deployed, not pushed** (`main` is ~47 commits ahead of `origin/main`) · Render Blueprint ready · pre-flight + pre-deploy fixes (C-27) + full QA done (desktop, 360 px, keyboard, full flow) · 80/80 backend tests, build passes · live `gemini-2.5-flash-lite` verified (incl. a 503 recovered by the retry).
+> **Waiting on the owner:** Gemini billing, Render plan, push to the private GitHub repo, optional `YOUTUBE_API_KEY` (required before *public* launch).
+> **Next session order:** push → deploy to Render → verify production → Supabase Auth → PostgreSQL → Resume Analyzer → AI Coach (§11, ADR-018 proposed). A recruiter-style review (2026-09-29) found mostly presentation/trust gaps → ROADMAP *Post-Launch Improvements* P-1–P-11.
 
 ---
 
@@ -30,11 +33,12 @@ Naming: the product brand is **PathwayAI** (tab title, favicon and metadata sinc
 | Database / server persistence | **Not implemented** |
 | `/home` page | **Partially implemented:** hub with quiz CTA, the browser-saved roadmap with real progress + "Open your dashboard" (or an honest "No roadmap yet" state, since 2026-09-29), planned-feature cards; visual polish pass 2026-09-26. Future signed-in dashboard (ADR-010). Linked from the shared app header (Home / Dashboard / Quiz) on `/home` and `/dashboard`; not linked from Landing |
 | Git / GitHub | **Implemented 2026-09-25.** `main` with a root `.gitignore` (excludes `backend/.env`); remote `origin` = https://github.com/YussafZarifi/pathway-ai (**private** — keep it private until the owner decides otherwise). `main` tracks `origin/main` |
-| Deployment readiness | **Implemented 2026-09-27** (ADR-014): no hard-coded URLs (`VITE_API_URL`, `ALLOWED_ORIGINS`; `vite build` fails without `VITE_API_URL`), `.env.example` in `backend/` and `frontend/`, `GET /health`, Pydantic request models, 16 KB body limit, in-memory rate limits (per IP 8/min + 50/day, global 500/day), generic error messages, no answers/prompts/AI output in logs, `render.yaml` Blueprint (validated against Render's schema). **Not deployed yet**: the owner reviews first |
-| AI output reliability | **Implemented 2026-09-27** (ADR-015): Gemini JSON mode + `response_schema`; `ai_output.py` validates per item (defaults for missing fields, invalid items dropped); `llm.py` retries once (unusable reply, 5xx, timeout, short per-minute 429); 503 quota/busy messages; per-attempt logs with request IDs and no content. **Gemini key is on the free tier: 20 requests/day** for flash-lite (N-16) |
+| Deployment readiness | **Implemented 2026-09-27** (ADR-014): no hard-coded URLs (`VITE_API_URL`, `ALLOWED_ORIGINS`; `vite build` fails without `VITE_API_URL`), `.env.example` in `backend/` and `frontend/`, `GET /health`, Pydantic request models, 16 KB body limit, in-memory rate limits (per IP 8/min + 50/day, global 500/day), generic error messages, no answers/prompts/AI output in logs, `render.yaml` Blueprint (validated against Render's schema). **Ready, not deployed** (2026-09-29): waiting for the owner's decisions (ROADMAP → Ready to Deploy, D-1–D-6) |
+| AI output reliability | **Implemented 2026-09-27** (ADR-015): Gemini JSON mode + `response_schema`; `ai_output.py` validates per item (defaults for missing fields, invalid items dropped); `llm.py` retries once (unusable reply, 5xx, timeout, short per-minute 429); 503 quota/busy messages; per-attempt logs with request IDs and no content. **Gemini key is on the free tier: 20 requests/day** for flash-lite (ROADMAP D-6, was N-16) |
 | Quiz (redesigned 2026-09-28) | **Implemented** (ADR-016): 5 owner-approved questions, v2 labelled-profile prompts; API also accepts the old 8-answer format (v1) so saved roadmaps still regenerate. Verified live on `gemini-2.5-flash-lite` (v1 + v2) and by a manual desktop / 360 px / keyboard pass on 2026-09-28 |
 | Tests | **Backend: 80 pytest tests** (`backend/tests`, `requirements-dev.txt`, `python -m pytest -q`, no network). Frontend: none |
-| CI, Docker, live deployment | **None** |
+| CI, Docker, live deployment | **None** (deployment is next: D-1–D-4) |
+| Recruiter review | **Done 2026-09-29** (no code changes): core loop strong; gaps are presentation/trust — no built-by/About, thin Landing, too much "Coming soon", unsorted matches, unlabeled AI estimates, 3/13 broken AI links, video placeholders without the YouTube key. Ranked list: `docs/recruiter-notes.md`; tasks: ROADMAP P-1–P-11 |
 
 ## 3. Architecture (current)
 
@@ -133,30 +137,35 @@ Output comes from Gemini JSON mode and is validated in `backend/ai_output.py`. R
 
 ## 9. Important design decisions (see `docs/decisions.md` for ADRs)
 
-- ADR-001 React + Vite SPA · ADR-002 FastAPI backend as an AI proxy (keeps key server-side) · ADR-003 Gemini Flash-Lite (cheap/fast) · ADR-004 localStorage persistence (MVP, no accounts) · ADR-005 tech-only career scope (pivot from general careers) · ADR-006 plain CSS · ADR-007 router state as data transport · ADR-008 client-side tracking/scoring engines · ADR-009 docs-as-memory (update CLAUDE/ROADMAP/SESSION/decisions every session) · ADR-010 one dashboard: keep `/dashboard`, keep `/home` as the future signed-in hub, delete the `/app/*` shell · ADR-011 unbuilt-feature entry points open an honest explanation · ADR-012 roadmap videos come from the YouTube Data API, never the model · ADR-013 current roadmap persisted in localStorage, progress scoped per roadmap, dashboard shows only real-data metrics · ADR-014 deployment readiness: env-only config (no localhost defaults), one API client, request validation, in-memory rate limits, safe errors/logs, Render Blueprint · ADR-015 validated AI output: JSON mode + schema, per-item validation, one retry, content-free diagnostics · ADR-016 5-question quiz; the API accepts both the new (v2) and old 8-question (v1) answer formats · ADR-017 routing shell: catch-all branded 404 route and scroll-to-top on every route change.
+- ADR-001 React + Vite SPA · ADR-002 FastAPI backend as an AI proxy (keeps key server-side) · ADR-003 Gemini Flash-Lite (cheap/fast) · ADR-004 localStorage persistence (MVP, no accounts) · ADR-005 tech-only career scope (pivot from general careers) · ADR-006 plain CSS · ADR-007 router state as data transport · ADR-008 client-side tracking/scoring engines · ADR-009 docs-as-memory (update CLAUDE/ROADMAP/SESSION/decisions every session) · ADR-010 one dashboard: keep `/dashboard`, keep `/home` as the future signed-in hub, delete the `/app/*` shell · ADR-011 unbuilt-feature entry points open an honest explanation · ADR-012 roadmap videos come from the YouTube Data API, never the model · ADR-013 current roadmap persisted in localStorage, progress scoped per roadmap, dashboard shows only real-data metrics · ADR-014 deployment readiness: env-only config (no localhost defaults), one API client, request validation, in-memory rate limits, safe errors/logs, Render Blueprint · ADR-015 validated AI output: JSON mode + schema, per-item validation, one retry, content-free diagnostics · ADR-016 5-question quiz; the API accepts both the new (v2) and old 8-question (v1) answer formats · ADR-017 routing shell: catch-all branded 404 route and scroll-to-top on every route change · ADR-018 (proposed) Supabase for authentication and PostgreSQL in the next phase.
 
 ## 10. Known limitations & bugs (top items — full list in `docs/technical-debt.md`)
 
 1. ~~Roadmap % wrong / progress leaking between roadmaps / roadmap not persisted~~ — fixed 2026-09-26 (ADR-013). Remaining: one roadmap at a time, this browser only; `scoringEngine.js` still counts all `roadmap_step_*` keys the old way (not displayed any more).
-2. **Gemini free tier: 20 requests/day** (≈10 quiz runs); then users see "usage limit" until the reset. Enable billing before a public launch (N-16). Hard-coded URLs fixed 2026-09-27 (ADR-014); AI output validated + retried (ADR-015).
+2. **Gemini free tier: 20 requests/day** (≈7–10 quiz runs); then users see "usage limit" until the reset. Enable billing before sharing publicly (ROADMAP D-6). Hard-coded URLs fixed 2026-09-27 (ADR-014); AI output validated + retried (ADR-015).
 3. Quiz answers (incl. free text) are stored in localStorage for "Regenerate" (same device only; see TD-41).
 4. `ThemeGate` effect removes the `theme-landing` class that `Landing`/`Home` add (parent effect runs after child).
 5. ~~Quiz per-keystroke tracking inside a state updater~~ — fixed 2026-09-28 (TD-26). Two quiz answer formats (v1/v2) coexist until N-19.
 6. Rate limits live in process memory: reset on every deploy/restart, not shared across instances; forged `X-Forwarded-For` may bypass the per-IP limit (the global cap still holds).
 7. AI endpoints are unauthenticated (rate-limited and validated since 2026-09-27; raw exception text and answer logging removed).
 8. ~~Fake data and dead buttons~~ — fixed 2026-09-25. Remaining honesty gap: Employability/Momentum scores mostly measure app engagement (TD-29).
-9. ~~Compare checkbox inside the card button changed the selected career; no scroll reset; outdated copy; blank page for unknown URLs; "roadmap-ai" tab title~~ — all fixed 2026-09-29 (C-27, ADR-017). Remaining before a *public* launch: Gemini billing (N-16). Quality backlog: N-21 (focus management, Landing card keyboard, quiet aborted requests, Esc on Compare/Share modals, reduced motion).
+9. ~~Compare checkbox inside the card button changed the selected career; no scroll reset; outdated copy; blank page for unknown URLs; "roadmap-ai" tab title~~ — all fixed 2026-09-29 (C-27, ADR-017). Remaining before a *public* launch: Gemini billing (D-6) and `YOUTUBE_API_KEY` (D-5). Quality backlog: N-21 (focus management, Landing card keyboard, quiet aborted requests, Esc on Compare/Share modals, reduced motion).
 10. Backend tests only (80), no frontend tests, no CI; 12 ESLint errors (most are `motion` false positives from the missing jsx-uses-vars rule; none in files added 2026-09-26).
+11. Presentation/trust gaps from the recruiter review (2026-09-29): no built-by/About, thin Landing, repeated "Coming soon", unsorted matches, salaries/growth not labelled as AI estimates, some broken AI resource links (TD-21, TD-59–TD-63; ROADMAP P-1–P-11).
 
-## 11. Current priorities (in order)
+## 11. Current priorities — Next Session (exact order)
 
-1. ~~`git init` + root `.gitignore` + private GitHub repo~~ ✅ 2026-09-25.
-2. ~~Remove fake data / dead code; hide unbuilt features honestly~~ ✅ 2026-09-25.
-3. ~~Env-based API URL + CORS; single API client (N-5, N-6)~~ ✅ 2026-09-27.
-4. ~~Fix progress bugs; persist roadmaps per career (N-7)~~ ✅ 2026-09-26 (with the dashboard redesign).
-5. ~~Backend hardening (N-9)~~ ✅ 2026-09-27. ~~Gemini structured output + response validation (N-8)~~ ✅ 2026-09-27 (ADR-015). ~~Pre-flight QA (N-17, N-18)~~ ✅ 2026-09-28. ~~Pre-deploy fix batch (N-20)~~ ✅ 2026-09-29. **Next: the owner decides Gemini billing (N-16) and approves the push, then deploy to Render (F-1).**
-6. Tests + CI, then deploy.
-See `ROADMAP.md` → *Next Sprint*.
+Done: foundation (git, cleanup, env config, persistence, hardening, validated AI output), 5-question quiz, pre-flight QA, pre-deploy fixes (C-27), full QA. The app is code-complete for an initial release.
+
+1. **Push to the private GitHub repo** (ROADMAP D-1) — only after the owner says so; `git check-ignore backend/.env` first; never change visibility.
+2. **Deploy to Render** (D-2 plan choice, D-3 Blueprint) — `docs/deployment.md`.
+3. **Verify production** (D-4) — `/health`, full flow, 404, CORS, logs, live URL in README, then `og:url`/`og:image` (N-22). Before sharing publicly: Gemini billing (D-6) + `YOUTUBE_API_KEY` (D-5), ideally P-1–P-6.
+4. **Supabase Authentication** (F-7, ADR-018 proposed — confirm details first).
+5. **PostgreSQL** on Supabase (F-8) + import of the browser-saved roadmap.
+6. **Resume Analyzer** (F-13).
+7. **AI Coach** (F-18).
+
+Between steps, pick from ROADMAP *Post-Launch Improvements*: P-1–P-7 first (presentation & trust), then N-21 and P-8–P-11 (accessibility and polish).
 
 ## 12. Never change without a reason (and an ADR)
 
@@ -173,7 +182,7 @@ See `ROADMAP.md` → *Next Sprint*.
 
 **Partially implemented:** persistence (one roadmap, this browser only) · `/home` hub (no personal data until accounts exist) · theming (two competing mechanisms).
 
-**Planned (not built):** accounts & auth · Postgres persistence · real resume analyzer + skill-gap · AI coach chat with memory/tool-calling · streaming · RAG / grounded resources & salaries · shareable public roadmaps · tests/CI · live deployment (Blueprint ready) · observability · i18n (EN/FR). See `docs/future-features.md`.
+**Planned (not built):** accounts & auth (Supabase, ADR-018 proposed) · Postgres persistence · real resume analyzer + skill-gap · AI coach chat with memory/tool-calling · streaming · RAG / grounded resources & salaries · shareable public roadmaps · tests/CI · live deployment (Blueprint ready) · observability · i18n (EN/FR). See `docs/future-features.md`.
 
 ## 14. Long-term roadmap (phases)
 
