@@ -159,6 +159,16 @@ ADR-001 to ADR-008 were **reconstructed on 2026-09-24** from the existing code d
 - **Consequences:** faster quiz, richer signal per question, and results whose reasons point back to the user's answers. Two answer formats and two prompt versions exist until v1 is removed. Removal condition: once no saved roadmap in the wild uses v1 (with accounts/F-8 a stored-data migration can do it; before that, keep v1 for at least a few weeks after deploy). The tracking event log now contains both answer shapes. The "career in mind" free text reaches the prompt (≤100 chars, JSON-quoted, marked as data; TD-13).
 - **Status:** Accepted.
 
+## ADR-017 — Routing shell: a catch-all 404 route and scroll-to-top on navigation
+- **Date:** 2026-09-29
+- **Context:** the pre-deploy QA (2026-09-28) found two routing gaps. Unknown URLs matched no route and rendered an empty page, and Render's static-site rewrite sends every path to `index.html`, so any mistyped or stale link would show a black screen. `BrowserRouter` also kept the window's scroll position across route changes: on a phone, "Generate roadmap" at the bottom of Results opened the dashboard ~1,000 px down, past its hero.
+- **Decision:**
+  - A last `<Route path="*">` renders `pages/NotFound.jsx`: the shared `AppHeader`, a "404" mark, a short honest message, "Return home" (`/home`, the same target as the header's Home) and "Take the quiz". It sets the tab title to "Page not found · PathwayAI".
+  - `components/ScrollToTop.jsx`, mounted once inside `BrowserRouter`, calls `window.scrollTo(0, 0)` in a layout effect on every **pathname** change, so a new page never shows the previous one's position. Actions that stay on the same route and replace the content (dashboard and Results "Regenerate") scroll to the top themselves. Browser Back/Forward keep the browser's native scroll restoration.
+- **Alternatives considered:** React Router's `<ScrollRestoration>` (needs a data router, `createBrowserRouter`; migrating the router is out of proportion for this fix); resetting scroll on every location **key**, including same-path navigations (unnecessary today, and it would fight in-page scrolling such as "Open step"); a server-side 404 status (not possible on a static host with an SPA rewrite: the 404 page is served with HTTP 200).
+- **Consequences:** every route change starts at the top on desktop and mobile; unknown links land on a branded page with two ways back. The 404 page returns HTTP 200, so crawlers may index unknown URLs; add `noindex` or a real 404 status if that ever matters. A React error boundary (the rest of F-12) is still missing: a render crash still shows a blank page.
+- **Status:** Accepted.
+
 ---
 
 ## Template

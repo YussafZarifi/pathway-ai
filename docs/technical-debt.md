@@ -30,15 +30,15 @@ Found in the 2026-09-24 audit. When an item is resolved, strike it through and n
 | TD-13 | Security | Prompt injection via `curious_fields` and `career`; `career` interpolated inside the JSON example. **Reduced 2026-09-27** (`dc0f4d1`): length limits, control characters stripped, unknown keys dropped | `main.py` prompts |
 | ~~TD-14~~ | Security | ~~No input size/shape limits (`answers: dict`)~~ — **resolved 2026-09-27** (`dc0f4d1`: `schemas.py`, 16 KB body limit) | — |
 | ~~TD-15~~ | UX | ~~Dead buttons and fake Copy Link~~ — **resolved 2026-09-25**: Settings/Upgrade deleted with AppShell (`2375759`); Home auth buttons (`058d07a`); Landing Log in/Sign Up (`b1edc7f`); Save Roadmap/Mark as In Progress (`d8354b3`); Copy Link (`f76ff22`) | — |
-| TD-16 | Routing | ~~Links to non-existent `/login`, `/signup`, `/profile`, `/app/*`~~ (removed 2026-09-25); **still no 404 route** (ROADMAP F-12). QA 2026-09-28: an unknown URL renders a completely blank page, and on Render every path is rewritten to `index.html` | `App.jsx` |
+| ~~TD-16~~ | Routing | ~~Links to non-existent `/login`, `/signup`, `/profile`, `/app/*`~~ (removed 2026-09-25); ~~no 404 route: an unknown URL rendered a blank page~~ — **resolved 2026-09-29** (`00ca5f1`: catch-all route → `NotFound`, ADR-017). A React error boundary (rest of F-12) is still missing | `App.jsx` |
 | TD-17 | Testing | ~~Zero tests~~ Backend: 80 pytest tests (60 since 2026-09-27, 80 since 2026-09-28; `backend/tests`). Frontend: none. No CI | `frontend/` |
 | TD-18 | CI/CD | No CI or Docker. ~~No deployment config~~ — `render.yaml` added 2026-09-27 (`e7b461f`), not deployed | — |
-| TD-19 | A11y | Invalid nested interactive HTML: checkbox in `<button>` (still open); ~~`<a>` in `<button>`~~ fixed 2026-09-26 (`639da18`: the step header is the toggle button, links sit outside it) | `Results.jsx` compare checkbox (~line 443) |
+| ~~TD-19~~ | A11y | ~~Invalid nested interactive HTML: checkbox in `<button>`~~ — **resolved 2026-09-29** (`4c916c2`: the compare checkbox is a labelled sibling of the card); ~~`<a>` in `<button>`~~ fixed 2026-09-26 (`639da18`) | — |
 | TD-20 | A11y | Modals lack dialog role, focus trap, Esc, labels | `CareerCompareModal.jsx`, `ShareModal.jsx` |
 | TD-21 | AI | Salaries and resource URLs invented by the model, shown as fact (non-http(s) URLs dropped since 2026-09-27). QA 2026-09-28: of 13 URLs in one roadmap, 10 returned 200, 2 blocked automated checks (403), 1 was invented (a LinkedIn article that redirects to "article not found") | `prompts.py` |
-| TD-50 | Bug | Ticking a compare checkbox also changes the **selected career**: the checkbox's click bubbles to the card `<button>` (`stopPropagation` is on `onChange`, not `onClick`), so "Generate roadmap" can silently use a different career. Found in QA 2026-09-28 | `Results.jsx` compare checkbox |
-| TD-51 | Bug | Route changes don't reset scroll: on a phone, "Generate roadmap" (bottom of Results) opens `/dashboard` scrolled ~976 px down, past the hero. No scroll-to-top on navigation. Found in QA 2026-09-28 | `App.jsx` |
-| TD-52 | Copy | Outdated copy since ADR-013/016: the dashboard empty state says "Take the 8-question quiz"; `/home` says roadmaps "aren't saved" and last "for the current session" and shows "No saved roadmaps yet" even when a roadmap is stored. Found in QA 2026-09-28 | `Dashboard.jsx:199`, `Home.jsx:59-60` |
+| ~~TD-50~~ | Bug | **Resolved 2026-09-29** (`4c916c2`: checkbox in a `<label>` beside the card, never inside its button; verified by keyboard, click and label click, and end to end: a roadmap generated with two other careers ticked used the selected one). Was: ticking a compare checkbox also changes the **selected career**: the checkbox's click bubbles to the card `<button>` (`stopPropagation` is on `onChange`, not `onClick`), so "Generate roadmap" can silently use a different career. Found in QA 2026-09-28 | `Results.jsx` compare checkbox |
+| ~~TD-51~~ | Bug | **Resolved 2026-09-29** (`bd30106`: `ScrollToTop` on every pathname change, plus explicit scroll-to-top after regenerating on the same route; verified at 360 px: Results at 1,393 px → dashboard at 0). Was: route changes didn't reset scroll: on a phone, "Generate roadmap" (bottom of Results) opens `/dashboard` scrolled ~976 px down, past the hero. No scroll-to-top on navigation. Found in QA 2026-09-28 | `App.jsx` |
+| ~~TD-52~~ | Copy | **Resolved 2026-09-29** (`279c747`: `/home` shows the browser-saved roadmap with real progress or an accurate empty state; dashboard empty state says 5 questions; the Results PDF option says it saves career matches). Was: outdated copy since ADR-013/016: the dashboard empty state says "Take the 8-question quiz"; `/home` says roadmaps "aren't saved" and last "for the current session" and shows "No saved roadmaps yet" even when a roadmap is stored. Found in QA 2026-09-28 | `Dashboard.jsx:199`, `Home.jsx:59-60` |
 
 ## 🟡 Medium
 
@@ -73,7 +73,7 @@ Found in the 2026-09-24 audit. When an item is resolved, strike it through and n
 
 | ID | Category | Issue | Location |
 |---|---|---|---|
-| TD-42 | Branding | `<title>` "roadmap-ai"; Vite favicon (the "RoadmapAI" name left with `Sidebar.jsx` on 2026-09-25) | `index.html` |
+| ~~TD-42~~ | Branding | ~~`<title>` "roadmap-ai"; Vite favicon~~ — **resolved 2026-09-29** (`1c9a3a4`: "PathwayAI" title, description, OG/Twitter tags, `favicon.svg`). Still no `og:image` (needs a live URL) | — |
 | TD-43 | Docs | `frontend/README.md` is the default Vite template | `frontend/README.md` |
 | TD-44 | Deps | `openai` in requirements but unused; two Python virtualenvs | `backend/requirements.txt`, `.venv`, `backend/.venv` |
 | TD-45 | Quality | Unused vars (as of 2026-09-28: `endSession` in Results, `idx` in CareerCompareModal, `quizStartedEvents`/`key`/`progress` in scoringEngine, `e` in trackingEngine) | various |

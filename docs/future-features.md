@@ -7,7 +7,7 @@ Everything here is **planned, not implemented**. Effort: Easy (1–2 h) · Mediu
 |---|---|---|
 | 404 route + error boundary | Basic robustness | F-12 |
 | ~~Env config (`VITE_API_URL`, `ALLOWED_ORIGINS`) + `.env.example`~~ — done 2026-09-27 | Deployable | N-5 |
-| Brand consistency, title, favicon, OG tags | Professional polish | N-12 |
+| ~~Brand consistency, title, favicon, OG tags~~ — done 2026-09-29; `og:image` still to do | Professional polish | N-22 |
 | Reduced-motion + focus-visible | Accessibility | F-10 |
 | Accessible modals (Esc, focus trap, ARIA) | Accessibility | F-10 |
 | Quiz keyboard shortcuts | Power-user polish | B-1 |

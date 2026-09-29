@@ -17,7 +17,7 @@
 | Dashboard | Redesigned 2026-09-26: above-the-fold hero + Today's focus + stat tiles, visual stepper, achievements, insights, quick actions; only real data; skeleton while regenerating; reduced-motion; no horizontal scroll at 360px | Insights are rule-based (no AI yet); one roadmap at a time. Polish pass + shared `VideoCard` 2026-09-26 |
 
 ## Consistency problems
-- Two product names (PathwayAI in the UI, "roadmap-ai" in the tab title). Two header implementations: Landing, and the shared `AppHeader` for `/home` + `/dashboard` (2026-09-26).
+- ~~Two product names~~ — the tab title, favicon and metadata say PathwayAI since 2026-09-29. Two header implementations: Landing, and the shared `AppHeader` for `/home` + `/dashboard` (2026-09-26).
 - One button system in use (`uiverseBtn` + `ghostBtn`); `primaryBtn` styles are left over in `index.css` but no component uses them since the `/app/*` shell was deleted.
 - Three loader styles (letter wave, orb, shimmer).
 - Two theme mechanisms (`ThemeGate` + per-page body classes) that both render black.
@@ -26,7 +26,7 @@
 ## Accessibility gaps
 - `CareerCompareModal` and `ShareModal`: no `role="dialog"`, `aria-modal`, labelled title, focus trap, Esc to close or focus return (the newer `Dialog` component uses native `<dialog>` and has all of these).
 - Clickable `<div>` cards (Landing, Home) aren't keyboard reachable.
-- Interactive elements nested in `<button>`: the Results compare checkbox (the dashboard stepper was fixed 2026-09-26).
+- ~~Interactive elements nested in `<button>`~~ — none left since 2026-09-29 (Results compare checkbox moved beside the card).
 - `:focus-visible` and `prefers-reduced-motion` exist on the newer screens (Quiz options, Home, Dashboard, dialogs); framer-motion animations on Landing, Quiz and Results ignore reduced motion.
 - Small grey-on-black text likely fails WCAG AA contrast.
 

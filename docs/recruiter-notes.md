@@ -24,7 +24,7 @@ How this project is likely to be perceived, and what increases its portfolio val
 1. ~~**Simulated AI** (`ResumeAnalyzer.jsx` random score)~~ — deleted 2026-09-25.
 2. ~~**Fake dashboard data** on `/home`~~ — replaced by an honest empty state 2026-09-25.
 3. ~~**No git history.**~~ — repo initialized 2026-09-25 with small, explained commits. Pushed to a private GitHub repo on 2026-09-25; it becomes visible to recruiters once made public (ROADMAP F-17).
-4. ~~Default Vite README~~ (replaced). Still: "roadmap-ai" tab title, Vite favicon (N-12).
+4. ~~Default Vite README, "roadmap-ai" tab title, Vite favicon~~ — README replaced; PathwayAI title, favicon, description and link-preview tags since 2026-09-29.
 5. ~~**Dead buttons** and fake Copy Link~~ — removed 2026-09-25.
 6. ~~**Not deployable:** hard-coded localhost~~ — env-only config and a Render Blueprint since 2026-09-27. **Still no live demo** (F-1).
 7. **No frontend tests or CI.** The backend has 80 pytest tests since 2026-09-28.

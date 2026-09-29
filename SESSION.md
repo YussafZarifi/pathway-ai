@@ -4,98 +4,68 @@
 
 ---
 
-## Current session — 2026-09-28 (evening) · Pre-flight: docs sync, live flash-lite check, manual QA, readiness report
+## Current session — 2026-09-29 · Pre-deploy fix batch (N-20, ADR-017)
 
 ### Goal (owner request)
-Pre-flight only, before deciding whether to deploy: (1) make every doc match the application, (2) verify the 5-question quiz on the production model `gemini-2.5-flash-lite`, (3) manual QA on desktop, 360 px and keyboard through Landing → Quiz → Results → Dashboard → Regenerate, (4) check links, layout, console errors and accessibility, (5) write a deployment readiness report. **No deploy, no push, no code changes.**
+Implement **only** the "must fix before sharing" list from the 2026-09-28 readiness report, then run a complete QA pass again and confirm no regressions. No deploy, no push.
 
-### What was done
-1. **Docs** (`767de72`):
-   - README: the dashboard description (the Employability/Momentum meters are gone), data flow, AI pipeline, scripts, folder structure.
-   - `architecture.md`, `database.md` (both localStorage keys), `frontend.md`, `testing.md`, `deployment.md`, `technical-debt.md`, `ui-design.md`, `recruiter-notes.md`, `backend.md`, `ai-system.md`: facts from before 2026-09-26 corrected (unscoped progress, hard-coded URL, 60 tests, lint counts, line counts).
-   - ROADMAP: N-11 closed by C-24.
-2. **Live check on `gemini-2.5-flash-lite`:**
-   - How it ran: a separate API on :8001 and Vite on :5174, so the owner's :8000/:5173 servers were untouched and the logs were readable.
-   - Result: 7 calls, **7 ok on the first attempt**, all `strategy=direct finish=STOP`, 2.0–4.0 s: career v2 ×3, roadmap v2 ×3, roadmap v1 ×1 (an old saved-answers Regenerate).
-   - Quota: these 7 calls used 7 of today's 20 free requests.
-3. **Manual QA** in Chrome:
-   - Desktop: 2560 px viewport.
-   - Mobile: 360 px, via a same-origin 360×780 iframe, because the window couldn't be resized.
-   - Keyboard: the whole desktop quiz and Results flow.
-   - Note: the Chrome window was occluded between tool calls (`visibilityState: hidden`), so framer-motion only advanced while screenshots were being taken. Every transition completed.
-4. **Findings** recorded as TD-50–TD-58 and ROADMAP N-20 (P0 pre-deploy batch) + N-21 (P1 a11y/quality batch). Nothing was fixed (pre-flight only). No ADR: no architectural change.
-
-### Deployment readiness report
-
-**Verdict: not ready to share publicly yet. It's ready after a small fix batch (N-20, about 1–2 h) and your Gemini billing decision.** The core flow works end to end on the production model. The remaining issues are a few visible bugs and copy problems that a recruiter would notice in the first minute, not infrastructure problems.
-
-#### Passed
-| Area | Result |
+### What was done (5 code commits)
+| Commit | Change |
 |---|---|
-| Full flow Landing → Quiz → Results → Dashboard → Regenerate | Works on desktop (keyboard only) and at 360 px (pointer) |
-| Production model | 7/7 first-attempt successes, v1 + v2 formats, 2–4 s per call |
-| AI quality | Reasons cite 2–4 of the user's answers; career in mind included with an honest score; step times paced to weekly hours (10 h/week → ~4–6 months; the dashboard's "time left" = the sum of the steps) |
-| Persistence | Mark done → reload → 20% and a dated achievement kept; undo works; regenerate replaces the roadmap and resets progress, as the confirm dialog says |
-| Quiz a11y | Labelled groups, `aria-pressed`, `aria-live` "n of 3 selected", limit of 3 enforced, visible focus rings, labelled optional field, Back keeps answers |
-| Dialogs on the native `Dialog` (Accounts, Regenerate) | Focus moves in, Esc closes, focus returns |
-| Layout | No horizontal scroll on any page at 360 px or on desktop; Q1 grid 3→2 columns, hours 4→2×2 |
-| Links | Internal nav links valid; external links `target=_blank rel="noopener noreferrer"`; YouTube search fallback works (no `YOUTUBE_API_KEY`) |
-| Edge routes | `/results` opened directly → `/quiz`; dashboard empty state renders |
-| Server | No 4xx/5xx, no retries; backend 80/80 tests; build passes |
+| `4c916c2` fix(results) | **Comparing never changes the selection (TD-50).** The compare checkbox moved out of the card `<button>` into a labelled `<label>` beside the card. This also fixes the last nested interactive element (TD-19). Up to 3 careers, an accessible name ("Compare DevOps Engineer"), a focus ring, and a toggle reading "Done comparing" with `aria-pressed`. The disabled checkbox on "None of these" is gone. On phones the card header may wrap, so compare mode can't overflow |
+| `bd30106` fix(nav) | **Every page starts at the top (TD-51).** `ScrollToTop` (layout effect on every pathname change) inside `BrowserRouter`. Dashboard and Results "Regenerate" stay on the same route, so they scroll to the top themselves. Browser Back keeps native scroll restoration |
+| `279c747` fix(copy) | **Honest, current copy (TD-52).** `/home` shows the browser-saved roadmap (career, real steps done, "one roadmap at a time… replaces it", "Open your dashboard") or an accurate "No roadmap yet" state. The dashboard empty state says 5 questions and "saved in this browser". The Results PDF option says it saves the career matches (it never saved a roadmap). No "8-question" text is left in the frontend |
+| `00ca5f1` feat(routing) | **Branded 404 page (F-12's 404 part).** Catch-all route → `NotFound`: shared header, gradient "404", "This page isn't on the map", "Return home" (`/home`), "Take the quiz", tab title "Page not found · PathwayAI" |
+| `1c9a3a4` feat(brand) | **Title, favicon, metadata (N-12, TD-42).** `<title>PathwayAI</title>`, a recruiter-friendly meta description, OG/Twitter tags (no `og:image`/`og:url` until there's a live URL, N-22), black `theme-color`, `favicon.svg` (the in-app "PA" gradient mark). `public/vite.svg` deleted |
 
-#### Must fix before sharing the URL (N-20)
-| # | Issue | Evidence |
-|---|---|---|
-| 1 | **Ticking a compare checkbox changes the selected career** (TD-50) | Checked Data Scientist while ML Engineer was selected → Data Scientist became "Selected"; "Generate roadmap" would have used it |
-| 2 | **Mobile lands mid-dashboard** (TD-51) | After "Generate roadmap" at 360 px, `/dashboard` opened at `scrollTop` 976, past the hero |
-| 3 | **Outdated copy** (TD-52) | Dashboard empty state: "Take the **8-question** quiz"; `/home`: "roadmaps aren't saved… for the current session" + "No saved roadmaps yet" while a roadmap was stored |
-| 4 | **Blank page for unknown URLs** (F-12) | `/definitely-not-a-page` → empty `#root`; Render rewrites every path to `index.html` |
-| 5 | Tab title "roadmap-ai", Vite favicon (N-12) | First thing seen in a shared link / browser tab |
+Docs: ADR-017 (routing shell); CLAUDE.md, ROADMAP (C-27; N-20 and N-12 closed; new N-22 `og:image`), technical debt (TD-16, TD-19, TD-42, TD-50, TD-51, TD-52 resolved), frontend, UI, recruiter notes, future features, README.
 
-#### Owner decisions (blocking a *public* launch, not a private test deploy)
-- **Gemini billing (N-16):** the free tier is 20 requests/day. QA used 7 today; a dev quiz run costs 2–3 (StrictMode duplicate, TD-53), a production run 2.
-- **Push approval:** `main` is 40 commits ahead of `origin/main` (including this session's 2 docs commits); Render builds from GitHub.
-- Render plan (free sleeps ~1 min on first request), `YOUTUBE_API_KEY` (optional; steps show a search link without it).
+### QA pass (regression)
+Same setup as before: my own API on :8001 and Vite on :5174, so your :8000/:5173 servers were untouched. Desktop at 2560 px, mobile through a 360×780 same-origin iframe, keyboard on the key controls.
 
-#### Should fix soon (N-21, not blocking)
-- Console error on every Results load: `Error fetching careers: AbortError` (TD-53).
-- Focus drops to `<body>` after each quiz step and after regenerate (TD-54).
-- Landing "Roadmap Generator" card is focusable but ignores Enter/Space; career cards lack `aria-pressed`; compare checkbox unlabelled (TD-55).
-- Compare and Share modals: no Esc, no focus move (TD-20).
-- framer-motion ignores `prefers-reduced-motion` (TD-33).
-- AI resource links: 1 of 13 invented (a LinkedIn article that redirects to "article not found") (TD-21).
-- Compare modal "Work environment: N/A" row (TD-56).
-- Mobile Results: the first card is below the fold (TD-57).
-- SDK AFC WARNING on every Gemini call (TD-58).
-- Lint 12 errors; no frontend tests; no CI.
-
-### Verification
 | Check | Result |
 |---|---|
-| `python -m pytest -q` | 80 passed |
-| `npm run lint` / `npm run build` | 12 errors, 0 warnings / passes (main chunk 427 KB, 137 KB gzip) |
-| `git check-ignore backend/.env frontend/.env.local` | both ignored; docs commit contained only docs |
-| Owner's servers | :8000 and :5173 still running, untouched; QA servers stopped |
+| Compare independence | Selected Cloud Security; ticked DevOps + SRE by keyboard (Space), click and label click → selection unchanged. Clicking a card changed the selection without touching the ticks. The compare modal showed DevOps + SRE. **Generate roadmap with compare mode on → roadmap for Cloud Security Engineer** |
+| Compare layout | Desktop: checkbox centred on the title row (±1 px). 360 px: **found and fixed a regression during QA** (the narrower card overflowed horizontally in compare mode) → header wraps on phones, no overflow |
+| Scroll reset | Landing (396 px) → Quiz: 0 · Dashboard (1,500) → Home: 0 · Home (905) → Dashboard: 0 · Dashboard → Quiz: 0 · Quiz bottom → Results: 0 · **Results (1,393) → Generate → Dashboard: 0** (was 976) · Dashboard quick actions (2,411) → Regenerate → 0 with a new roadmap · Back → previous position (native) |
+| Copy | `/home` with a roadmap: "Full-Stack Developer · 0 of 5 steps done…" + "Open your dashboard"; without one: "No roadmap yet…"; dashboard empty state: "Take the 5-question quiz…" (roadmap key stashed and restored) |
+| 404 | `/definitely/not-a-page`, `/nope`, `/some/old-link` → branded page; both buttons work by keyboard with visible focus; title set and restored; no overflow at 360 px (buttons stack) |
+| Metadata | Title "PathwayAI", `/favicon.svg` 200, description + 4 OG tags present; `/vite.svg` no longer served |
+| Full flow | Landing → Quiz → Results → Dashboard → Regenerate on desktop and 360 px; no horizontal scroll anywhere |
+| Live Gemini (`flash-lite`) | 5 calls, all 200. One real **Gemini `503 UNAVAILABLE` on the first attempt was recovered by the automatic retry** (ADR-015), so the user saw no error |
+| Console | No errors in this pass |
+| `python -m pytest -q` | 80 passed (no backend changes) |
+| `npm run lint` / `npm run build` | 12 errors (all pre-existing; 0 in new or changed code) / passes. Each of the 5 commits also builds on its own (checked in temporary worktrees) |
 
 ### Open issues / notes
-- **Git:** 1 docs commit so far this session (+ this end-of-session docs commit); **`main` is ahead of `origin/main`, not pushed** (owner said don't push).
-- The QA browser origin (:5174) holds test roadmap data in its own localStorage; the owner's :5173 data wasn't touched.
+- Quota: this pass used 6 Gemini requests (5 calls + 1 retry); the previous pass used 7.
+- The `AbortError` console error (TD-53) didn't appear this time, but the code is unchanged, so it's still open in N-21.
+- The 404 page is served with HTTP 200 (static host + SPA rewrite); fine for users (ADR-017).
+- **Git:** `main` is **45 commits ahead of `origin/main`** before this docs commit (46 with it), not pushed.
+
+### Deployment readiness (updated)
+Every "must fix before sharing" item from the 2026-09-28 report is done and verified. **Code-wise it's ready for a first deploy.** What's left is your decisions:
+1. **Gemini billing (N-16):** the free tier is 20 requests/day (≈10 quiz runs).
+2. **Push approval:** Render builds from GitHub.
+3. Render API plan (free sleeps ~1 min) and an optional `YOUTUBE_API_KEY`.
+
+Not blocking: N-21 (focus after quiz steps/regenerate, Landing card keyboard, `aria-pressed` on career cards, quiet aborted requests, Esc on Compare/Share, reduced motion), N-22 (`og:image`), tests + CI.
 
 ### Next recommended task
-1. **N-20 pre-deploy fix batch** (TD-50, TD-51, TD-52, F-12 404 route, N-12 title/favicon), each with a lint/build check and a quick browser re-check.
-2. Owner: Gemini billing (N-16) + push approval → **F-1 deploy to Render**.
-3. N-21 accessibility/quality batch, then frontend tests + CI (F-2–F-4).
+1. Owner: billing decision + push approval → **F-1 deploy to Render** (steps in `docs/deployment.md`), then add `og:url`/`og:image` (N-22) and the live URL to the README.
+2. N-21 accessibility/quality batch.
+3. Frontend tests + CI (F-2–F-4).
 
 ### Open questions (for the owner)
-1. Fix N-20 first and then deploy, or deploy privately now and fix on the live site?
-2. Enable Gemini billing before deploying, or start on the free tier (≈10 quiz runs/day)?
-3. Render API plan: free (sleeps) or Starter (always on)?
-4. Add a `YOUTUBE_API_KEY` for real videos before launch?
-5. Carried over: target market (Canada-first?), database/auth choice, provider abstraction, when to make the repo public (F-17).
+1. Enable Gemini billing before deploying, or start on the free tier?
+2. Render API plan: free (sleeps) or Starter?
+3. Add a `YOUTUBE_API_KEY` before launch?
+4. Carried over: target market (Canada-first?), database/auth choice, provider abstraction, when to make the repo public (F-17).
 
 ---
 
 ## History
+- 2026-09-28 (evening) — Pre-flight: docs synced with the code; live `gemini-2.5-flash-lite` check (7/7 ok, v1 + v2); manual desktop / 360 px / keyboard QA; readiness report; findings TD-50–TD-58 → N-20 (fixed 2026-09-29) and N-21.
 - 2026-09-28 (day) — 5-question quiz (ADR-016): backend accepts v1 + v2 answer formats (v1 prompts byte-identical), new quiz UI (multi-select, weekly-hours buttons, optional career field), TD-26 fixed, 80 backend tests; verified on `gemini-2.5-flash`.
 - 2026-09-27 (part 2) — Investigated the "intermittent roadmap failure": 25 live calls, 0 malformed JSON; the real limit is Gemini's free tier (20 requests/day). Added JSON mode + response schema, per-item validation, one retry, 503 quota/busy messages, content-free diagnostics with request IDs, and the first 60 backend tests (ADR-015).
 - 2026-09-27 (part 1) — Deployment readiness (ADR-014): env-only config (`ALLOWED_ORIGINS`, `VITE_API_URL`, build fails without it), every request through `lib/api.js`, Pydantic request validation, in-memory rate limits, generic errors, no user data in logs, `/health`, `render.yaml` (Render chosen, not deployed). Local `backend/.env` gained `ALLOWED_ORIGINS`; `frontend/.env.local` created.

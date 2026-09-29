@@ -26,7 +26,8 @@
 - **AI roadmap** — up to 5 actionable steps paced to the time you have each week, each with a time estimate, tasks, learning resources and up to 2 real YouTube videos (YouTube Data API; a search link when no key is configured).
 - **Progress dashboard** — progress ring (steps done out of the roadmap's length), today's focus task, stat tiles, a visual step-by-step roadmap (expand, mark done/undo), dated achievements, rule-based insights and quick actions (regenerate the roadmap, retake the quiz). Every number comes from your own stored data.
 - **Export** — download results as PDF or print.
-- **Home hub (`/home`)** — an honest starting page: quiz entry point, an empty "Your roadmaps" state (nothing is saved until accounts exist) and clearly labelled planned features.
+- **Home hub (`/home`)** — quiz entry point, the roadmap saved in this browser with its real progress (or an honest empty state) and clearly labelled planned features.
+- **Friendly 404 page** — unknown links show a branded page with ways back instead of a blank screen.
 - **Local persistence** — the current roadmap and its progress survive reloads and new tabs (`localStorage`, this browser only).
 - **Reliable AI output** — Gemini JSON mode with a response schema, per-item validation, one retry, and clear messages when the AI is busy or out of quota.
 
