@@ -381,11 +381,13 @@ export default function Results() {
               <>
                 <div className="resultsToolbar">
                   <button
+                    type="button"
                     className="compareToggleBtn"
+                    aria-pressed={compareMode}
                     onClick={() => setCompareMode(!compareMode)}
                   >
-                    <BarChart3 size={18} />
-                    {compareMode ? "Comparing..." : "Compare Careers"}
+                    <BarChart3 size={18} aria-hidden="true" />
+                    {compareMode ? "Done comparing" : "Compare Careers"}
                   </button>
 
                   {compareMode && selectedForCompare.size > 0 && (
@@ -424,7 +426,26 @@ export default function Results() {
                           exit={{ opacity: 0, y: -20 }}
                           transition={{ delay: index * 0.15 }}
                           layout
+                          className="careerRow"
                         >
+                          {/* Outside the card button, so comparing never selects (TD-50). */}
+                          {compareMode && (
+                            <label className="careerCompareCheck">
+                              <input
+                                type="checkbox"
+                                className="careerCheckbox"
+                                checked={isSelectedForCompare}
+                                disabled={
+                                  !isSelectedForCompare &&
+                                  selectedForCompare.size >= 3
+                                }
+                                onChange={() => toggleCompare(career.title)}
+                              />
+                              <span className="srOnly">
+                                Compare {career.title}
+                              </span>
+                            </label>
+                          )}
                           <button
                             type="button"
                             className={`careerCard ${
@@ -438,17 +459,6 @@ export default function Results() {
                           >
                             <div className="careerHeader">
                               <div className="careerHeaderLeft">
-                                {compareMode && (
-                                  <input
-                                    type="checkbox"
-                                    checked={isSelectedForCompare}
-                                    onChange={(e) => {
-                                      e.stopPropagation();
-                                      toggleCompare(career.title);
-                                    }}
-                                    className="careerCheckbox"
-                                  />
-                                )}
                                 <div className="careerName">
                                   {career.title}
                                 </div>
@@ -585,6 +595,11 @@ export default function Results() {
                     })}
                   </AnimatePresence>
 
+                  <div className="careerRow">
+                  {/* Keeps "None of these" aligned with the checkbox column. */}
+                  {compareMode && (
+                    <span className="careerCompareCheck" aria-hidden="true" />
+                  )}
                   <button
                     type="button"
                     className={`careerCard noneCard ${
@@ -598,13 +613,6 @@ export default function Results() {
                   >
                     <div className="careerHeader">
                       <div className="careerHeaderLeft">
-                        {compareMode && (
-                          <input
-                            type="checkbox"
-                            disabled
-                            className="careerCheckbox"
-                          />
-                        )}
                         <div className="careerName">None of these</div>
                       </div>
                       <div className="careerHeaderRight">
@@ -628,6 +636,7 @@ export default function Results() {
                       </div>
                     </div>
                   </button>
+                  </div>
                 </div>
 
                 <div className="resultsActions">

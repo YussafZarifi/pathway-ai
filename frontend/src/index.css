@@ -2194,6 +2194,59 @@ body.theme-landing .trustRow {
   color: rgba(255, 255, 255, 0.75);
 }
 
+/* Compare checkbox sits beside the card, not inside its button (TD-50). */
+.careerRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.careerRow > .careerCard {
+  flex: 1;
+  min-width: 0;
+}
+
+.careerCompareCheck {
+  flex: 0 0 34px;
+  height: 78px; /* centres the box on the card title row */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.careerCompareCheck:has(input:disabled) {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.careerCheckbox:focus-visible {
+  outline: 2px solid rgb(255, 55, 208);
+  outline-offset: 3px;
+}
+
+/* Phones: slimmer checkbox column, and headers may wrap so the match
+   badge never pushes the card past the screen edge in compare mode. */
+@media (max-width: 520px) {
+  .careerRow {
+    gap: 6px;
+  }
+
+  .careerCompareCheck {
+    flex-basis: 24px;
+    height: 54px; /* centres the box on the first title line */
+  }
+
+  .careerRow .careerHeader {
+    flex-wrap: wrap;
+    row-gap: 8px;
+  }
+
+  .careerRow .careerHeaderRight {
+    margin-left: auto;
+  }
+}
+
 .careerCheckbox {
   width: 18px;
   height: 18px;
