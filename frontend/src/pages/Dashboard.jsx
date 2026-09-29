@@ -175,6 +175,8 @@ export default function Dashboard() {
       setRecord(next);
       setExpanded(new Set());
       refreshTracking();
+      // Same route, so ScrollToTop doesn't run: show the new roadmap from its hero.
+      window.scrollTo(0, 0);
     } catch (e) {
       console.error("Error regenerating roadmap:", e);
       setRegenError(

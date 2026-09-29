@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import ThemeGate from "./components/ThemeGate";
+import ScrollToTop from "./components/ScrollToTop";
 
 import Landing from "./pages/Landing";
 import Home from "./pages/Home";
@@ -10,11 +11,12 @@ import Dashboard from "./pages/Dashboard";
 export default function App() {
   return (
     <BrowserRouter>
+      <ScrollToTop />
       <ThemeGate>
         <Routes>
           {/* Public pages (Aurora) */}
           <Route path="/" element={<Landing />} />
-          
+
           {/* Home page (Noir) */}
           <Route path="/home" element={<Home />} />
           <Route path="/quiz" element={<Quiz />} />

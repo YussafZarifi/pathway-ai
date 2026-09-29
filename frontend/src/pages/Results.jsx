@@ -248,6 +248,7 @@ export default function Results() {
       setError("");
       setAiResult(null);
       setSelectedCareer("");
+      window.scrollTo(0, 0);
 
       const data = await requestCareers(answers);
       setAiResult({
