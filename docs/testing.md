@@ -7,10 +7,10 @@
   - `test_api.py` (10): `/health`, response shape, user-friendly 502/503 messages with CORS headers, `Retry-After`, 422 before any Gemini call, rate limit, disallowed origin.
   - `test_quiz_formats.py` (20): v1 answers ("Regenerate" on old roadmaps) still work with the original prompts; v2 prompts carry the labelled profile and weekly-hour pacing; v2 validation and cleaning (interests 1–3 and deduplicated, weekly hours 2/5/10/20, optional career in mind, newlines removed, leftover keys ignored).
   - Privacy guard: a marker planted in answers and replies must never appear in logs or responses.
-- **Frontend: no tests.** `npm run lint` (ESLint 9): 12 errors and 1 warning as of 2026-09-27. Most are `motion` false positives from the missing `jsx-uses-vars` rule, plus real unused imports (ROADMAP N-13).
+- **Frontend: no tests.** `npm run lint` (ESLint 9): 12 errors, 0 warnings as of 2026-09-28. 6 are `motion` false positives from the missing `jsx-uses-vars` rule, 6 are real unused variables (ROADMAP N-13).
 - No CI yet (F-4).
 - `npm run build`: passes.
-- Manual testing in the browser.
+- Manual testing in the browser (latest full pass: see `SESSION.md`).
 
 ## Strategy (🗺️)
 
@@ -20,11 +20,12 @@ Priority targets (pure logic first, since they're cheap and high value):
 |---|---|
 | `lib/trackingEngine.js` | init on empty or corrupt storage; `trackEvent` rejects unknown types and missing fields; `trackMetric` stats (current/avg/min/max); `trackProgress` status transitions incl. `incomplete`; import/export round-trip |
 | `lib/scoringEngine.js` | each score component in isolation; caps at 100; **regression: 1 of 5 steps done ≠ 100%** (TD-07); recommendation thresholds (TD-28) |
-| Progress persistence (after N-7) | **regression: progress for career A doesn't appear on career B** (TD-08) |
+| `lib/roadmapStore.js` | save/load round-trip; corrupt or wrong-version record → null; **regression: progress for roadmap A doesn't appear on roadmap B** (TD-08) |
 | `Quiz` | Continue disabled until answered; multi-select stops at 3 and re-enables on deselect; weekly-hours buttons; optional career field sent only when non-empty; last step navigates with answers |
 | `Results` | loading → success render; error state; empty state; compare needs ≥2; "None of these" swaps CTA |
-| `RoadmapTimeline` | expand/collapse; mark done updates count; keyboard access |
-| API client (after N-6) | base URL from env; timeout; error mapping |
+| `dashboard/RoadmapStepper` | expand/collapse; mark done/undo updates the count and ring; keyboard access |
+| `lib/dashboardData.js` | progress out of roadmap length; time left from AI estimates (unreadable estimates reported); streak; achievements |
+| `lib/api.js` | base URL from env; timeout; `ApiError` status mapping; `errorMessage()` for 4xx vs 5xx |
 
 Use `vi.stubGlobal("fetch", …)` or MSW for network. Provide a `localStorage` mock or reset between tests.
 
@@ -34,7 +35,7 @@ Use `vi.stubGlobal("fetch", …)` or MSW for network. Provide a `localStorage` m
 - Snapshot-test the prompt builders (prompt changes become visible in diffs).
 
 ### End-to-end — Playwright
-- Happy path: Landing → Quiz (answer all 8) → Results (mocked API) → pick career → Dashboard → mark a step done → reload → progress persists.
+- Happy path: Landing → Quiz (answer all 5) → Results (mocked API) → pick career → Dashboard → mark a step done → reload → progress persists → regenerate.
 - Error path: API 500 → error state → retry.
 - Run against `vite preview` with route-level API mocks.
 

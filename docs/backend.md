@@ -4,7 +4,7 @@ A small FastAPI app in `backend/`. Run locally with `uvicorn main:app --reload -
 
 | File | Role |
 |---|---|
-| `main.py` | App, middleware, error handlers, endpoints, prompts, `generate_json()` Gemini helper, `add_videos()` |
+| `main.py` | App, middleware, error handlers, endpoints, `generate()` (maps LLM errors to HTTP errors), `add_videos()` |
 | `config.py` | Settings read once from environment variables (added 2026-09-27) |
 | `schemas.py` | Pydantic request models: `QuizAnswersV2` (5-question quiz) and `QuizAnswersV1` (8-question quiz, temporary) behind one discriminated `QuizAnswers` (added 2026-09-27; v2 2026-09-28) |
 | `prompts.py` | Prompt builders: v2 prompts for the 5-question quiz, v1 prompts unchanged (added 2026-09-28, ADR-016) |

@@ -11,7 +11,7 @@ Done (ADR-014):
 - `render.yaml` Blueprint, validated against Render's JSON schema.
 
 Still missing before a public launch (not blockers for a first deploy):
-- No tests or CI (F-2–F-4); no error tracking (F-11).
+- No frontend tests and no CI (F-2–F-4; the backend has 80 pytest tests run locally); no error tracking (F-11).
 - **Gemini free-tier quota: 20 requests per day** for `gemini-2.5-flash-lite` (measured 2026-09-27). That's about 10 quiz runs a day in total; after that, users see "PathwayAI has reached its AI usage limit for now" until the daily reset. Before sharing the URL widely, enable billing on the Google AI Studio / Cloud project (paid tier) and set `GLOBAL_AI_LIMIT_PER_DAY` to the spend you accept. (AI output is validated and retried since ADR-015.)
 - No Gemini budget alert. The global daily cap (`GLOBAL_AI_LIMIT_PER_DAY`) is the only spend guard.
 
@@ -83,6 +83,6 @@ Both have `buildFilter` paths, so a frontend-only change doesn't redeploy the AP
 - [ ] Sentry wired up
 - [ ] Gemini paid tier (free tier = 20 requests/day) + budget alert in Google Cloud; `GLOBAL_AI_LIMIT_PER_DAY` set to match
 - [x] AI output validated with one retry; failures logged with request IDs (ADR-015)
-- [x] Backend tests (60, pytest; run locally)
+- [x] Backend tests (80, pytest; run locally)
 - [ ] Frontend tests + CI
 - [ ] README has the live URL

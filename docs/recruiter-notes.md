@@ -24,10 +24,10 @@ How this project is likely to be perceived, and what increases its portfolio val
 1. ~~**Simulated AI** (`ResumeAnalyzer.jsx` random score)~~ — deleted 2026-09-25.
 2. ~~**Fake dashboard data** on `/home`~~ — replaced by an honest empty state 2026-09-25.
 3. ~~**No git history.**~~ — repo initialized 2026-09-25 with small, explained commits. Pushed to a private GitHub repo on 2026-09-25; it becomes visible to recruiters once made public (ROADMAP F-17).
-4. **Default Vite README** (now replaced), "roadmap-ai" tab title, Vite favicon.
+4. ~~Default Vite README~~ (replaced). Still: "roadmap-ai" tab title, Vite favicon (N-12).
 5. ~~**Dead buttons** and fake Copy Link~~ — removed 2026-09-25.
-6. **Not deployable:** hard-coded localhost, no live demo.
-7. **No tests or CI.**
+6. ~~**Not deployable:** hard-coded localhost~~ — env-only config and a Render Blueprint since 2026-09-27. **Still no live demo** (F-1).
+7. **No frontend tests or CI.** The backend has 80 pytest tests since 2026-09-28.
 8. ~~**Visible bugs:** "Roadmap 100%" after one step; progress leaking between careers~~ — fixed 2026-09-26 with the dashboard redesign (ADR-013).
 9. ~~**About 40% dead code** in the repo~~ — unreachable files deleted 2026-09-25; some dead CSS rules remain in `index.css`.
 

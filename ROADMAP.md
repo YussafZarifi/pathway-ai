@@ -23,7 +23,7 @@
 | C-10 | (was N-3) Removed simulated `ResumeAnalyzer`, the `/app/*` shell, legacy pages/helpers/data/images, `dashboard.css`, `App.css`, root `.vite/`; `/home` kept and rebuilt as an honest empty-state hub (ADR-010) | 2026-09-25 |
 | C-11 | (was N-4) Removed dead buttons: Landing Log in/Sign Up, Save Roadmap, Mark as In Progress, fake Copy Link + account prompt (Settings/Upgrade went with the `/app/*` shell) | 2026-09-25 |
 | C-14 | `/home` visual polish: Landing glow, gradient CTA/title, aligned header, left-aligned cards with Landing's per-feature icon colours (green Resume, indigo Coach) that float on hover, small "Planned" pills, AA-safe planned cards, reduced motion, fits at 360px | 2026-09-26 |
-| C-24 | 5-question assessment (owner-approved): interests (up to 3), problem-solving style, experience, weekly time (4 large buttons), 12-month goal + optional career in mind; labelled-profile v2 prompts; API accepts v1 and v2 so saved roadmaps still regenerate; slider removed; tracking side effect fixed (TD-26); copy updated. ADR-016 | 2026-09-28 |
+| C-24 | (also closes N-11) 5-question assessment (owner-approved): interests (up to 3), problem-solving style, experience, weekly time (4 large buttons), 12-month goal + optional career in mind; labelled-profile v2 prompts; API accepts v1 and v2 so saved roadmaps still regenerate; slider removed; tracking side effect fixed (TD-26); copy updated. ADR-016 | 2026-09-28 |
 | C-23 | (was N-8) Reliable AI output: investigation (25 live calls: 0 malformed JSON, failures were Gemini's 20/day free-tier quota), JSON mode + `response_schema`, per-item Pydantic validation with defaults, one retry for unusable replies/5xx/timeouts, distinct 503 quota/busy messages, content-free per-attempt diagnostics with request IDs; first 60 backend tests. ADR-015 | 2026-09-27 |
 | C-20 | (was N-5) Env-only config: backend `config.py` (`ALLOWED_ORIGINS` CORS, `GEMINI_MODEL`, timeouts, limits), frontend `VITE_API_URL` (build fails without it), `.env.example` on both sides, `GET /health`, Render Blueprint `render.yaml`. ADR-014 | 2026-09-27 |
 | C-21 | (was N-6) `lib/api.js` is the only backend client: shared `request()` with timeout, `ApiError`, `errorMessage()`; the two hard-coded career fetches in `Results.jsx` moved into `requestCareers()` | 2026-09-27 |
@@ -49,9 +49,8 @@ _Nothing in progress._
 | N-18 | Visual check of the new quiz in a foreground browser: Q1 3-column grid, weekly-hours buttons, Q5 chips, 360 px layout, keyboard focus (the automated check ran in a hidden tab, where animations don't run) | P1 | XS | ★★ |
 | N-19 | Remove v1 (8-question) answer support from `schemas.py`/`prompts.py` once no saved roadmap needs it (ADR-016) | P3 | XS | ★ |
 | N-10 | Fix `ThemeGate`/page theme conflict — single theme mechanism | P2 | S | ★ |
-| N-11 | Fix per-keystroke tracking + side effect in state updater (`Quiz.jsx`) | P2 | XS | ★ |
 | N-12 | Brand consistency: `<title>`, favicon, meta/OG tags, "PathwayAI" everywhere | P1 | XS | ★★ |
-| N-13 | ESLint: add JSX-uses-vars (eslint-plugin-react) and fix real errors → 0 errors (12 left as of 2026-09-27) | P2 | S | ★★ |
+| N-13 | ESLint: add JSX-uses-vars (eslint-plugin-react) and fix real errors → 0 errors (12 left as of 2026-09-28: 6 `motion` false positives, 6 real unused vars) | P2 | S | ★★ |
 | N-14 | Prune dead CSS left in `index.css` by deleted components (e.g. `.roadmapStats`, `.primaryBtn`, `.comingSoonBadge` defined three times) | P3 | S | ★ |
 | N-15 | Link `/home` from Landing (the shared app header on `/home` and `/dashboard` links it since 2026-09-26) | P3 | XS | ★ |
 
@@ -61,7 +60,7 @@ _Nothing in progress._
 |---|---|---|---|---|
 | F-1 | Deploy to Render via `render.yaml` (API web service + static site), live URL in README. Ready since 2026-09-27; waiting for the owner's review. Steps in `docs/deployment.md` | P0 | S | ★★★ |
 | F-17 | Make the GitHub repo public (owner decision) once README screenshots, env config and backend hardening are done | P1 | XS | ★★★ |
-| F-2 | Tests: Vitest (tracking/scoring engines, components). Backend pytest exists since 2026-09-27 (60 tests) | P1 | L | ★★★ |
+| F-2 | Tests: Vitest (`api.js`, `roadmapStore.js`, `dashboardData.js`, tracking engine, Quiz). Backend pytest exists since 2026-09-27 (80 tests) | P1 | L | ★★★ |
 | F-3 | Playwright E2E: quiz → results → dashboard with mocked API | P1 | M | ★★★ |
 | F-4 | GitHub Actions CI: lint, test, build (+ E2E) | P1 | S | ★★★ |
 | F-5 | Dockerfiles + `docker-compose.yml` | P2 | M | ★★ |

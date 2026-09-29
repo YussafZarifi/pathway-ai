@@ -9,7 +9,7 @@
 | Route | Page | Status |
 |---|---|---|
 | `/` | `Landing` | ✅ Hero + 3 feature cards (2 say "Coming soon"); header and hero CTAs → `/quiz` |
-| `/home` | `Home` | 🟡 Honest empty-state hub (since 2026-09-25): quiz CTA, "No saved roadmaps yet", planned-feature cards. Reachable only by URL. Becomes the signed-in dashboard after auth (ADR-010) |
+| `/home` | `Home` | 🟡 Honest empty-state hub (since 2026-09-25): quiz CTA, "No saved roadmaps yet", planned-feature cards. Linked from the shared `AppHeader` on `/home` and `/dashboard`, not from Landing (N-15). Becomes the signed-in dashboard after auth (ADR-010) |
 | `/quiz` | `Quiz` | ✅ |
 | `/results` | `Results` | ✅ Redirects to `/quiz` without `location.state.answers` |
 | `/dashboard` | `Dashboard` | ✅ Redesigned 2026-09-26. Loads the stored roadmap (`lib/roadmapStore.js`), falls back to router state, shows an empty state (not a redirect) when there's none |
@@ -19,7 +19,7 @@
 - **Landing.jsx** — framer-motion staggered hero. Hero elements start at `opacity: 0` (JS-dependent visibility). Header has Log in and Sign up buttons (since 2026-09-26). Both open `AccountsSoonDialog`, which says accounts are coming soon and offers "Take the quiz"; no auth exists (F-7). The hero "Get Started" CTA goes to `/quiz`.
 - **Home.jsx** — "Welcome to PathwayAI" hero with quiz CTA; "Your roadmaps" empty state explaining nothing is saved until accounts exist; "What you can do" with one real card (quiz, a `<button>`) and two non-interactive "Planned" cards (Resume Analyzer, AI Coach). Nav uses `NavLink`. No stats, activity or achievements are shown until real data exists. Visual polish pass 2026-09-26: own `.homePrimaryBtn` (gradient CTA), `.homeBadge` for "Planned" (the global `.comingSoonBadge` has conflicting definitions), no `resumeIcon`/`coachIcon` classes on cards (global rules with those names leak in); instead `homeFeatureIcon--roadmap/--resume/--coach` and `homeFeatureCard--resume/--coach` give the cards the Landing colours (pink, green, indigo) and tinted hover glows; every card floats on hover (6px lift, icon lift + 1.06 scale; disabled under reduced motion).
 - **Quiz.jsx** (5-question assessment since 2026-09-28, ADR-016) — step state, `answers` object, progress bar, `AnimatePresence` transitions. Question types: `choice` (single, radio look), `multi` (grid, up to `max`, other options disabled at the limit, live "n of 3 selected"), `buttons` (four large buttons with values, used for weekly hours), plus an optional `followUp` text field with suggestion chips (the "career in mind" field under Q5, sent only when non-empty). Every option has `aria-pressed`; each group is labelled by its question. The slider type was removed. Tracks `quiz_started`, `quiz_question_answered` (outside the state updater; the free-text field isn't tracked per keystroke), `quiz_completed`, session start/end.
-- **Results.jsx** (723 lines) — fetches careers on mount (AbortController), shows the letter loader, error state (Try again = full page reload), empty state, career cards (icon via a keyword `if` chain, match %, salary, growth, skills, expand for reason plus `CAREER_DETAILS` overview), compare mode (checkbox ⚠ nested inside button), "None of these", Generate roadmap → `/dashboard`. Three near-identical fetch blocks with a hard-coded `http://127.0.0.1:8000`.
+- **Results.jsx** (~700 lines) — fetches careers on mount through `requestCareers` (`lib/api.js`, AbortController), shows the letter loader, error state (Try again = full page reload, TD-40), empty state, career cards (icon via a keyword `if` chain, match %, salary, growth, skills, expand for reason plus `CAREER_DETAILS` overview), compare mode (checkbox ⚠ nested inside button, TD-19), "None of these", regenerate suggestions, Generate roadmap (`requestRoadmap`) → `saveCurrentRoadmap` → `/dashboard`.
 - **Dashboard.jsx** (redesigned 2026-09-26) — composes `components/dashboard/*` from `lib/dashboardData.js` derivations: `DashboardHero` (career, AI match %, progress ring, next milestone, time left, skills), `TodayFocus` (one task + first video, mark done / open step), four `StatTile`s (steps bar, learning materials, day streak, 14-day active days), `RoadmapStepper` (done/current/upcoming nodes, expandable details with tasks, videos, resources), and a rail with `AchievementGrid`, `InsightsPanel`, `QuickActions` (regenerate via `lib/api.js` with confirm dialog + skeleton, retake quiz, Resume/Coach "coming soon" dialogs). Marking a step done calls `trackProgress("roadmap_step_<roadmapId>_<i>")` and emits `roadmap_step_completed`. No tabs, no Employability/Momentum meters.
 
 ### Removed on 2026-09-25
@@ -41,13 +41,15 @@ Every page file is now routed. Deleted as unreachable: the `/app/*` shell (`Dash
 
 ## State management
 - Local `useState` per page. No context or store.
-- Cross-page data goes through `navigate(path, { state })`.
-- Persistent data goes through `lib/trackingEngine.js` (localStorage).
+- Quiz answers go to Results through `navigate(path, { state })`; Results also passes a fallback copy of the roadmap to the Dashboard.
+- The current roadmap is persisted by `lib/roadmapStore.js` (`pathwayai_roadmap`); events, metrics and step progress by `lib/trackingEngine.js` (`pathwayai_tracking`). See `docs/database.md`.
 
 ## lib/
 - **api.js** — the only backend client (since 2026-09-27). `request()` adds the `VITE_API_URL` base (no fallback; `vite build` fails without it), a 90 s timeout (Gemini + YouTube + Render free-plan wake-up), caller `signal` support, and throws `ApiError(message, status)`. Exports `requestCareers`, `requestRoadmap` (normalizes steps) and `errorMessage(error, fallback)`: 4xx/timeout/network errors show the specific message (e.g. rate limit), other failures the page's own copy.
+- **roadmapStore.js** — `saveCurrentRoadmap`, `loadCurrentRoadmap`, `stepProgressKey(roadmapId, index)` (ADR-013).
+- **dashboardData.js** — pure derivations for the dashboard (progress, next milestone, time left from the AI's estimates, streak, achievements, insights).
 - **trackingEngine.js** — `trackEvent`, `trackMetric`, `trackProgress` (`started|completed|skipped|incomplete`), getters, sessions, export/import/clear. Validates against `data/trackingSchema.js`. ⚠ `getTrackingData()` writes back on every read; the event array is unbounded.
-- **scoringEngine.js** — `computeEmployabilityScore` (quiz 30, resume 40, roadmap 20, engagement 10), `computeCareerMomentumScore` (clarity 25, velocity 35, skill dev 20, consistency 20), `getCareerReadinessSummary` (average and recommendations). ⚠ Measures app engagement, not employability. The resume input (`resume_score` metric) is no longer written by any shipped code since the simulated analyzer was deleted, so that component is always 0 for real users. The roadmap % counts touched keys only.
+- **scoringEngine.js** — `computeEmployabilityScore` (quiz 30, resume 40, roadmap 20, engagement 10), `computeCareerMomentumScore` (clarity 25, velocity 35, skill dev 20, consistency 20), `getCareerReadinessSummary` (average and recommendations). ⚠ Measures app engagement, not employability. The resume input (`resume_score` metric) is no longer written by any shipped code since the simulated analyzer was deleted, so that component is always 0 for real users. The roadmap % counts touched keys only. None of these scores are displayed since 2026-09-26 (B-14).
 
 ## data/
 - `questions.js` — the 5 quiz questions (`interests`, `problem_style`, `experience`, `weekly_hours`, `goal` + optional `career_in_mind`). **IDs are a contract** with `backend/schemas.py` (v2) and `backend/prompts.py`.
@@ -55,8 +57,8 @@ Every page file is now routed. Deleted as unreachable: the `/app/*` shell (`Dash
 - `careerDetails.js` — static details for 17 careers (includes non-tech roles left over from before the pivot). Looked up by exact AI title.
 
 ## Styling
-- `src/index.css` (~3,760 lines): all pages. 8 `:root` variables; about 30 hex and 100+ `rgba` literals; 13 media queries; duplicated selectors; a copied Uiverse loader; `"Inter"` referenced but not loaded; no `prefers-reduced-motion`; few focus styles.
+- `src/index.css` (~4,400 lines): all pages. Design tokens on `:root` for the dashboard/home work (2026-09-26), but many raw hex and `rgba` literals remain elsewhere; duplicated selectors (e.g. `.comingSoonBadge`); a copied Uiverse loader; `"Inter"` referenced but not loaded. `:focus-visible` styles exist for the quiz options, Home, dialogs, video cards and the dashboard. `prefers-reduced-motion` rules cover only Home, video cards and the dashboard's CSS animations; framer-motion animations (Landing, Quiz, Results) ignore it because there is no `MotionConfig reducedMotion="user"` (TD-33, TD-34).
 
 ## Build & lint
-- `npm run build` succeeds. Main chunk 413 KB (131 KB gzip); html2pdf split into a lazy 975 KB chunk.
-- `npm run lint`: 17 errors, 1 warning (2026-09-25; was 21). Most are `motion` "unused" false positives (the config lacks eslint-plugin-react's `jsx-uses-vars`); the rest are real unused imports/vars (ROADMAP N-13).
+- `npm run build` succeeds (needs `VITE_API_URL`). Main chunk 427 KB (137 KB gzip); html2pdf split into a lazy 975 KB chunk (Vite's >500 KB warning refers to that lazy chunk).
+- `npm run lint`: 12 errors, 0 warnings (2026-09-28). 6 are `motion` "unused" false positives (the config lacks eslint-plugin-react's `jsx-uses-vars`); 6 are real unused variables (ROADMAP N-13).

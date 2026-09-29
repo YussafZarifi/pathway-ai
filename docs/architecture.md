@@ -8,37 +8,44 @@
 flowchart TB
     subgraph Browser
         SPA[React SPA<br/>Vite dev server :5173]
-        RS[Router location.state<br/>answers · career · roadmap]
-        LS[(localStorage<br/>pathwayai_tracking)]
+        RS[Router location.state<br/>answers · fallback roadmap copy]
+        LS[(localStorage<br/>pathwayai_roadmap · pathwayai_tracking)]
         SPA --- RS
         SPA --- LS
     end
-    subgraph Server[FastAPI :8000 — backend/main.py]
+    subgraph Server[FastAPI :8000 — backend/]
+        MW[CORS · 16 KB limit · rate limits · Pydantic validation]
         EP1[POST /api/ai/career]
         EP2[POST /api/ai/roadmap]
         H[GET / · GET /health]
+        LLM[llm.py · ai_output.py<br/>JSON mode · validation · 1 retry]
     end
     GEM[(Google Gemini<br/>gemini-2.5-flash-lite)]
-    SPA -- "lib/api.js → VITE_API_URL" --> EP1
-    SPA --> EP2
-    EP1 --> GEM
-    EP2 --> GEM
+    YT[(YouTube Data API v3)]
+    SPA -- "lib/api.js → VITE_API_URL" --> MW
+    MW --> EP1
+    MW --> EP2
+    EP1 --> LLM
+    EP2 --> LLM
+    LLM --> GEM
+    EP2 --> YT
 ```
 
 ### Components
 | Component | Responsibility | Notes |
 |---|---|---|
-| React SPA | All UI, routing, quiz state, rendering AI output, tracking and scoring | Plain JS; no API layer; no global state library |
+| React SPA | All UI, routing, quiz state, rendering AI output, tracking | Plain JS; one API client (`lib/api.js`); no global state library |
 | Router state | Moves `answers` Quiz → Results; a fallback copy of `{career, roadmap}` Results → Dashboard | Since 2026-09-26 the dashboard reads the roadmap from localStorage first (ADR-013) |
 | Roadmap store | `pathwayai_roadmap`: the current roadmap with careerData and answers | One roadmap, this browser only (`lib/roadmapStore.js`) |
-| localStorage | Event log, metrics history, step progress | Single key `pathwayai_tracking`; unbounded growth; rewritten on every read |
-| FastAPI | Holds the Gemini key; validates requests; rate limits; builds prompts; parses JSON; returns results | Config from env (`config.py`); Pydantic request models; in-memory rate limits; no auth or response validation (ADR-014) |
-| Gemini | Generates careers and roadmaps | Prompt-and-parse JSON; no response schema |
+| Tracking store | Event log, metrics history, step progress | `pathwayai_tracking`; unbounded growth; rewritten on every read (TD-27) |
+| FastAPI | Holds the API keys; validates requests; rate limits; builds prompts; validates AI output; adds YouTube videos | Config from env (`config.py`); Pydantic request models (ADR-014); output validation + one retry (ADR-015); in-memory rate limits; no auth |
+| Gemini | Generates careers and roadmaps | JSON mode + `response_schema` (ADR-015) |
+| YouTube Data API | Real videos per roadmap step | Optional `YOUTUBE_API_KEY`; search-link fallback (ADR-012) |
 
 ### Request lifecycle — career matches
 1. `Quiz` collects answers → `navigate("/results", { state: { answers } })`.
 2. `Results` `useEffect` → `POST /api/ai/career` with `AbortController`.
-3. Backend validates the answers, builds `key: value` lines → prompt → `llm.generate` (Gemini JSON mode + response schema, ≤2 attempts) → `ai_output.parse_careers` validates each career → returns the validated dict.
+3. Backend validates the answers (5-question v2 format, or the old 8-question v1 format for saved roadmaps; ADR-016), builds a labelled profile (v2) or `key: value` lines (v1) → prompt → `llm.generate` (Gemini JSON mode + response schema, ≤2 attempts) → `ai_output.parse_careers` validates each career → returns the validated dict.
 4. `Results` stores `{explanation, careers}` and tracks `career_suggestions_generated`.
 
 ### Request lifecycle — roadmap
@@ -48,12 +55,11 @@ flowchart TB
 4. `Dashboard` loads the stored roadmap and derives everything in `lib/dashboardData.js`; marking a step done writes `progress["roadmap_step_<roadmapId>_<index>"]` and a `roadmap_step_completed` event.
 
 ## Known architectural problems
-- No data ownership: the roadmap exists only in router state.
-- Progress is global, not per roadmap (keys collide across careers).
+- ~~The roadmap exists only in router state; progress keys collide across careers~~ — resolved 2026-09-26 (ADR-013). Still one roadmap per browser, no server-side ownership (F-7/F-8).
 - ~~Hard-coded origins/URLs prevent any deployment~~ — resolved 2026-09-27 (ADR-014).
 - Two competing theme mechanisms (`ThemeGate` and per-page `useEffect` body classes).
 - ~~Two dashboard designs~~ — resolved 2026-09-25 (ADR-010): the unrouted `/app/*` shell was deleted; the tabbed `/dashboard` is the roadmap view and `/home` is the future signed-in hub.
-- The backend is an unauthenticated proxy to a paid API; since 2026-09-27 rate limits and input limits bound the spend (ADR-014).
+- The backend is an unauthenticated proxy to a paid API; since 2026-09-27 rate limits and input limits bound the spend (ADR-014). Rate limits and the YouTube cache live in process memory (reset on restart, not shared between instances).
 
 ## Target architecture (🗺️)
 

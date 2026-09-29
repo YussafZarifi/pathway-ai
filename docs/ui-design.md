@@ -21,13 +21,13 @@
 - One button system in use (`uiverseBtn` + `ghostBtn`); `primaryBtn` styles are left over in `index.css` but no component uses them since the `/app/*` shell was deleted.
 - Three loader styles (letter wave, orb, shimmer).
 - Two theme mechanisms (`ThemeGate` + per-page body classes) that both render black.
-- Only 8 CSS variables; about 130 raw colour literals.
+- Tokens on `:root` since the 2026-09-26 dashboard work, but older screens still use many raw colour literals.
 
 ## Accessibility gaps
-- Modals: no `role="dialog"`, `aria-modal`, labelled title, focus trap, Esc to close or focus return. Icon-only close buttons have no `aria-label`.
+- `CareerCompareModal` and `ShareModal`: no `role="dialog"`, `aria-modal`, labelled title, focus trap, Esc to close or focus return (the newer `Dialog` component uses native `<dialog>` and has all of these).
 - Clickable `<div>` cards (Landing, Home) aren't keyboard reachable.
-- Interactive elements nested in `<button>` (Results checkbox, timeline links).
-- Few `:focus-visible` styles; no `prefers-reduced-motion`.
+- Interactive elements nested in `<button>`: the Results compare checkbox (the dashboard stepper was fixed 2026-09-26).
+- `:focus-visible` and `prefers-reduced-motion` exist on the newer screens (Quiz options, Home, Dashboard, dialogs); framer-motion animations on Landing, Quiz and Results ignore reduced motion.
 - Small grey-on-black text likely fails WCAG AA contrast.
 
 ## Design direction (🗺️)

@@ -31,9 +31,9 @@ Found in the 2026-09-24 audit. When an item is resolved, strike it through and n
 | ~~TD-14~~ | Security | ~~No input size/shape limits (`answers: dict`)~~ — **resolved 2026-09-27** (`dc0f4d1`: `schemas.py`, 16 KB body limit) | — |
 | ~~TD-15~~ | UX | ~~Dead buttons and fake Copy Link~~ — **resolved 2026-09-25**: Settings/Upgrade deleted with AppShell (`2375759`); Home auth buttons (`058d07a`); Landing Log in/Sign Up (`b1edc7f`); Save Roadmap/Mark as In Progress (`d8354b3`); Copy Link (`f76ff22`) | — |
 | TD-16 | Routing | ~~Links to non-existent `/login`, `/signup`, `/profile`, `/app/*`~~ (removed 2026-09-25); **still no 404 route** (ROADMAP F-12) | `App.jsx` |
-| TD-17 | Testing | ~~Zero tests~~ Backend: 60 pytest tests since 2026-09-27 (`backend/tests`). Frontend: none. No CI | `frontend/` |
-| TD-18 | CI/CD | No CI, Docker or deployment config | — |
-| TD-19 | A11y | Invalid nested interactive HTML: checkbox in `<button>` (still open); ~~`<a>` in `<button>`~~ fixed 2026-09-26 (`639da18`: the step header is the toggle button, links sit outside it) | `Results.jsx:453-475` |
+| TD-17 | Testing | ~~Zero tests~~ Backend: 80 pytest tests (60 since 2026-09-27, 80 since 2026-09-28; `backend/tests`). Frontend: none. No CI | `frontend/` |
+| TD-18 | CI/CD | No CI or Docker. ~~No deployment config~~ — `render.yaml` added 2026-09-27 (`e7b461f`), not deployed | — |
+| TD-19 | A11y | Invalid nested interactive HTML: checkbox in `<button>` (still open); ~~`<a>` in `<button>`~~ fixed 2026-09-26 (`639da18`: the step header is the toggle button, links sit outside it) | `Results.jsx` compare checkbox (~line 443) |
 | TD-20 | A11y | Modals lack dialog role, focus trap, Esc, labels | `CareerCompareModal.jsx`, `ShareModal.jsx` |
 | TD-21 | AI | Salaries and resource URLs invented by the model, shown as fact (non-http(s) URLs dropped since 2026-09-27) | prompts in `main.py` |
 
@@ -52,15 +52,15 @@ Found in the 2026-09-24 audit. When an item is resolved, strike it through and n
 | TD-30 | Bug | `CAREER_DETAILS` looked up by exact AI title → overview rarely shows | `Results.jsx:440` |
 | TD-31 | Data | Pre-pivot non-tech careers (Nurse, Plumber, Police…) in data and icon mapping (`careers.js` deleted 2026-09-25) | `careerDetails.js`, `Results.jsx:63-146` |
 | TD-32 | Performance/SEO | Landing hero starts `opacity: 0` and relies on JS animation (LCP, no-JS) | `Landing.jsx` |
-| TD-33 | A11y | No `prefers-reduced-motion`; few focus styles; clickable `<div>`s; likely contrast failures | `index.css`, Landing, Home |
-| TD-34 | Styling | 3,900-line single CSS file; 8 tokens vs ~130 colour literals; duplicate selectors; copied Uiverse CSS; `Inter` not loaded | `index.css` |
-| TD-35 | Quality | 12 ESLint errors, 1 warning as of 2026-09-26 (was 17); most are false positives from missing `jsx-uses-vars` | `eslint.config.js` + various |
-| TD-36 | Observability | `print`/`console.log` only; no request IDs, error tracking or metrics | FE + BE |
-| TD-37 | AI | No caching (timeout, `GEMINI_MODEL` config and one retry added 2026-09-27) | `llm.py` |
+| TD-33 | A11y | `prefers-reduced-motion` only in CSS for Home, video cards and the dashboard; framer-motion (Landing, Quiz, Results) ignores it; focus styles missing on some older screens; likely contrast failures on older screens | `index.css`, Landing, Results |
+| TD-34 | Styling | ~4,400-line single CSS file; tokens on `:root` for newer screens but many colour literals elsewhere; duplicate selectors; copied Uiverse CSS; `Inter` not loaded | `index.css` |
+| TD-35 | Quality | 12 ESLint errors, 0 warnings as of 2026-09-28 (was 17): 6 false positives from missing `jsx-uses-vars`, 6 real unused variables | `eslint.config.js` + various |
+| TD-36 | Observability | Backend: structured logging with request IDs since 2026-09-27 (`request_log.py`). Still no error tracking or metrics; frontend `console.error` only | FE + BE |
+| TD-37 | AI | No response caching (timeout, `GEMINI_MODEL` config and one retry added 2026-09-27) | `llm.py` |
 | TD-38 | AI | Prompt references "location" but the quiz doesn't ask for it — **resolved for v2 prompts 2026-09-28**; the unchanged v1 prompt keeps it until v1 support is removed | `prompts.py` (v1) |
 | TD-39 | Type safety | No TypeScript; field-name drift (`name` vs `title`, `salary_range` vs `salaryRange`) | FE |
 | TD-40 | UX | "Try again" does `window.location.reload()`; PDF export uses `alert()` on error | `Results.jsx:367`, `ShareModal.jsx:33` |
-| TD-41 | Privacy | Raw quiz answers (incl. free text) stored in the localStorage event log | `Quiz.jsx:79`, `trackingEngine.js` |
+| TD-41 | Privacy | Raw quiz answers (incl. the optional career-in-mind text) stored in the localStorage event log and in `pathwayai_roadmap` | `Quiz.jsx`, `trackingEngine.js`, `roadmapStore.js` |
 
 ## 🟢 Low
 
@@ -69,8 +69,8 @@ Found in the 2026-09-24 audit. When an item is resolved, strike it through and n
 | TD-42 | Branding | `<title>` "roadmap-ai"; Vite favicon (the "RoadmapAI" name left with `Sidebar.jsx` on 2026-09-25) | `index.html` |
 | TD-43 | Docs | `frontend/README.md` is the default Vite template | `frontend/README.md` |
 | TD-44 | Deps | `openai` in requirements but unused; two Python virtualenvs | `backend/requirements.txt`, `.venv`, `backend/.venv` |
-| TD-45 | Quality | Unused imports and vars (e.g. `endSession`, `trackProgress`, `progressData`, `quizStartedEvents`, lucide icons) | various |
+| TD-45 | Quality | Unused vars (as of 2026-09-28: `endSession` in Results, `idx` in CareerCompareModal, `quizStartedEvents`/`key`/`progress` in scoringEngine, `e` in trackingEngine) | various |
 | TD-46 | UX | `CareerCompareModal` returns `null` → exit animations never run | `CareerCompareModal.jsx:5` |
 | TD-47 | Metrics | `totalScreensViewed` incremented on every event | `trackingEngine.js:145` |
-| TD-48 | Perf | No route-level code splitting (main chunk 413 KB) | `App.jsx` |
+| TD-48 | Perf | No route-level code splitting (main chunk 427 KB, 137 KB gzip, 2026-09-28) | `App.jsx` |
 | ~~TD-49~~ | Dead file | ~~`App.css` intentionally empty~~ — **resolved 2026-09-25** (`aaa8c6e`) | — |

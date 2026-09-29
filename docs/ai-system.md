@@ -68,8 +68,8 @@ The old backend turned the 429 into the same generic 502 as a parse failure. The
 ## Planned improvements (🗺️) — in priority order
 
 1. ~~**Structured output.**~~ Done 2026-09-27 (ADR-015). Possible follow-ups: append the validation error to the retry prompt; use the output models as FastAPI `response_model`s.
-2. **Prompt hygiene.** Move instructions to `system_instruction`. Send answers as a delimited JSON block with human-readable labels and scales (e.g. "experience: 3 years on a 0–10 scale"). Tell the model to treat the user block as data only. Cap free-text length. Remove the "location" rule or add a location question.
-3. **LLM service layer** (`services/llm.py`): model from config, timeout, retries with backoff (tenacity is already a transitive dependency), cache keyed by `sha256(prompt_version + normalized answers)`, log tokens, latency and model per call, prompt versions stored in `prompts/`.
+2. **Prompt hygiene.** Partly done: v2 sends a labelled profile, marks it as data, caps free text (≤100/≤300 chars) and dropped the "location" rule (2026-09-28). Still to do: move instructions to `system_instruction`; remove v1 prompts (N-19).
+3. **LLM service layer.** Partly done in `llm.py` (2026-09-27): model from config, timeout, one retry, tokens/latency logged per call; prompts in `prompts.py` with v1/v2. Still to do: a response cache keyed by `sha256(prompt_version + normalized answers)` and explicit prompt version ids.
 4. **Streaming.** SSE endpoint for roadmaps. Stream step objects as they complete (JSON Lines) and render progressively.
 5. **Grounding.**
    - Resources: a curated `resources` table (title, url, type, skill tags, level) with embeddings. Retrieve the top-k per step and let the model *choose* rather than invent. Run a background link-health check.
