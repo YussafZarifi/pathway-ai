@@ -8,6 +8,7 @@ import Home from "./pages/Home";
 import Quiz from "./pages/Quiz";
 import Results from "./pages/Results";
 import Dashboard from "./pages/Dashboard";
+import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 
 export default function App() {
@@ -24,6 +25,9 @@ export default function App() {
             <Route path="/home" element={<Home />} />
             <Route path="/quiz" element={<Quiz />} />
             <Route path="/results" element={<Results />} />
+
+            {/* Accounts (optional; ADR-018) */}
+            <Route path="/login" element={<Login />} />
 
             {/* Dashboard (Noir) */}
             <Route path="/dashboard" element={<Dashboard />} />
