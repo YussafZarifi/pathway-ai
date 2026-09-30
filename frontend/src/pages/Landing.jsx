@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Map, FileText, MessageSquare, Sparkles, ArrowRight } from "lucide-react";
 import AccountsSoonDialog from "../components/AccountsSoonDialog";
+import { useAuth } from "../lib/authContext";
 
 const heroContainer = {
   hidden: {},
@@ -39,6 +40,7 @@ const cardItem = {
 
 export default function Landing() {
   const navigate = useNavigate();
+  const { enabled, user } = useAuth();
   const [accountsDialogOpen, setAccountsDialogOpen] = useState(false);
 
   useEffect(() => {
@@ -55,22 +57,44 @@ export default function Landing() {
         </div>
 
         <div className="topActions">
-          <button
-            type="button"
-            className="ghostBtn"
-            aria-haspopup="dialog"
-            onClick={() => setAccountsDialogOpen(true)}
-          >
-            Log in
-          </button>
-          <button
-            type="button"
-            className="uiverseBtn"
-            aria-haspopup="dialog"
-            onClick={() => setAccountsDialogOpen(true)}
-          >
-            Sign up
-          </button>
+          {!enabled ? (
+            // Build without accounts: explain instead of a dead end (ADR-011).
+            <>
+              <button
+                type="button"
+                className="ghostBtn"
+                aria-haspopup="dialog"
+                onClick={() => setAccountsDialogOpen(true)}
+              >
+                Log in
+              </button>
+              <button
+                type="button"
+                className="uiverseBtn"
+                aria-haspopup="dialog"
+                onClick={() => setAccountsDialogOpen(true)}
+              >
+                Sign up
+              </button>
+            </>
+          ) : user ? (
+            <button type="button" className="uiverseBtn" onClick={() => navigate("/home")}>
+              Your home
+            </button>
+          ) : (
+            <>
+              <button type="button" className="ghostBtn" onClick={() => navigate("/login")}>
+                Log in
+              </button>
+              <button
+                type="button"
+                className="uiverseBtn"
+                onClick={() => navigate("/login", { state: { mode: "signup" } })}
+              >
+                Sign up
+              </button>
+            </>
+          )}
         </div>
       </header>
 

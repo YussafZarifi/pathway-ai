@@ -94,7 +94,7 @@ Owner-approved (ADR-018). Built before the deploy. Rules: one small commit per s
 | M1-2 | `profiles` table: Supabase CLI migration in `supabase/migrations/`, RLS (own row only), explicit grants, sign-up trigger; applied to the project; advisors clean | ✅ 2026-09-30 |
 | M1-3 | Frontend Supabase client (`lib/supabase.js`, pinned `@supabase/supabase-js`, `VITE_SUPABASE_URL` + `VITE_SUPABASE_PUBLISHABLE_KEY`; auth switched off when unset) + `AuthProvider`; `render.yaml` gets the two variables | ✅ 2026-09-30 |
 | M1-4 | `/login` page: sign in, sign up (email + password, optional name), "check your email" state + resend, mapped error copy, honest "accounts aren't available" state when auth is off | ✅ 2026-09-30 |
-| M1-5 | Header account state + sign-out; Landing Log in / Sign up go to `/login` (the "coming soon" dialog stays only when auth is off) | ⏳ |
+| M1-5 | Header account state + sign-out; Landing Log in / Sign up go to `/login` (the "coming soon" dialog stays only when auth is off) | ✅ 2026-09-30 |
 | M1-6 | Backend: verify Supabase access tokens (ES256 via JWKS, PyJWT) + `GET /api/me`; AI routes stay open to guests; tests | ⏳ |
 | M1-7 | Config + docs: `.env.example`, `render.yaml`, `docs/deployment.md` (Supabase Site URL / redirect URLs), architecture, session handoff | ⏳ |
 

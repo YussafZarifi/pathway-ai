@@ -1,7 +1,7 @@
 import Dialog from "./Dialog";
 
-// Shown by the Landing "Log in" / "Sign up" buttons until accounts exist
-// (ROADMAP F-7).
+// Shown by the Landing "Log in" / "Sign up" buttons only in builds without
+// Supabase configured (accounts off, lib/supabase.js); otherwise they open /login.
 export default function AccountsSoonDialog({ isOpen, onClose, onTakeQuiz }) {
   return (
     <Dialog
