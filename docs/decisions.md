@@ -169,8 +169,8 @@ ADR-001 to ADR-008 were **reconstructed on 2026-09-24** from the existing code d
 - **Consequences:** every route change starts at the top on desktop and mobile; unknown links land on a branded page with two ways back. The 404 page returns HTTP 200, so crawlers may index unknown URLs; add `noindex` or a real 404 status if that ever matters. A React error boundary (the rest of F-12) is still missing: a render crash still shows a blank page.
 - **Status:** Accepted.
 
-## ADR-018 — Next phase: Supabase for authentication and PostgreSQL (proposed)
-- **Date:** 2026-09-29
+## ADR-018 — Supabase for authentication and PostgreSQL
+- **Date:** 2026-09-29 (proposed) · 2026-09-30 (accepted)
 - **Context:** the app is code-complete for an initial release with browser-only persistence (ADR-004, ADR-013): one roadmap per browser, no accounts. Accounts, saved roadmaps and the planned Resume Analyzer / AI Coach all need user identity and server-side data. The docs listed Supabase, Clerk or self-managed FastAPI JWT + Postgres as options (open question since 2026-09-24). At the end of the 2026-09-29 session the owner set the post-launch order: push → deploy → verify → **Supabase Authentication** → **PostgreSQL** → Resume Analyzer → AI Coach.
 - **Decision (proposed):** use Supabase for both.
   - **Auth:** Supabase Auth in the frontend (`@supabase/supabase-js`, email and OAuth providers to be chosen). The FastAPI backend verifies the Supabase access token (JWT) on endpoints that read or write user data. The Gemini and YouTube keys stay server-side; only Supabase's public anon key reaches the browser.
@@ -178,7 +178,15 @@ ADR-001 to ADR-008 were **reconstructed on 2026-09-24** from the existing code d
   - To confirm when implementation starts: the OAuth providers; whether the backend or the browser (with RLS) writes each table; the migration tool; the free vs paid Supabase plan.
 - **Alternatives considered:** Clerk for auth + Render/Neon Postgres (two vendors, and Clerk's free tier is for auth only); self-managed FastAPI JWT + Render Postgres (more code to own: password reset, email verification, OAuth); staying browser-only (blocks cross-device use and the planned features).
 - **Consequences:** a new vendor and new configuration (`SUPABASE_URL`, `SUPABASE_ANON_KEY` public; a service-role key server-only, if the backend needs one), documented in the `.env.example` files and `docs/deployment.md`. `AccountsSoonDialog` (ADR-011) is replaced by real sign-in, `/home` becomes the signed-in hub (ADR-010), and `/dashboard` may become per-roadmap. ADR-004/ADR-013's browser persistence remains for signed-out visitors unless a later ADR changes it. Rate limits could then key on user id as well as IP.
-- **Status:** Proposed. To be accepted, or revised, when F-7 starts.
+- **Accepted details (owner, 2026-09-30):**
+  - **Order:** Supabase is built now, before the first deploy (the Render deploy D-1–D-4 follows later). The guest flow (quiz → results → dashboard, browser storage) must keep working at every commit, with or without Supabase configured.
+  - **Milestone 1 = F-7 + a `profiles` table.** Sign-in method: **email + password** only (email confirmation on). OAuth providers later.
+  - **Keys:** the browser gets the project URL and the **publishable** key (`sb_publishable_…`), never the secret/service-role key. The backend needs no Supabase secret in Milestone 1.
+  - **Token verification:** the project signs access tokens with an asymmetric **ES256** key; FastAPI verifies them locally against the project's JWKS (`/auth/v1/.well-known/jwks.json`) with PyJWT, checking signature, `exp`, `iss` and `aud = authenticated`. No shared JWT secret.
+  - **Migrations:** Supabase CLI format, SQL files in `supabase/migrations/` (replaces the Alembic note in `docs/database.md`). Every table in `public` has RLS on and explicit grants (new tables are not auto-exposed to the Data API).
+  - **Writes:** in Milestone 1 the browser reads/updates its own `profiles` row through RLS; the row is created by a trigger on sign-up. Which side writes the F-8 tables is decided in Milestone 2.
+  - **Plan:** Supabase free plan for now.
+- **Status:** Accepted (2026-09-30).
 
 ---
 

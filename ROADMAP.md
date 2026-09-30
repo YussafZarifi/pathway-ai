@@ -84,13 +84,29 @@
 | N-19 | Remove v1 (8-question) answer support once no saved roadmap needs it (ADR-016) | P3 | XS |
 | — | SDK AFC warning noise in logs (TD-58) | P3 | XS |
 
+## 🔐 Milestone 1 — Supabase Auth + profiles (F-7, in progress since 2026-09-30)
+
+Owner-approved (ADR-018). Built before the deploy. Rules: one small commit per step; the guest flow keeps working at every commit (with or without Supabase env vars); backend tests, lint baseline and the build pass after each commit; docs updated after each step.
+
+| # | Step | Status |
+|---|---|---|
+| M1-1 | Accept ADR-018 with the owner's details; write this plan | ✅ 2026-09-30 |
+| M1-2 | `profiles` table: Supabase CLI migration in `supabase/migrations/`, RLS (own row only), explicit grants, sign-up trigger; applied to the project; advisors clean | ⏳ |
+| M1-3 | Frontend Supabase client (`lib/supabase.js`, pinned `@supabase/supabase-js`, `VITE_SUPABASE_URL` + `VITE_SUPABASE_PUBLISHABLE_KEY`; auth switched off when unset) + `AuthProvider` | ⏳ |
+| M1-4 | `/login` page: sign in, sign up (email + password), confirmation message, errors | ⏳ |
+| M1-5 | Header account state + sign-out; Landing Log in / Sign up go to `/login` (the "coming soon" dialog stays only when auth is off) | ⏳ |
+| M1-6 | Backend: verify Supabase access tokens (ES256 via JWKS, PyJWT) + `GET /api/me`; AI routes stay open to guests; tests | ⏳ |
+| M1-7 | Config + docs: `.env.example`, `render.yaml`, `docs/deployment.md` (Supabase Site URL / redirect URLs), architecture, session handoff | ⏳ |
+
+Milestone 2 (F-8): roadmap tables + RLS, save roadmaps for signed-in users, import the browser-saved roadmap on first sign-in.
+
 ## 🔮 Future Features
 
 In the recommended order (see "Next Session" in `SESSION.md`):
 
 | ID | Task | Priority | Effort | Impact |
 |---|---|---|---|---|
-| F-7 | **Supabase Authentication** (owner's choice for the next phase, ADR-018 proposed); replaces the "Accounts are coming soon" dialog (ADR-011) | P1 | L | ★★★ |
+| F-7 | **Supabase Authentication** (ADR-018, accepted 2026-09-30) — **in progress as Milestone 1**, see below | P1 | L | ★★★ |
 | F-8 | **PostgreSQL** (Supabase Postgres): users, quiz_sessions, roadmaps, roadmap_steps, progress_events + migrations; migrate the browser-saved roadmap on first sign-in (`docs/database.md`) | P1 | L | ★★★ |
 | F-13 | **Resume Analyzer**: PDF upload → Gemini multimodal → structured critique vs target career | P1 | L | ★★★ |
 | F-18 | **AI Coach**: chat with memory and tool calling (read/update roadmap, find resources); was S-1 | P1 | XL | ★★★ |

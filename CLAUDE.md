@@ -4,7 +4,7 @@
 > Last updated: 2026-09-29 (end of session).
 > **State at a glance:** code-complete for an initial public release · **not deployed, not pushed** (`main` is ~47 commits ahead of `origin/main`) · Render Blueprint ready · pre-flight + pre-deploy fixes (C-27) + full QA done (desktop, 360 px, keyboard, full flow) · 80/80 backend tests, build passes · live `gemini-2.5-flash-lite` verified (incl. a 503 recovered by the retry).
 > **Waiting on the owner:** Gemini billing, Render plan, push to the private GitHub repo, optional `YOUTUBE_API_KEY` (required before *public* launch).
-> **Next session order:** push → deploy to Render → verify production → Supabase Auth → PostgreSQL → Resume Analyzer → AI Coach (§11, ADR-018 proposed). A recruiter-style review (2026-09-29) found mostly presentation/trust gaps → ROADMAP *Post-Launch Improvements* P-1–P-11.
+> **Next session order:** push → deploy to Render → verify production → Supabase Auth → PostgreSQL → Resume Analyzer → AI Coach (§11). **2026-09-30: owner accepted ADR-018 and moved Supabase Milestone 1 (auth + profiles) ahead of the deploy — see ROADMAP "Milestone 1".** A recruiter-style review (2026-09-29) found mostly presentation/trust gaps → ROADMAP *Post-Launch Improvements* P-1–P-11.
 
 ---
 
@@ -137,7 +137,7 @@ Output comes from Gemini JSON mode and is validated in `backend/ai_output.py`. R
 
 ## 9. Important design decisions (see `docs/decisions.md` for ADRs)
 
-- ADR-001 React + Vite SPA · ADR-002 FastAPI backend as an AI proxy (keeps key server-side) · ADR-003 Gemini Flash-Lite (cheap/fast) · ADR-004 localStorage persistence (MVP, no accounts) · ADR-005 tech-only career scope (pivot from general careers) · ADR-006 plain CSS · ADR-007 router state as data transport · ADR-008 client-side tracking/scoring engines · ADR-009 docs-as-memory (update CLAUDE/ROADMAP/SESSION/decisions every session) · ADR-010 one dashboard: keep `/dashboard`, keep `/home` as the future signed-in hub, delete the `/app/*` shell · ADR-011 unbuilt-feature entry points open an honest explanation · ADR-012 roadmap videos come from the YouTube Data API, never the model · ADR-013 current roadmap persisted in localStorage, progress scoped per roadmap, dashboard shows only real-data metrics · ADR-014 deployment readiness: env-only config (no localhost defaults), one API client, request validation, in-memory rate limits, safe errors/logs, Render Blueprint · ADR-015 validated AI output: JSON mode + schema, per-item validation, one retry, content-free diagnostics · ADR-016 5-question quiz; the API accepts both the new (v2) and old 8-question (v1) answer formats · ADR-017 routing shell: catch-all branded 404 route and scroll-to-top on every route change · ADR-018 (proposed) Supabase for authentication and PostgreSQL in the next phase.
+- ADR-001 React + Vite SPA · ADR-002 FastAPI backend as an AI proxy (keeps key server-side) · ADR-003 Gemini Flash-Lite (cheap/fast) · ADR-004 localStorage persistence (MVP, no accounts) · ADR-005 tech-only career scope (pivot from general careers) · ADR-006 plain CSS · ADR-007 router state as data transport · ADR-008 client-side tracking/scoring engines · ADR-009 docs-as-memory (update CLAUDE/ROADMAP/SESSION/decisions every session) · ADR-010 one dashboard: keep `/dashboard`, keep `/home` as the future signed-in hub, delete the `/app/*` shell · ADR-011 unbuilt-feature entry points open an honest explanation · ADR-012 roadmap videos come from the YouTube Data API, never the model · ADR-013 current roadmap persisted in localStorage, progress scoped per roadmap, dashboard shows only real-data metrics · ADR-014 deployment readiness: env-only config (no localhost defaults), one API client, request validation, in-memory rate limits, safe errors/logs, Render Blueprint · ADR-015 validated AI output: JSON mode + schema, per-item validation, one retry, content-free diagnostics · ADR-016 5-question quiz; the API accepts both the new (v2) and old 8-question (v1) answer formats · ADR-017 routing shell: catch-all branded 404 route and scroll-to-top on every route change · ADR-018 (accepted 2026-09-30) Supabase for authentication and PostgreSQL: email + password, publishable key in the browser, ES256 JWT verified in FastAPI via JWKS, Supabase CLI migrations, RLS on every table.
 
 ## 10. Known limitations & bugs (top items — full list in `docs/technical-debt.md`)
 
@@ -160,7 +160,7 @@ Done: foundation (git, cleanup, env config, persistence, hardening, validated AI
 1. **Push to the private GitHub repo** (ROADMAP D-1) — only after the owner says so; `git check-ignore backend/.env` first; never change visibility.
 2. **Deploy to Render** (D-2 plan choice, D-3 Blueprint) — `docs/deployment.md`.
 3. **Verify production** (D-4) — `/health`, full flow, 404, CORS, logs, live URL in README, then `og:url`/`og:image` (N-22). Before sharing publicly: Gemini billing (D-6) + `YOUTUBE_API_KEY` (D-5), ideally P-1–P-6.
-4. **Supabase Authentication** (F-7, ADR-018 proposed — confirm details first).
+4. **Supabase Authentication** (F-7, ADR-018 accepted) — **moved first by the owner on 2026-09-30: Milestone 1 in progress, see ROADMAP "Milestone 1"**. Deploy (1–3) follows after it.
 5. **PostgreSQL** on Supabase (F-8) + import of the browser-saved roadmap.
 6. **Resume Analyzer** (F-13).
 7. **AI Coach** (F-18).
