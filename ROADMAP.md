@@ -91,7 +91,7 @@ Owner-approved (ADR-018). Built before the deploy. Rules: one small commit per s
 | # | Step | Status |
 |---|---|---|
 | M1-1 | Accept ADR-018 with the owner's details; write this plan | ✅ 2026-09-30 |
-| M1-2 | `profiles` table: Supabase CLI migration in `supabase/migrations/`, RLS (own row only), explicit grants, sign-up trigger; applied to the project; advisors clean | ⏳ |
+| M1-2 | `profiles` table: Supabase CLI migration in `supabase/migrations/`, RLS (own row only), explicit grants, sign-up trigger; applied to the project; advisors clean | ✅ 2026-09-30 |
 | M1-3 | Frontend Supabase client (`lib/supabase.js`, pinned `@supabase/supabase-js`, `VITE_SUPABASE_URL` + `VITE_SUPABASE_PUBLISHABLE_KEY`; auth switched off when unset) + `AuthProvider` | ⏳ |
 | M1-4 | `/login` page: sign in, sign up (email + password), confirmation message, errors | ⏳ |
 | M1-5 | Header account state + sign-out; Landing Log in / Sign up go to `/login` (the "coming soon" dialog stays only when auth is off) | ⏳ |

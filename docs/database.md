@@ -1,8 +1,20 @@
 # Data & Database
 
-## Current state (✅): no database
+## Supabase Postgres (✅ since 2026-09-30, Milestone 1, ADR-018)
 
-All persistence is **client-side**, in two `localStorage` keys: `pathwayai_roadmap` (the current roadmap, since 2026-09-26, ADR-013) and `pathwayai_tracking` (events, metrics, progress).
+Project `pczczkmkavmxibxureck` (free plan). Migrations are Supabase CLI SQL files in `supabase/migrations/` (the file name's timestamp is the version recorded in the project's migration history). They were applied through the Supabase MCP server; with the CLI: `supabase link --project-ref pczczkmkavmxibxureck` then `supabase db push`.
+
+| Table | Columns | Access |
+|---|---|---|
+| `public.profiles` | `id uuid PK → auth.users(id) on delete cascade`, `display_name text` (1–60 chars or null), `created_at`, `updated_at` | RLS on. `authenticated`: select own row, update own `display_name` only. `anon`: nothing. Rows are created by the `on_auth_user_created` trigger (`private.handle_new_user`, security definer, in the non-exposed `private` schema) from the sign-up metadata `display_name` (trimmed, ≤60, display-only, never used for authorization) |
+
+Verified on 2026-09-30 in a rolled-back transaction: the trigger creates the row, a user sees 1 row and cannot update another user's row, `anon` has no privileges, clients cannot insert. Security and performance advisors: no findings.
+
+**Nothing else is stored in Postgres yet**: roadmaps and progress stay in the browser (below) until Milestone 2 (F-8).
+
+## Browser storage (✅): the guest flow
+
+All roadmap persistence is **client-side**, in two `localStorage` keys: `pathwayai_roadmap` (the current roadmap, since 2026-09-26, ADR-013) and `pathwayai_tracking` (events, metrics, progress).
 
 ### `pathwayai_roadmap` (`lib/roadmapStore.js`)
 ```jsonc
@@ -154,7 +166,7 @@ erDiagram
 ```
 
 Notes:
-- Migrations: Alembic. ORM: SQLAlchemy 2 / SQLModel.
+- Migrations: Supabase CLI SQL files in `supabase/migrations/` (ADR-018; replaces the earlier Alembic idea). `users` above is `auth.users` + `public.profiles`.
 - `pgvector` for `resources.embedding` (RAG).
 - Index `roadmaps(user_id)`, `roadmap_steps(roadmap_id, position)`, `progress_events(step_id, at)`.
 - Scores (readiness and momentum) are computed server-side from `progress_events`, not stored.
