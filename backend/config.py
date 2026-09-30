@@ -38,4 +38,9 @@ RATE_LIMIT_PER_MINUTE = _int("RATE_LIMIT_PER_MINUTE", 8)
 RATE_LIMIT_PER_DAY = _int("RATE_LIMIT_PER_DAY", 50)
 GLOBAL_AI_LIMIT_PER_DAY = _int("GLOBAL_AI_LIMIT_PER_DAY", 500)
 
-LOG_LEVEL = os.getenv("LOG_LEVEL", "").strip().upper() or "INFO"
+# Supabase project URL (ADR-018), e.g. "https://<ref>.supabase.co". Used to
+# verify users' access tokens against the project's public keys. Optional:
+# without it, account routes return 503 and the AI routes work as before.
+SUPABASE_URL = os.getenv("SUPABASE_URL", "").strip().rstrip("/")
+
+LOG_LEVEL =os.getenv("LOG_LEVEL", "").strip().upper() or "INFO"

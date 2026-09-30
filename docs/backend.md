@@ -13,7 +13,8 @@ A small FastAPI app in `backend/`. Run locally with `uvicorn main:app --reload -
 | `llm.py` | Gemini client, JSON mode + response schema, retry policy, per-attempt diagnostics (added 2026-09-27, ADR-015) |
 | `ai_output.py` | Generation schemas, output models, JSON extraction and per-item validation (added 2026-09-27) |
 | `request_log.py` | Logging setup with a per-request ID (`X-Request-ID`) (added 2026-09-27) |
-| `tests/` | 80 pytest tests (`requirements-dev.txt`); see `docs/testing.md` |
+| `auth.py` | Supabase access-token verification: `current_user` dependency, `verify_token` (PyJWT + cached JWKS, ES256/RS256 only, no shared secret; never logs tokens or claims) (added 2026-09-30, ADR-018) |
+| `tests/` | 100 pytest tests (`requirements-dev.txt`); see `docs/testing.md` |
 
 ## Configuration (`config.py`)
 `load_dotenv()` reads `backend/.env` locally; on Render the service environment is used. Template: `backend/.env.example`.
@@ -28,6 +29,7 @@ A small FastAPI app in `backend/`. Run locally with `uvicorn main:app --reload -
 | `RATE_LIMIT_PER_MINUTE` | 8 | Per client IP, AI endpoints combined |
 | `RATE_LIMIT_PER_DAY` | 50 | Per client IP |
 | `GLOBAL_AI_LIMIT_PER_DAY` | 500 | All clients together |
+| `SUPABASE_URL` | empty | Optional (ADR-018). `https://<ref>.supabase.co`; issuer + JWKS for token checks. Empty: `/api/me` returns 503, AI routes unaffected. Not a secret |
 | `LOG_LEVEL` | `INFO` | |
 
 ## Endpoints (✅)
@@ -35,13 +37,14 @@ A small FastAPI app in `backend/`. Run locally with `uvicorn main:app --reload -
 |---|---|---|---|
 | GET | `/` | `root` | `{"status":"ok","message":"Backend is running"}` |
 | GET | `/health` | `health` | `{"status":"ok"}`; no external calls, not rate limited (Render health check) |
+| GET | `/api/me` | `me` | `{id, email}` of the signed-in user; `Depends(current_user)`, 401/503 otherwise (since 2026-09-30) |
 | POST | `/api/ai/career` | `career_ai` | 3 tech careers + explanation (rate limited) |
 | POST | `/api/ai/roadmap` | `roadmap_ai` | ≤5-step roadmap with videos (rate limited) |
 
 Full contracts: `docs/api.md`.
 
 ## Request pipeline
-1. **CORS** (outermost middleware): only `ALLOWED_ORIGINS`, methods GET/POST, header `Content-Type`, no credentials.
+1. **CORS** (outermost middleware): only `ALLOWED_ORIGINS`, methods GET/POST, headers `Content-Type` and `Authorization` (Bearer token, since 2026-09-30), no credentials (cookies).
 2. **Body size**: `Content-Length` over 16 KB → 413 before parsing.
 3. **Rate limit** (`Depends(limit_ai_requests)` on the AI routes) → 429 with `Retry-After`.
 4. **Validation** (`schemas.py`): `QuizAnswers` is v2 when `interests` is present, else v1 (field rules in `docs/api.md`); `career` 1–100 chars. Control characters (newlines etc.) are replaced with spaces. Unknown keys are ignored. Failure → 422 with a friendly message; the log lists failing field paths only (e.g. `answers.v2.weekly_hours`).

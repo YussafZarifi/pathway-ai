@@ -27,6 +27,10 @@ services:
       # The static site's URL, e.g. https://pathwayai-web.onrender.com
       - key: ALLOWED_ORIGINS
         sync: false
+      # Optional accounts (ADR-018): https://<project-ref>.supabase.co, used
+      # to verify access tokens via the project's public JWKS. Not a secret.
+      - key: SUPABASE_URL
+        sync: false
 
   # Frontend: Vite build served as a static site.
   - type: web

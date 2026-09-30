@@ -22,6 +22,7 @@ pyasn1_modules==0.4.2
 pycparser==3.0
 pydantic==2.12.5
 pydantic_core==2.41.5
+PyJWT==2.15.1
 python-dotenv==1.2.1
 requests==2.34.2
 sniffio==1.3.1

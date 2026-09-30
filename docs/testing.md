@@ -1,11 +1,12 @@
 # Testing
 
 ## Current state
-- **Backend: 80 pytest tests** (since 2026-09-27; 80 since 2026-09-28) in `backend/tests/`, run with `cd backend && pip install -r requirements-dev.txt && python -m pytest -q` (under 1 s, no network: Gemini is a scripted fake, no keys needed).
+- **Backend: 100 pytest tests** (since 2026-09-27; 80 since 2026-09-28; 100 since 2026-09-30) in `backend/tests/`, run with `cd backend && pip install -r requirements-dev.txt && python -m pytest -q` (under 1 s, no network: Gemini is a scripted fake, no keys needed).
   - `test_ai_output.py` (34): JSON extraction (fences, prose, trailing commas, truncation), defaults for missing fields, dropped bad items, score normalization, limits, content-free errors.
   - `test_llm.py` (16): retry policy (unusable reply, 5xx, timeouts, per-minute vs daily 429, 400), and logs that describe failures without reply content.
   - `test_api.py` (10): `/health`, response shape, user-friendly 502/503 messages with CORS headers, `Retry-After`, 422 before any Gemini call, rate limit, disallowed origin.
   - `test_quiz_formats.py` (20): v1 answers ("Regenerate" on old roadmaps) still work with the original prompts; v2 prompts carry the labelled profile and weekly-hour pacing; v2 validation and cleaning (interests 1–3 and deduplicated, weekly hours 2/5/10/20, optional career in mind, newlines removed, leftover keys ignored).
+  - `test_auth.py` (20, 2026-09-30): Supabase token checks for `GET /api/me` with a local EC key and a fake JWKS client: valid token; missing/malformed header; expired, wrong audience/issuer/signature, anon role, anonymous user, no subject, HS256 algorithm confusion, unknown key id → 401; JWKS down or `SUPABASE_URL` unset → 503; tokens/claims never logged; CORS allows `Authorization`; guests still reach the AI routes.
   - Privacy guard: a marker planted in answers and replies must never appear in logs or responses.
 - **Frontend: no tests.** `npm run lint` (ESLint 9): 12 errors, 0 warnings as of 2026-09-28. 6 are `motion` false positives from the missing `jsx-uses-vars` rule, 6 are real unused variables (ROADMAP N-13).
 - No CI yet (F-4).

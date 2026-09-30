@@ -25,6 +25,21 @@ Liveness check used by Render. No external calls, no quota, not rate limited. Ad
 
 ---
 
+## ✅ `GET /api/me`
+The signed-in user (added 2026-09-30, ADR-018). Requires `Authorization: Bearer <Supabase access token>`; the token is verified locally (ES256/RS256 via the project's JWKS, `exp`, `iss = <SUPABASE_URL>/auth/v1`, `aud = authenticated`, `role = authenticated`, not anonymous). Not rate limited, no Gemini call.
+```json
+{ "id": "<auth user uuid>", "email": "learner@example.com" }
+```
+| Status | When | `detail` |
+|---|---|---|
+| 401 (+ `WWW-Authenticate: Bearer`) | missing, malformed, expired, wrong issuer/audience/signature/algorithm, unknown key | "Please sign in again." |
+| 503 | `SUPABASE_URL` not set | "Accounts are not available on this server." |
+| 503 | JWKS can't be fetched | "We couldn't check your sign-in right now. Please try again." |
+
+The AI routes below don't use it: guests need no token.
+
+---
+
 ## ✅ `POST /api/ai/career`
 Generates exactly 3 technology-career suggestions.
 

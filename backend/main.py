@@ -11,6 +11,7 @@ import llm
 import request_log
 import youtube
 from ai_output import CareerSchema, RoadmapSchema, parse_careers, parse_roadmap
+from auth import AuthUser, current_user
 from prompts import build_career_prompt, build_roadmap_prompt
 from rate_limit import limit_ai_requests
 from schemas import CareerRequest, RoadmapRequest
@@ -33,6 +34,8 @@ if not config.ALLOWED_ORIGINS:
     logger.warning("ALLOWED_ORIGINS is empty: browsers on other origins can't call this API")
 if not config.GEMINI_API_KEY:
     logger.error("GEMINI_API_KEY is not set: AI endpoints will return 503")
+if not config.SUPABASE_URL:
+    logger.info("SUPABASE_URL is not set: account routes will return 503")
 
 
 
@@ -58,7 +61,9 @@ app.add_middleware(
     allow_origins=config.ALLOWED_ORIGINS,
     allow_credentials=False,
     allow_methods=["GET", "POST"],
-    allow_headers=["Content-Type"],
+    # Authorization carries the Supabase access token (Bearer, not a cookie,
+    # so allow_credentials stays off).
+    allow_headers=["Content-Type", "Authorization"],
 )
 
 
@@ -101,6 +106,12 @@ def root():
 def health():
     """Liveness check for the host. Makes no external calls and spends no quota."""
     return {"status": "ok"}
+
+
+@app.get("/api/me")
+def me(user: AuthUser = Depends(current_user)):
+    """The signed-in user, from a verified Supabase access token (ADR-018)."""
+    return {"id": user.id, "email": user.email}
 
 
 @app.post("/api/ai/career", dependencies=[Depends(limit_ai_requests)])
