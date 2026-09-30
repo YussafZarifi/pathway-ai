@@ -23,6 +23,7 @@
 | C-10 | (was N-3) Removed simulated `ResumeAnalyzer`, the `/app/*` shell, legacy pages/helpers/data/images, `dashboard.css`, `App.css`, root `.vite/`; `/home` kept and rebuilt as an honest empty-state hub (ADR-010) | 2026-09-25 |
 | C-11 | (was N-4) Removed dead buttons: Landing Log in/Sign Up, Save Roadmap, Mark as In Progress, fake Copy Link + account prompt (Settings/Upgrade went with the `/app/*` shell) | 2026-09-25 |
 | C-14 | `/home` visual polish: Landing glow, gradient CTA/title, aligned header, left-aligned cards with Landing's per-feature icon colours (green Resume, indigo Coach) that float on hover, small "Planned" pills, AA-safe planned cards, reduced motion, fits at 360px | 2026-09-26 |
+| C-29 | (F-7, Milestone 1) Supabase accounts, optional per environment: ADR-018 accepted; `profiles` table (RLS, explicit grants, sign-up trigger in a private schema; CLI migration in `supabase/migrations/`, advisors clean); `lib/supabase.js` + `AuthProvider`; `/login` (email + password, confirmation + resend); header sign-in/out; Landing Log in / Sign up → `/login`; FastAPI `auth.py` verifies ES256 tokens via JWKS, `GET /api/me`; 20 new tests (100). Guest flow unchanged; auth-off build keeps the coming-soon dialog | 2026-09-30 |
 | C-28 | Recruiter-style review of the running app (no code changes): findings ranked by recruiter impact → Post-Launch Improvements P-1–P-11 and TD-59–TD-62; session docs handoff | 2026-09-29 |
 | C-27 | (was N-20, N-12, F-12's 404 part) Pre-deploy fix batch: compare and select are independent (TD-50, TD-19); scroll to top on navigation and after regenerate (TD-51); copy matches browser-saved roadmaps and the 5-question quiz (TD-52); branded 404 page; PathwayAI title, favicon, description, OG tags (TD-42). Full QA pass again (desktop, 360 px, keyboard; 5 live calls incl. one Gemini 503 recovered by the retry). ADR-017 | 2026-09-29 |
 | C-26 | (was N-17, N-18) Pre-flight QA before deploy: live `gemini-2.5-flash-lite` check (7 calls, all first-attempt `ok strategy=direct`, v1 and v2 formats); manual pass on desktop, 360 px and keyboard through Landing → Quiz → Results → Dashboard → Regenerate; findings recorded as TD-50–TD-58 and N-20/N-21; deployment readiness report in SESSION.md | 2026-09-28 |
@@ -84,7 +85,7 @@
 | N-19 | Remove v1 (8-question) answer support once no saved roadmap needs it (ADR-016) | P3 | XS |
 | — | SDK AFC warning noise in logs (TD-58) | P3 | XS |
 
-## 🔐 Milestone 1 — Supabase Auth + profiles (F-7, in progress since 2026-09-30)
+## 🔐 Milestone 1 — Supabase Auth + profiles (F-7) — code complete 2026-09-30, waiting on the owner's sign-up test (M1-8)
 
 Owner-approved (ADR-018). Built before the deploy. Rules: one small commit per step; the guest flow keeps working at every commit (with or without Supabase env vars); backend tests, lint baseline and the build pass after each commit; docs updated after each step.
 
@@ -96,7 +97,8 @@ Owner-approved (ADR-018). Built before the deploy. Rules: one small commit per s
 | M1-4 | `/login` page: sign in, sign up (email + password, optional name), "check your email" state + resend, mapped error copy, honest "accounts aren't available" state when auth is off | ✅ 2026-09-30 |
 | M1-5 | Header account state + sign-out; Landing Log in / Sign up go to `/login` (the "coming soon" dialog stays only when auth is off) | ✅ 2026-09-30 |
 | M1-6 | Backend: verify Supabase access tokens (ES256 via JWKS, PyJWT) + `GET /api/me`; AI routes stay open to guests; 20 tests (100 total); live JWKS check | ✅ 2026-09-30 |
-| M1-7 | Config + docs: `.env.example`, `render.yaml`, `docs/deployment.md` (Supabase Site URL / redirect URLs), architecture, session handoff | ⏳ |
+| M1-7 | Config + docs: `.env.example`, `render.yaml`, `docs/deployment.md` (Supabase Site URL / redirect URLs), architecture, README, session handoff | ✅ 2026-09-30 |
+| M1-8 | **Owner:** set Site URL / Redirect URLs in Supabase, then a real sign-up with your own inbox (confirm → signed in → sign out → sign in); Claude then checks the `profiles` row and `/api/me` with a real token | ⏳ owner |
 
 Milestone 2 (F-8): roadmap tables + RLS, save roadmaps for signed-in users, import the browser-saved roadmap on first sign-in.
 
@@ -106,7 +108,7 @@ In the recommended order (see "Next Session" in `SESSION.md`):
 
 | ID | Task | Priority | Effort | Impact |
 |---|---|---|---|---|
-| F-7 | **Supabase Authentication** (ADR-018, accepted 2026-09-30) — **in progress as Milestone 1**, see below | P1 | L | ★★★ |
+| F-7 | **Supabase Authentication** (ADR-018) — code complete as Milestone 1 (C-29); OAuth providers and account settings (edit name, delete account) remain | P1 | M | ★★★ |
 | F-8 | **PostgreSQL** (Supabase Postgres): users, quiz_sessions, roadmaps, roadmap_steps, progress_events + migrations; migrate the browser-saved roadmap on first sign-in (`docs/database.md`) | P1 | L | ★★★ |
 | F-13 | **Resume Analyzer**: PDF upload → Gemini multimodal → structured critique vs target career | P1 | L | ★★★ |
 | F-18 | **AI Coach**: chat with memory and tool calling (read/update roadmap, find resources); was S-1 | P1 | XL | ★★★ |

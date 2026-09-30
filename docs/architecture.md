@@ -10,21 +10,32 @@ flowchart TB
         SPA[React SPA<br/>Vite dev server :5173]
         RS[Router location.state<br/>answers · fallback roadmap copy]
         LS[(localStorage<br/>pathwayai_roadmap · pathwayai_tracking)]
+        SB[lib/supabase.js · AuthProvider<br/>optional accounts]
         SPA --- RS
         SPA --- LS
+        SPA --- SB
     end
     subgraph Server[FastAPI :8000 — backend/]
         MW[CORS · 16 KB limit · rate limits · Pydantic validation]
         EP1[POST /api/ai/career]
         EP2[POST /api/ai/roadmap]
+        ME[GET /api/me<br/>auth.py: JWT via JWKS]
         H[GET / · GET /health]
         LLM[llm.py · ai_output.py<br/>JSON mode · validation · 1 retry]
+    end
+    subgraph Supabase[Supabase project]
+        SAUTH[Auth<br/>email + password · ES256 tokens]
+        SDB[(Postgres<br/>public.profiles · RLS)]
     end
     GEM[(Google Gemini<br/>gemini-2.5-flash-lite)]
     YT[(YouTube Data API v3)]
     SPA -- "lib/api.js → VITE_API_URL" --> MW
+    SB -- "publishable key" --> SAUTH
+    SAUTH -- "sign-up trigger" --> SDB
     MW --> EP1
     MW --> EP2
+    MW --> ME
+    ME -. "public keys (cached 10 min)" .-> SAUTH
     EP1 --> LLM
     EP2 --> LLM
     LLM --> GEM
@@ -38,7 +49,9 @@ flowchart TB
 | Router state | Moves `answers` Quiz → Results; a fallback copy of `{career, roadmap}` Results → Dashboard | Since 2026-09-26 the dashboard reads the roadmap from localStorage first (ADR-013) |
 | Roadmap store | `pathwayai_roadmap`: the current roadmap with careerData and answers | One roadmap, this browser only (`lib/roadmapStore.js`) |
 | Tracking store | Event log, metrics history, step progress | `pathwayai_tracking`; unbounded growth; rewritten on every read (TD-27) |
-| FastAPI | Holds the API keys; validates requests; rate limits; builds prompts; validates AI output; adds YouTube videos | Config from env (`config.py`); Pydantic request models (ADR-014); output validation + one retry (ADR-015); in-memory rate limits; no auth |
+| Accounts (optional) | Email + password sign-in/up in the browser; session in `AuthProvider` (`useAuth()`) | Supabase Auth via `lib/supabase.js` with the publishable key (ADR-018). Off when the `VITE_SUPABASE_*` variables are unset. Roadmaps are **not** tied to accounts yet (Milestone 2) |
+| FastAPI | Holds the API keys; validates requests; rate limits; builds prompts; validates AI output; adds YouTube videos; verifies Supabase tokens on `/api/me` | Config from env (`config.py`); Pydantic request models (ADR-014); output validation + one retry (ADR-015); in-memory rate limits; AI routes need no token (guests) |
+| Supabase | Auth users + `public.profiles` (RLS, sign-up trigger) | Project `pczczkmkavmxibxureck`; migrations in `supabase/migrations/` |
 | Gemini | Generates careers and roadmaps | JSON mode + `response_schema` (ADR-015) |
 | YouTube Data API | Real videos per roadmap step | Optional `YOUTUBE_API_KEY`; search-link fallback (ADR-012) |
 
@@ -55,7 +68,7 @@ flowchart TB
 4. `Dashboard` loads the stored roadmap and derives everything in `lib/dashboardData.js`; marking a step done writes `progress["roadmap_step_<roadmapId>_<index>"]` and a `roadmap_step_completed` event.
 
 ## Known architectural problems
-- ~~The roadmap exists only in router state; progress keys collide across careers~~ — resolved 2026-09-26 (ADR-013). Still one roadmap per browser, no server-side ownership (F-7/F-8).
+- ~~The roadmap exists only in router state; progress keys collide across careers~~ — resolved 2026-09-26 (ADR-013). Still one roadmap per browser, no server-side ownership: accounts exist since 2026-09-30 (Milestone 1), roadmaps move to Postgres in Milestone 2 (F-8).
 - ~~Hard-coded origins/URLs prevent any deployment~~ — resolved 2026-09-27 (ADR-014).
 - Two competing theme mechanisms (`ThemeGate` and per-page `useEffect` body classes).
 - ~~Two dashboard designs~~ — resolved 2026-09-25 (ADR-010): the unrouted `/app/*` shell was deleted; the tabbed `/dashboard` is the roadmap view and `/home` is the future signed-in hub.

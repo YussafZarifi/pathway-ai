@@ -4,95 +4,56 @@
 
 ---
 
-## Current session — 2026-09-29 · Pre-deploy fixes, full QA, recruiter review, handoff
+## Current session — 2026-09-30 · Supabase Milestone 1 (accounts + profiles)
 
 ### Summary
-- **Code-complete for an initial public release.** No production code was written after the final QA pass.
-- **Not deployed. Not pushed** to GitHub: `main` is 47 commits ahead of `origin/main`, including this handoff commit.
-- The app passed the deployment pre-flight (2026-09-28). The 5 must-fix launch issues were fixed and verified. A full QA pass on desktop, 360 px, keyboard and the complete flow passed.
-- 80/80 backend tests pass; the frontend build passes.
-- Live `gemini-2.5-flash-lite` testing succeeded, including one temporary Gemini `503 UNAVAILABLE` recovered by the automatic retry (ADR-015).
+- The owner connected the Supabase MCP server, **accepted ADR-018**, and moved Supabase ahead of the deploy. Milestone 1 was defined with the owner (it wasn't written anywhere before): email + password auth **plus a `profiles` table**, Supabase CLI migrations, deploy later.
+- **Milestone 1 is code complete** in 7 small commits (below). Accounts are optional per environment: with the Supabase variables unset the app is exactly the guest-only version.
+- Every commit kept the guest flow working: backend tests passed (80 → 100), lint stayed at its 12-error baseline, `npm run build` passed.
+- **Not pushed, not deployed** (`main` ~55 commits ahead of `origin/main`).
+- **Not yet tested end to end with a real account:** sign-up sends a confirmation email, so it needs the owner's inbox (M1-8).
 
-### 1. Pre-deploy fix batch (5 code commits, ADR-017)
-| Commit | Change |
+### Commits
+| Commit | Step |
 |---|---|
-| `4c916c2` | Comparing careers never changes the selected career (TD-50): the compare checkbox is a labelled sibling of the card, not inside its `<button>` (also closes TD-19). On phones the header wraps, so compare mode can't overflow |
-| `bd30106` | Every page starts at the top (`ScrollToTop`); Regenerate on the dashboard and on Results scrolls to the top too (TD-51) |
-| `279c747` | Honest copy (TD-52): `/home` shows the browser-saved roadmap with real progress, or an accurate empty state; "5-question quiz"; the Results PDF option says it saves career matches |
-| `00ca5f1` | Branded 404 page for unknown URLs (F-12's 404 part, TD-16) |
-| `1c9a3a4` | "PathwayAI" title, favicon, meta description, OG/Twitter tags; Vite favicon removed (TD-42) |
+| `8d11415` | M1-1 docs: ADR-018 accepted with the owner's details; Milestone 1 plan in ROADMAP |
+| `df1b456` | M1-2 `public.profiles` (RLS: own row; grants: no anon, authenticated may update `display_name` only; sign-up trigger `private.handle_new_user`, security definer in a non-exposed schema). Applied via MCP as migration `20260930041303_create_profiles`, same SQL in `supabase/migrations/` |
+| `7742e67` | M1-3 `@supabase/supabase-js` 2.117.2 (pinned), `lib/supabase.js`, `AuthProvider` + `useAuth()`; `VITE_SUPABASE_*` in `.env.example` and `render.yaml` |
+| `6de598f` | M1-4 `/login`: sign in / create account, check-your-email + resend, mapped error copy, auth-off and already-signed-in states |
+| `914d189` | M1-5 header Sign in / email + Sign out; Landing Log in / Sign up → `/login` (auth off → the old dialog) |
+| `aa81e82` | M1-6 `backend/auth.py` (PyJWT 2.15.1, JWKS, ES256/RS256 only, exp/iss/aud/role, anonymous rejected, nothing logged) + `GET /api/me`; CORS allows `Authorization`; `SUPABASE_URL`; 20 tests |
+| (this commit) | M1-7 docs: CLAUDE, ROADMAP, README, architecture, deployment (Supabase URL config), database, api, backend, frontend, testing, technical debt (TD-64–TD-66) |
 
-### 2. Full QA pass (after the fixes)
-All passed, on desktop, at 360 px and by keyboard:
-- Compare independence, verified end to end: the roadmap was generated for the selected career while two others were ticked.
-- Scroll resets on every route (Results at 1,393 px → dashboard at 0) and after Regenerate.
-- Both copy states on `/home` and the dashboard.
-- 404 page.
-- Metadata.
-- The full flow, with no horizontal scroll anywhere and no console errors.
-- 5 live AI calls, all 200.
+### Verification done
+- **Database:** rolled-back SQL test as two fake users. The trigger creates rows (name trimmed, blank → null); a user sees 1 row, can't update another user's row, can update their own; `anon` has no privileges; clients can't insert. Security + performance advisors: no findings. No test users left behind (0 users, 0 profiles).
+- **Frontend (Chrome, dev server):** `/login` renders; wrong credentials → "That email and password don't match an account." (real Supabase call); tab switch clears errors; Landing Sign up → `/login` on the create-account tab; header shows Sign in; no console errors. **Auth-off** (second dev server with blank Supabase vars): Landing buttons open the coming-soon dialog, `/login` shows "Accounts aren't available here", no account control in the header.
+- **Backend:** 100/100 tests; live check against the project's real JWKS: a forged ES256 token using the real key id → 401. The running dev backend: `/api/me` with a bad token → 401, `/health` ok.
+- **Guest flow:** one live `POST /api/ai/career` (200, CORS header, no token); `/home`, `/dashboard` (empty state), `/quiz` render with the new header. A full browser quiz → results → roadmap run was **not** repeated (saving Gemini's 20/day quota); Quiz/Results/Dashboard code is unchanged apart from the provider wrapper.
+- Not checked: phone width (the Chrome window didn't resize; the layout reuses existing responsive classes, and the header wraps at ≤600 px).
 
-One regression was found and fixed during QA: compare mode overflowed at 360 px.
-
-### 3. Recruiter-style review (no code changes)
-I walked through the running app as a first-time visitor. **The core loop is strong; the gaps are mostly presentation and trust, not engineering.** The full ranked list is in `docs/recruiter-notes.md`. Tasks are ROADMAP P-1–P-11; debt is TD-21 and TD-59–TD-63.
-
-- **Critical:**
-  - No "built by" or About anywhere.
-  - Free-tier quota and Render cold start can make the live site look broken or slow.
-  - 3 of 13 AI resource links were broken in one roadmap.
-  - "Coming soon" is promoted: the Sign up button and 2 of 3 Landing cards.
-- **High:**
-  - "No video found yet" placeholders (no YouTube key).
-  - Unsorted matches (90/85/88) and salaries/growth not labelled as AI estimates.
-  - Thin Landing: no "how it works", no screenshot.
-  - Inconsistent headers, and no way back to a saved roadmap from Landing.
-  - Padded first-visit dashboard stats and insights.
-- **Medium/Low:** typography, the quiz card jumping between questions, naming consistency, error message wording and placement, keyboard focus, Esc on dialogs, reduced motion.
-
-### 4. Docs and project memory (this handoff)
-- ROADMAP restructured into Completed · 🚀 Ready to Deploy (D-1–D-6) · 🌱 Post-Launch Improvements (P-1–P-11, N-21…) · 🔮 Future Features (F-7 Supabase Auth → F-8 Postgres → F-13 Resume Analyzer → F-18 AI Coach → tests/CI …).
-- ADR-018 (proposed): Supabase for authentication and PostgreSQL.
-- CLAUDE.md: a "state at a glance" header and §11 rewritten as the Next Session order.
-- `docs/deployment.md`: launch sequence and checklist.
-- `docs/technical-debt.md`: TD-59–TD-63 added, TD-21 evidence updated.
-- `docs/recruiter-notes.md`: review section added.
-- `docs/future-features.md`, `docs/frontend.md`: IDs updated.
-- README unchanged: it already reflects today's code.
-
-### Deployment readiness
-| Item | Status |
-|---|---|
-| Code, tests, build, QA | ✅ Ready |
-| Render Blueprint (`render.yaml`) + steps (`docs/deployment.md`) | ✅ Ready |
-| Push to private GitHub (D-1) | ⏳ Owner decision |
-| Render plan for the API (D-2) | ⏳ Owner decision: free sleeps ~1 min; Starter is always on |
-| Gemini billing + budget alert (D-6) | ⏳ Owner decision; required before **sharing publicly** (free tier ≈ 7–10 quiz runs/day) |
-| `YOUTUBE_API_KEY` (D-5) | ⏳ Owner, optional for the deploy; required before **public launch** |
-
-**Current blockers:** only the four owner decisions above. There are no code blockers.
+### Local environment changes (not in git)
+- `frontend/.env.local`: `VITE_SUPABASE_URL` + `VITE_SUPABASE_PUBLISHABLE_KEY` (the public `sb_publishable_…` key).
+- `backend/.env`: `SUPABASE_URL`.
+- PyJWT 2.15.1 installed in both `backend/.venv` and the root `.venv` (the owner's running uvicorn).
+- `.mcp.json`, `.agents/`, `.claude/`, `skills-lock.json` are untracked tool files; not committed.
 
 ### Next Session (exact order)
-1. **Push to private GitHub** (D-1). Wait for the owner's go-ahead; run `git check-ignore backend/.env`; never change repo visibility.
-2. **Deploy to Render** (D-2, D-3): apply the Blueprint and set `GEMINI_API_KEY`, `ALLOWED_ORIGINS`, `VITE_API_URL` (+ `YOUTUBE_API_KEY`).
-3. **Verify production** (D-4): `/health`, Landing → Quiz → Results → Dashboard → Regenerate, 404, CORS, request-ID logs, console. Then add the live URL to the README and `og:url`/`og:image` (N-22).
-4. **Add Supabase Authentication** (F-7): confirm ADR-018's open details first (OAuth providers, token verification in FastAPI, env vars).
-5. **Add the PostgreSQL database** (F-8, Supabase Postgres): schema + migrations + RLS, and import the browser-saved roadmap on first sign-in.
-6. **Build the Resume Analyzer** (F-13).
-7. **Build the AI Coach** (F-18).
-
-Before sharing the URL with recruiters: D-5, D-6, and ideally P-1–P-6 (built-by footer, About, How it works + screenshot, sorted matches, AI-estimate labels, fewer "Coming soon").
+1. **Owner (M1-8):** Supabase Dashboard → Authentication → URL Configuration: Site URL `http://localhost:5173`, Redirect URL `http://localhost:5173/**`. Then sign up on `/login` with your own email → click the link (lands on `/home` signed in) → header shows your email → sign out → sign in. Tell Claude, who then checks the `profiles` row and `GET /api/me` with a real token.
+2. **Push to private GitHub** (D-1), on the owner's go-ahead.
+3. **Deploy to Render** (D-2, D-3) with the new optional variables (`SUPABASE_URL`, `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`) and the live domain added to Supabase's URL Configuration.
+4. **Verify production** (D-4), including sign-up/sign-in.
+5. **Milestone 2 (F-8):** roadmap + progress tables with RLS, save for signed-in users, import the browser-saved roadmap on first sign-in. First decide: browser writes via RLS, or FastAPI writes with the user's token.
+6. Resume Analyzer (F-13) → AI Coach (F-18).
 
 ### Open questions (for the owner)
-1. Gemini billing now, or deploy privately on the free tier first?
-2. Render API plan: free or Starter?
-3. Supabase details (ADR-018): which sign-in methods (email, GitHub, Google)? Free or paid Supabase plan?
-4. The name and links for the "Built by" footer (GitHub, LinkedIn, portfolio).
-5. Carried over: target market (Canada-first, CAD salaries, EN/FR?); when to make the repo public (F-17).
+1. Supabase email: keep the built-in sender for testing, or set up custom SMTP (needed before a public launch, TD-65)?
+2. Upgrade the vulnerable npm packages now (TD-64: `jspdf` critical via html2pdf, `react-router`, `vite`) — a separate commit + QA pass?
+3. Carried over: Gemini billing, Render plan, "Built by" footer links, target market (Canada-first, EN/FR), when to make the repo public.
 
 ---
 
 ## History
+- 2026-09-29 — Pre-deploy fix batch (C-27, ADR-017: compare independence, scroll reset, honest copy, 404, metadata), full QA pass, recruiter-style review (P-1–P-11), ADR-018 proposed, ROADMAP restructured for deploy.
 - 2026-09-28 (evening) — Pre-flight: docs synced with the code; live `gemini-2.5-flash-lite` check (7/7 ok, v1 + v2); manual desktop / 360 px / keyboard QA; readiness report; findings TD-50–TD-58 → N-20 (fixed 2026-09-29) and N-21.
 - 2026-09-28 (day) — 5-question quiz (ADR-016): backend accepts v1 + v2 answer formats (v1 prompts byte-identical), new quiz UI (multi-select, weekly-hours buttons, optional career field), TD-26 fixed, 80 backend tests; verified on `gemini-2.5-flash`.
 - 2026-09-27 (part 2) — Investigated the "intermittent roadmap failure": 25 live calls, 0 malformed JSON; the real limit is Gemini's free tier (20 requests/day). Added JSON mode + response schema, per-item validation, one retry, 503 quota/busy messages, content-free diagnostics with request IDs, and the first 60 backend tests (ADR-015).

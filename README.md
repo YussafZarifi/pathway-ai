@@ -2,7 +2,7 @@
 
 **AI-powered tech career guidance.** Answer a short quiz, get three personalized tech-career matches, and turn the one you pick into a step-by-step learning roadmap you can track.
 
-> **Project status: early MVP.** The core flow (quiz → AI career matches → AI roadmap → progress dashboard) works end-to-end locally. Accounts, server-side persistence, the resume analyzer and the AI coach are **planned, not built**. See [Roadmap](#roadmap) and [`ROADMAP.md`](ROADMAP.md).
+> **Project status: early MVP.** The core flow (quiz → AI career matches → AI roadmap → progress dashboard) works end-to-end locally. Optional accounts (Supabase email + password) are built; saving roadmaps to an account, the resume analyzer and the AI coach are **planned, not built**. See [Roadmap](#roadmap) and [`ROADMAP.md`](ROADMAP.md).
 
 ---
 
@@ -30,16 +30,17 @@
 - **Friendly 404 page** — unknown links show a branded page with ways back instead of a blank screen.
 - **Local persistence** — the current roadmap and its progress survive reloads and new tabs (`localStorage`, this browser only).
 - **Reliable AI output** — Gemini JSON mode with a response schema, per-item validation, one retry, and clear messages when the AI is busy or out of quota.
+- **Optional accounts** — sign up / sign in with email + password (Supabase Auth, email confirmation), a `profiles` table protected by row-level security, and a backend that verifies Supabase access tokens (`GET /api/me`). Everything else still works as a guest; builds without Supabase configured simply hide accounts.
 
 ### 🟡 Partially implemented
-- **Persistence** — the current roadmap and its progress are saved in this browser only (one roadmap at a time; no accounts yet).
+- **Persistence** — the current roadmap and its progress are saved in this browser only (one roadmap at a time; not yet saved to your account).
 
 ### 🗺️ Planned
-- Accounts and saved roadmaps (PostgreSQL), shareable roadmap links
+- Roadmaps saved to your account (PostgreSQL), shareable roadmap links
 - Resume analysis and skill-gap detection
 - AI career coach (chat)
 - Streaming generation, grounded resources and real salary data
-- Frontend tests, CI/CD, live deployment (the backend has 80 automated tests)
+- Frontend tests, CI/CD, live deployment (the backend has 100 automated tests)
 
 ---
 
@@ -76,7 +77,7 @@ flowchart LR
 
 - The **frontend** is a single-page React app. Quiz answers move to Results through React Router navigation state; the chosen roadmap and its progress are saved in `localStorage`. Every backend call goes through one client, `src/lib/api.js`.
 - The **backend** is a FastAPI service that holds the API keys server-side, validates and rate-limits requests, builds prompts, validates the model's JSON and adds real YouTube videos to roadmap steps.
-- There is currently **no database and no authentication**.
+- **Accounts** (optional) use Supabase: the browser signs in with the publishable key; the backend verifies access tokens locally against the project's public keys (ES256/JWKS). Postgres holds a `profiles` table with row-level security; roadmaps are not stored server-side yet.
 
 More: [`docs/architecture.md`](docs/architecture.md).
 
@@ -99,8 +100,9 @@ Current limitations: no streaming, no caching, and salary figures and resource U
 | Frontend | React 19, Vite 7, React Router 7, framer-motion, lucide-react, html2pdf.js |
 | Backend | Python, FastAPI, Uvicorn, Pydantic 2 |
 | AI | Google Gemini (`google-genai` SDK, `gemini-2.5-flash-lite`) |
-| Storage | Browser `localStorage` (server DB planned) |
-| Tooling | ESLint 9, pytest (80 backend tests, no network) |
+| Auth + DB | Supabase Auth (email + password), Supabase Postgres (`profiles`, RLS), PyJWT token verification |
+| Storage | Browser `localStorage` for roadmaps (saving to accounts planned) |
+| Tooling | ESLint 9, pytest (100 backend tests, no network) |
 
 ---
 
@@ -141,6 +143,8 @@ Nothing is hard-coded: every URL and key comes from these (full list and default
 | `YOUTUBE_API_KEY` | `backend/.env` | No | Real YouTube videos per roadmap step (otherwise a search link) |
 | `RATE_LIMIT_PER_MINUTE`, `RATE_LIMIT_PER_DAY`, `GLOBAL_AI_LIMIT_PER_DAY` | `backend/.env` | No | AI endpoint rate limits (defaults 8 / 50 / 500) |
 | `VITE_API_URL` | `frontend/.env.local` | Yes | Backend base URL; `npm run build` fails without it |
+| `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY` | `frontend/.env.local` | No | Supabase project URL + publishable key; without them accounts are hidden |
+| `SUPABASE_URL` | `backend/.env` | No | Same project URL; lets the API verify sign-in tokens |
 
 
 ### Scripts
@@ -174,15 +178,17 @@ roadmap-ai/
 │   ├── rate_limit.py        # in-memory rate limiter
 │   ├── request_log.py       # request IDs in logs
 │   ├── youtube.py           # YouTube Data API lookups
+│   ├── auth.py              # Supabase access-token verification
 │   ├── tests/               # pytest suite (fake Gemini)
 │   └── requirements.txt
 ├── frontend/
 │   └── src/
-│       ├── pages/           # Landing, Home, Quiz, Results, Dashboard
-│       ├── components/      # AppHeader, Dialog, VideoCard, CareerCompareModal, ShareModal, dashboard/*
-│       ├── lib/             # api (backend client), roadmapStore, dashboardData, trackingEngine, scoringEngine
+│       ├── pages/           # Landing, Home, Quiz, Results, Dashboard, Login
+│       ├── components/      # AppHeader, AuthProvider, Dialog, VideoCard, CareerCompareModal, ShareModal, dashboard/*
+│       ├── lib/             # api (backend client), supabase + authContext, roadmapStore, dashboardData, trackingEngine, scoringEngine
 │       ├── data/            # quiz questions, tracking schema, career details
 │       └── index.css        # global styles
+├── supabase/migrations/     # database migrations (Supabase CLI format)
 ├── render.yaml              # Render Blueprint (not deployed yet)
 ├── docs/                    # architecture, API, AI, design, decisions (ADRs)…
 ├── CLAUDE.md                # project memory for AI-assisted development
@@ -197,7 +203,7 @@ roadmap-ai/
 Key choices and their trade-offs are recorded as ADRs in [`docs/decisions.md`](docs/decisions.md). Highlights:
 - **FastAPI proxy for AI** keeps the API key off the client and gives one place for validation, rate limiting and caching.
 - **Gemini Flash-Lite** was chosen for low latency and low cost on structured, short outputs.
-- **localStorage first** made an account-free MVP possible. Server persistence is the next architectural step.
+- **localStorage first** made an account-free MVP possible. **Supabase** (ADR-018) now adds optional accounts; moving roadmaps into Postgres is the next step.
 - **Tech-only scope**: the product narrowed from general careers to technology careers to give deeper, more accurate guidance.
 
 ---

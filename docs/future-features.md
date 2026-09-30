@@ -38,7 +38,7 @@ Everything here is **planned, not implemented**. Effort: Easy (1–2 h) · Mediu
 ## Large
 | Feature | Roadmap |
 |---|---|
-| Auth: Supabase Authentication (ADR-018, proposed) | F-7 |
+| Auth: Supabase Authentication (ADR-018, accepted) — email + password done 2026-09-30 (Milestone 1); OAuth + account settings remain | F-7 |
 | PostgreSQL persistence (schema in `database.md`) | F-8 |
 | Real resume analyzer (PDF → Gemini multimodal → structured critique) | F-13 |
 | Skill-gap analysis feeding the roadmap | F-14 |

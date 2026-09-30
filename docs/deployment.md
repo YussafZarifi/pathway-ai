@@ -1,7 +1,7 @@
 # Deployment
 
 ## Current state
-**Deployment-ready for Render and code-complete for an initial release, not deployed, not pushed** (as of 2026-09-29). Pre-flight QA, the pre-deploy fix batch (C-27) and a full regression QA are done. Waiting only for the owner's decisions: Gemini billing, the Render plan, the push to the private GitHub repo, and the optional `YOUTUBE_API_KEY`.
+**Deployment-ready for Render, not deployed, not pushed** (as of 2026-09-30). Supabase accounts (Milestone 1, ADR-018) were added before the deploy; they're optional per environment (see "Supabase" below). Pre-flight QA, the pre-deploy fix batch (C-27) and a full regression QA are done. Waiting only for the owner's decisions: Gemini billing, the Render plan, the push to the private GitHub repo, and the optional `YOUTUBE_API_KEY`.
 
 ### Launch sequence (ROADMAP → Ready to Deploy)
 1. **D-1** Push `main` to the private repo (check `git check-ignore backend/.env` first).
@@ -26,12 +26,12 @@ Still missing before a public launch (not blockers for a first deploy):
 ```bash
 # backend (terminal 1)
 cd backend
-cp .env.example .env          # set GEMINI_API_KEY (and optionally YOUTUBE_API_KEY)
+cp .env.example .env          # set GEMINI_API_KEY (optional: YOUTUBE_API_KEY, SUPABASE_URL)
 uvicorn main:app --reload --port 8000
 
 # frontend (terminal 2)
 cd frontend
-cp .env.example .env.local    # VITE_API_URL=http://127.0.0.1:8000
+cp .env.example .env.local    # VITE_API_URL=http://127.0.0.1:8000 (optional: VITE_SUPABASE_URL + VITE_SUPABASE_PUBLISHABLE_KEY)
 npm run dev                   # http://localhost:5173
 ```
 `backend/.env` and `frontend/.env.local` are git-ignored. `.env.example` sets `ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173` for Vite.
@@ -55,6 +55,16 @@ Both have `buildFilter` paths, so a frontend-only change doesn't redeploy the AP
 | `GEMINI_MODEL`, `GEMINI_TIMEOUT_SECONDS`, `RATE_LIMIT_PER_MINUTE`, `RATE_LIMIT_PER_DAY`, `GLOBAL_AI_LIMIT_PER_DAY`, `LOG_LEVEL` | api | optional, Dashboard | Defaults in `backend/config.py` |
 | `VITE_API_URL` | web | `sync: false` | The API's URL, e.g. `https://pathwayai-api.onrender.com`. **Build time**: redeploy the site after changing it |
 | `NODE_VERSION` | web | in `render.yaml` | `22` (Vite 7 needs ≥ 20.19) |
+| `SUPABASE_URL` | api | `sync: false` | Optional (ADR-018): `https://pczczkmkavmxibxureck.supabase.co`. Issuer + JWKS for token checks; not a secret. Unset → `/api/me` 503, AI routes unchanged |
+| `VITE_SUPABASE_URL` | web | `sync: false` | Optional, build time: same project URL. Unset → no account UI (guest-only build) |
+| `VITE_SUPABASE_PUBLISHABLE_KEY` | web | `sync: false` | Optional, build time: the `sb_publishable_…` key (public by design). **Never** the secret / service_role key |
+
+### Supabase (accounts, ADR-018)
+- Project `pczczkmkavmxibxureck`, free plan. Schema: `supabase/migrations/` (see `docs/database.md`).
+- **Authentication → URL Configuration** (Supabase Dashboard, owner): set **Site URL** to the live site (`https://pathwayai-web.onrender.com` once deployed; `http://localhost:5173` until then) and add **Redirect URLs** `http://localhost:5173/**` and `https://pathwayai-web.onrender.com/**`. The sign-up confirmation link redirects to `<origin>/home`; an origin that isn't listed falls back to the Site URL.
+- **Authentication → Providers → Email**: enabled, "Confirm email" on (the default). The free plan's built-in email sender is rate-limited (a few emails per hour) and meant for testing: set up custom SMTP before a public launch.
+- Password rules: the app asks for ≥ 8 characters; you can enforce the same minimum under Authentication → Providers → Email.
+- Verify after deploying: sign up with a real inbox → the link lands on `/home` signed in → header shows the email → `GET /api/me` with the session token returns 200 → sign out.
 
 ### First deploy (when approved)
 1. Push `main` to GitHub (the Blueprint is read from the repo).
@@ -72,7 +82,7 @@ Both have `buildFilter` paths, so a frontend-only change doesn't redeploy the AP
 ## Later (🗺️)
 | Piece | Plan |
 |---|---|
-| Database | Render Postgres (or Supabase/Neon) with auth: F-7/F-8 |
+| Database | Supabase Postgres (ADR-018): `profiles` done in Milestone 1; roadmap tables in Milestone 2 (F-8) |
 | Shared rate limits / cache | Render Key Value (Redis-compatible) once there is more than one instance |
 | Errors | Sentry (F-11) |
 | Containers | Optional `backend/Dockerfile` + `docker-compose.yml` for local dev (F-5) |
@@ -90,7 +100,8 @@ Both have `buildFilter` paths, so a frontend-only change doesn't redeploy the AP
 - [ ] Sentry wired up
 - [ ] Gemini paid tier (free tier = 20 requests/day) + budget alert in Google Cloud; `GLOBAL_AI_LIMIT_PER_DAY` set to match
 - [x] AI output validated with one retry; failures logged with request IDs (ADR-015)
-- [x] Backend tests (80, pytest; run locally)
+- [x] Backend tests (100, pytest; run locally)
+- [ ] Supabase Site URL + Redirect URLs set for the live domain; custom SMTP before public launch
 - [ ] Frontend tests + CI
 - [ ] `YOUTUBE_API_KEY` set (owner: required before public launch)
 - [ ] Production verified (D-4)
