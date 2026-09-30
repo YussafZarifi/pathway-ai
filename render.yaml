@@ -50,3 +50,10 @@ services:
       # Read at build time: redeploy the site after changing it.
       - key: VITE_API_URL
         sync: false
+      # Optional accounts (ADR-018): Supabase project URL and publishable
+      # key (sb_publishable_..., public by design). Leave unset for a
+      # guest-only build. Never the secret / service_role key.
+      - key: VITE_SUPABASE_URL
+        sync: false
+      - key: VITE_SUPABASE_PUBLISHABLE_KEY
+        sync: false

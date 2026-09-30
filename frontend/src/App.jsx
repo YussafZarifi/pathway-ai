@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import AuthProvider from "./components/AuthProvider";
 import ThemeGate from "./components/ThemeGate";
 import ScrollToTop from "./components/ScrollToTop";
 
@@ -11,25 +12,27 @@ import NotFound from "./pages/NotFound";
 
 export default function App() {
   return (
-    <BrowserRouter>
-      <ScrollToTop />
-      <ThemeGate>
-        <Routes>
-          {/* Public pages (Aurora) */}
-          <Route path="/" element={<Landing />} />
+    <AuthProvider>
+      <BrowserRouter>
+        <ScrollToTop />
+        <ThemeGate>
+          <Routes>
+            {/* Public pages (Aurora) */}
+            <Route path="/" element={<Landing />} />
 
-          {/* Home page (Noir) */}
-          <Route path="/home" element={<Home />} />
-          <Route path="/quiz" element={<Quiz />} />
-          <Route path="/results" element={<Results />} />
+            {/* Home page (Noir) */}
+            <Route path="/home" element={<Home />} />
+            <Route path="/quiz" element={<Quiz />} />
+            <Route path="/results" element={<Results />} />
 
-          {/* Dashboard (Noir) */}
-          <Route path="/dashboard" element={<Dashboard />} />
+            {/* Dashboard (Noir) */}
+            <Route path="/dashboard" element={<Dashboard />} />
 
-          {/* Anything else: branded 404 instead of a blank page */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </ThemeGate>
-    </BrowserRouter>
+            {/* Anything else: branded 404 instead of a blank page */}
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </ThemeGate>
+      </BrowserRouter>
+    </AuthProvider>
   );
 }
