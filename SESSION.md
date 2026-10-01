@@ -4,55 +4,29 @@
 
 ---
 
-## Current session — 2026-09-30 · Supabase Milestone 1 (accounts + profiles)
+## Current session — 2026-10-01 · Planning: deployment postponed, Version 2 priorities
 
 ### Summary
-- The owner connected the Supabase MCP server, **accepted ADR-018**, and moved Supabase ahead of the deploy. Milestone 1 was defined with the owner (it wasn't written anywhere before): email + password auth **plus a `profiles` table**, Supabase CLI migrations, deploy later.
-- **Milestone 1 is code complete** in 7 small commits (below). Accounts are optional per environment: with the Supabase variables unset the app is exactly the guest-only version.
-- Every commit kept the guest flow working: backend tests passed (80 → 100), lint stayed at its 12-error baseline, `npm run build` passed.
-- **Not pushed, not deployed** (`main` ~55 commits ahead of `origin/main`).
-- **Not yet tested end to end with a real account:** sign-up sends a confirmation email, so it needs the owner's inbox (M1-8).
+- Start-of-session review (docs only, no code changes). Baseline confirmed: 100/100 backend tests, lint at its 12-error baseline. No commits since `727038f`; `main` is 54 commits ahead of `origin/main`. Supabase still has 0 users / 0 profiles, at the start of the session.
+- **Owner decision: deployment is postponed until Version 2 is complete.** Version 2 = Milestones 1–4: M1 accounts (code complete) → **M2 roadmaps in PostgreSQL (F-8)** → **M3 Resume Analyzer (F-13)** → **M4 AI Coach (F-18)**. The project must stay deployable after every commit, but Claude must **not recommend deploying** (push-to-deploy, Render, production verification) until Version 2 is finished unless the owner explicitly asks.
+- Docs updated to match: `CLAUDE.md` (state at a glance, §2, §11 rewritten with a "Deployable at every commit" checklist, §15), `ROADMAP.md` (new 🎯 Version 2 section; "Ready to Deploy" became ⏸️ Deployment — postponed, D-1–D-6 parked), `docs/deployment.md` (postponed status + "Keeping it deployable" rules), `docs/decisions.md` (index table now lists ADR-017 and ADR-018). Stale counts fixed where touched (54 unpushed commits, 100 tests).
 
-### Commits
-| Commit | Step |
-|---|---|
-| `8d11415` | M1-1 docs: ADR-018 accepted with the owner's details; Milestone 1 plan in ROADMAP |
-| `df1b456` | M1-2 `public.profiles` (RLS: own row; grants: no anon, authenticated may update `display_name` only; sign-up trigger `private.handle_new_user`, security definer in a non-exposed schema). Applied via MCP as migration `20260930041303_create_profiles`, same SQL in `supabase/migrations/` |
-| `7742e67` | M1-3 `@supabase/supabase-js` 2.117.2 (pinned), `lib/supabase.js`, `AuthProvider` + `useAuth()`; `VITE_SUPABASE_*` in `.env.example` and `render.yaml` |
-| `6de598f` | M1-4 `/login`: sign in / create account, check-your-email + resend, mapped error copy, auth-off and already-signed-in states |
-| `914d189` | M1-5 header Sign in / email + Sign out; Landing Log in / Sign up → `/login` (auth off → the old dialog) |
-| `aa81e82` | M1-6 `backend/auth.py` (PyJWT 2.15.1, JWKS, ES256/RS256 only, exp/iss/aud/role, anonymous rejected, nothing logged) + `GET /api/me`; CORS allows `Authorization`; `SUPABASE_URL`; 20 tests |
-| (this commit) | M1-7 docs: CLAUDE, ROADMAP, README, architecture, deployment (Supabase URL config), database, api, backend, frontend, testing, technical debt (TD-64–TD-66) |
-
-### Verification done
-- **Database:** rolled-back SQL test as two fake users. The trigger creates rows (name trimmed, blank → null); a user sees 1 row, can't update another user's row, can update their own; `anon` has no privileges; clients can't insert. Security + performance advisors: no findings. No test users left behind (0 users, 0 profiles).
-- **Frontend (Chrome, dev server):** `/login` renders; wrong credentials → "That email and password don't match an account." (real Supabase call); tab switch clears errors; Landing Sign up → `/login` on the create-account tab; header shows Sign in; no console errors. **Auth-off** (second dev server with blank Supabase vars): Landing buttons open the coming-soon dialog, `/login` shows "Accounts aren't available here", no account control in the header.
-- **Backend:** 100/100 tests; live check against the project's real JWKS: a forged ES256 token using the real key id → 401. The running dev backend: `/api/me` with a bad token → 401, `/health` ok.
-- **Guest flow:** one live `POST /api/ai/career` (200, CORS header, no token); `/home`, `/dashboard` (empty state), `/quiz` render with the new header. A full browser quiz → results → roadmap run was **not** repeated (saving Gemini's 20/day quota); Quiz/Results/Dashboard code is unchanged apart from the provider wrapper.
-- Not checked: phone width (the Chrome window didn't resize; the layout reuses existing responsive classes, and the header wraps at ≤600 px).
-
-### Local environment changes (not in git)
-- `frontend/.env.local`: `VITE_SUPABASE_URL` + `VITE_SUPABASE_PUBLISHABLE_KEY` (the public `sb_publishable_…` key).
-- `backend/.env`: `SUPABASE_URL`.
-- PyJWT 2.15.1 installed in both `backend/.venv` and the root `.venv` (the owner's running uvicorn).
-- `.mcp.json`, `.agents/`, `.claude/`, `skills-lock.json` are untracked tool files; not committed.
+- **Milestone 1 verified (M1-8), so Milestone 1 is complete.** The owner signed up, confirmed by email, signed in; 1 confirmed user with a `profiles` row. In the owner's signed-in browser session (token never left the page): access token is ES256 (kid `5ec8d865…`, matching the project JWKS), `iss` = the project's `/auth/v1`, `aud` = `authenticated`, role `authenticated`, not anonymous. `GET /api/me` with it → **200**, `{id, email}` matching the session user. The same token with a changed signature, a different `sub`, an old `exp`, `aud: anon`, or `alg: none` → **401** each; no header, a malformed token and `Basic` auth → 401. 100/100 backend tests.
 
 ### Next Session (exact order)
-1. **Owner (M1-8):** Supabase Dashboard → Authentication → URL Configuration: Site URL `http://localhost:5173`, Redirect URL `http://localhost:5173/**`. Then sign up on `/login` with your own email → click the link (lands on `/home` signed in) → header shows your email → sign out → sign in. Tell Claude, who then checks the `profiles` row and `GET /api/me` with a real token.
-2. **Push to private GitHub** (D-1), on the owner's go-ahead.
-3. **Deploy to Render** (D-2, D-3) with the new optional variables (`SUPABASE_URL`, `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`) and the live domain added to Supabase's URL Configuration.
-4. **Verify production** (D-4), including sign-up/sign-in.
-5. **Milestone 2 (F-8):** roadmap + progress tables with RLS, save for signed-in users, import the browser-saved roadmap on first sign-in. First decide: browser writes via RLS, or FastAPI writes with the user's token.
-6. Resume Analyzer (F-13) → AI Coach (F-18).
+1. **Milestone 2 planning (F-8):** decide who writes the roadmap tables (browser via RLS vs FastAPI with the user's token) → new ADR; schema for roadmaps, steps and progress; import of the browser-saved roadmap on first sign-in; write the M2-x step table in ROADMAP; owner approves before code.
+2. **Milestone 2 build**, one small deployable commit per step.
+3. Milestone 3 (Resume Analyzer) → Milestone 4 (AI Coach), each planned and approved the same way.
 
 ### Open questions (for the owner)
-1. Supabase email: keep the built-in sender for testing, or set up custom SMTP (needed before a public launch, TD-65)?
-2. Upgrade the vulnerable npm packages now (TD-64: `jspdf` critical via html2pdf, `react-router`, `vite`) — a separate commit + QA pass?
-3. Carried over: Gemini billing, Render plan, "Built by" footer links, target market (Canada-first, EN/FR), when to make the repo public.
+1. Milestone 2: should the browser write roadmaps directly through RLS, or should FastAPI write them with the user's token? (Claude will lay out the trade-offs at planning time.)
+2. Gemini's free tier (20 requests/day) will limit local testing of Milestones 3–4; enable billing during development, or keep testing within the quota?
+3. Upgrade the vulnerable npm packages (TD-64) as a separate commit during Version 2?
 
 ---
 
 ## History
+- 2026-09-30 — Supabase Milestone 1 in 7 commits (ADR-018 accepted): `profiles` table (RLS, sign-up trigger), `lib/supabase.js` + `AuthProvider`, `/login`, header sign-in/out, FastAPI token verification + `GET /api/me`, 20 new tests (100). Optional per environment; guest flow unchanged. Real sign-up test pending (owner's inbox).
 - 2026-09-29 — Pre-deploy fix batch (C-27, ADR-017: compare independence, scroll reset, honest copy, 404, metadata), full QA pass, recruiter-style review (P-1–P-11), ADR-018 proposed, ROADMAP restructured for deploy.
 - 2026-09-28 (evening) — Pre-flight: docs synced with the code; live `gemini-2.5-flash-lite` check (7/7 ok, v1 + v2); manual desktop / 360 px / keyboard QA; readiness report; findings TD-50–TD-58 → N-20 (fixed 2026-09-29) and N-21.
 - 2026-09-28 (day) — 5-question quiz (ADR-016): backend accepts v1 + v2 answer formats (v1 prompts byte-identical), new quiz UI (multi-select, weekly-hours buttons, optional career field), TD-26 fixed, 80 backend tests; verified on `gemini-2.5-flash`.

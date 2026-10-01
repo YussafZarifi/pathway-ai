@@ -1,10 +1,10 @@
 # CLAUDE.md — PathwayAI (repo: `roadmap-ai`)
 
 > Permanent project memory. Read this first in every session. Then read `SESSION.md` (latest state) and `ROADMAP.md` (what's next).
-> Last updated: 2026-09-30 (end of session).
-> **State at a glance:** **Supabase Milestone 1 done in code** (ADR-018: email + password accounts, `profiles` table with RLS, token verification in FastAPI; optional per environment, guest flow unchanged) · **not deployed, not pushed** (`main` is ~55 commits ahead of `origin/main`) · Render Blueprint ready (now with optional Supabase variables) · 100/100 backend tests, build passes, lint at its 12-error baseline.
-> **Waiting on the owner:** a real sign-up test with your own inbox (§11), Supabase Site URL / Redirect URLs, Gemini billing, Render plan, push to the private GitHub repo, optional `YOUTUBE_API_KEY` (required before *public* launch).
-> **Next session order:** owner sign-up test → push → deploy to Render → verify production → Milestone 2 (roadmaps in Postgres, F-8) → Resume Analyzer → AI Coach (§11). A recruiter-style review (2026-09-29) found mostly presentation/trust gaps → ROADMAP *Post-Launch Improvements* P-1–P-11.
+> Last updated: 2026-10-01 (planning session, docs only).
+> **State at a glance:** **Supabase Milestone 1 complete and verified with a real account (2026-10-01)** (ADR-018: email + password accounts, `profiles` table with RLS, token verification in FastAPI; optional per environment, guest flow unchanged) · **not deployed, not pushed** (`main` is 54 commits ahead of `origin/main`) · Render Blueprint ready (with optional Supabase variables) · 100/100 backend tests, build passes, lint at its 12-error baseline.
+> **Deployment is postponed until Version 2 is complete** (owner decision, 2026-10-01). **Version 2 = Milestones 1–4:** accounts (done in code) → **Milestone 2: roadmaps in PostgreSQL (F-8)** → **Milestone 3: Resume Analyzer (F-13)** → **Milestone 4: AI Coach (F-18)**. Keep the project deployable after every commit (§11 "Deployable at every commit"), but **do not recommend deploying** (push-to-deploy, Render, production verification) until Version 2 is finished, unless the owner explicitly asks.
+> **Next session order:** Milestone 2 (plan, then build) → Milestone 3 → Milestone 4 (§11). A recruiter-style review (2026-09-29) found mostly presentation/trust gaps → ROADMAP *Post-Launch Improvements* P-1–P-11 (fit between milestones only when the owner asks).
 
 ---
 
@@ -29,15 +29,15 @@ Naming: the product brand is **PathwayAI** (tab title, favicon and metadata sinc
 | Dashboard (redesigned 2026-09-26) | **Implemented** (localStorage only). Hero (career, AI match %, progress ring = steps done / roadmap length, next milestone, time left from AI estimates), Today's focus (one task), stat tiles, visual roadmap stepper, dated achievements, rule-based Insights, quick actions (regenerate, retake quiz, Resume/Coach "coming soon" dialogs). Survives reloads/new tabs (ADR-013). Employability/Momentum scores are **no longer shown** (they measure engagement, TD-29); `scoringEngine.js` is unchanged |
 | Resume Analyzer | **Not implemented.** The simulated `ResumeAnalyzer.jsx` (random score) was deleted 2026-09-25. Shown only as "Planned" / "Coming soon" |
 | AI Coach / Chatbot | **Not implemented** ("Soon" quick action on `/dashboard` opening a "coming soon" dialog, "Planned" card on `/home`) |
-| Auth / accounts | **Implemented 2026-09-30 (Milestone 1, ADR-018), optional.** Supabase Auth, email + password with email confirmation: `/login` (sign in / create account / check-your-email + resend), header Sign in or email + Sign out, Landing Log in / Sign up → `/login`. `lib/supabase.js` + `AuthProvider` (`useAuth()`). Backend `auth.py` verifies access tokens (ES256 via JWKS) for `GET /api/me`. When the `VITE_SUPABASE_*` variables are unset, accounts are off and Landing keeps `AccountsSoonDialog`. **Not yet tested with a real sign-up** (needs the owner's inbox). Accounts don't hold roadmaps yet |
+| Auth / accounts | **Implemented 2026-09-30 (Milestone 1, ADR-018), optional.** Supabase Auth, email + password with email confirmation: `/login` (sign in / create account / check-your-email + resend), header Sign in or email + Sign out, Landing Log in / Sign up → `/login`. `lib/supabase.js` + `AuthProvider` (`useAuth()`). Backend `auth.py` verifies access tokens (ES256 via JWKS) for `GET /api/me`. When the `VITE_SUPABASE_*` variables are unset, accounts are off and Landing keeps `AccountsSoonDialog`. **Verified 2026-10-01 with the owner's real account** (sign-up, confirmation, sign-in, `profiles` row, `/api/me` 200 with a real token; tampered tokens 401). Accounts don't hold roadmaps yet |
 | Database / server persistence | **Partially implemented:** Supabase Postgres with `public.profiles` only (RLS, sign-up trigger; `supabase/migrations/`). Roadmaps/progress stay in localStorage until Milestone 2 (F-8) |
 | `/home` page | **Partially implemented:** hub with quiz CTA, the browser-saved roadmap with real progress + "Open your dashboard" (or an honest "No roadmap yet" state, since 2026-09-29), planned-feature cards; visual polish pass 2026-09-26. Future signed-in dashboard (ADR-010). Linked from the shared app header (Home / Dashboard / Quiz) on `/home` and `/dashboard`; not linked from Landing |
 | Git / GitHub | **Implemented 2026-09-25.** `main` with a root `.gitignore` (excludes `backend/.env`); remote `origin` = https://github.com/YussafZarifi/pathway-ai (**private** — keep it private until the owner decides otherwise). `main` tracks `origin/main` |
-| Deployment readiness | **Implemented 2026-09-27** (ADR-014): no hard-coded URLs (`VITE_API_URL`, `ALLOWED_ORIGINS`; `vite build` fails without `VITE_API_URL`), `.env.example` in `backend/` and `frontend/`, `GET /health`, Pydantic request models, 16 KB body limit, in-memory rate limits (per IP 8/min + 50/day, global 500/day), generic error messages, no answers/prompts/AI output in logs, `render.yaml` Blueprint (validated against Render's schema). **Ready, not deployed** (2026-09-29): waiting for the owner's decisions (ROADMAP → Ready to Deploy, D-1–D-6) |
+| Deployment readiness | **Implemented 2026-09-27** (ADR-014): no hard-coded URLs (`VITE_API_URL`, `ALLOWED_ORIGINS`; `vite build` fails without `VITE_API_URL`), `.env.example` in `backend/` and `frontend/`, `GET /health`, Pydantic request models, 16 KB body limit, in-memory rate limits (per IP 8/min + 50/day, global 500/day), generic error messages, no answers/prompts/AI output in logs, `render.yaml` Blueprint (validated against Render's schema). **Ready, not deployed.** Deployment is **postponed until Version 2 is complete** (owner, 2026-10-01); the launch steps are parked in ROADMAP → *Deployment (postponed)*, D-1–D-6. Every commit must keep the project deployable (§11) |
 | AI output reliability | **Implemented 2026-09-27** (ADR-015): Gemini JSON mode + `response_schema`; `ai_output.py` validates per item (defaults for missing fields, invalid items dropped); `llm.py` retries once (unusable reply, 5xx, timeout, short per-minute 429); 503 quota/busy messages; per-attempt logs with request IDs and no content. **Gemini key is on the free tier: 20 requests/day** for flash-lite (ROADMAP D-6, was N-16) |
 | Quiz (redesigned 2026-09-28) | **Implemented** (ADR-016): 5 owner-approved questions, v2 labelled-profile prompts; API also accepts the old 8-answer format (v1) so saved roadmaps still regenerate. Verified live on `gemini-2.5-flash-lite` (v1 + v2) and by a manual desktop / 360 px / keyboard pass on 2026-09-28 |
 | Tests | **Backend: 100 pytest tests** (`backend/tests`, `requirements-dev.txt`, `python -m pytest -q`, no network; 20 for token verification since 2026-09-30). Frontend: none |
-| CI, Docker, live deployment | **None** (deployment is next: D-1–D-4) |
+| CI, Docker, live deployment | **None** (deployment postponed until Version 2; the Blueprint stays current) |
 | Recruiter review | **Done 2026-09-29** (no code changes): core loop strong; gaps are presentation/trust — no built-by/About, thin Landing, too much "Coming soon", unsorted matches, unlabeled AI estimates, 3/13 broken AI links, video placeholders without the YouTube key. Ranked list: `docs/recruiter-notes.md`; tasks: ROADMAP P-1–P-11 |
 
 ## 3. Architecture (current)
@@ -161,17 +161,20 @@ Output comes from Gemini JSON mode and is validated in `backend/ai_output.py`. R
 
 ## 11. Current priorities — Next Session (exact order)
 
-Done: foundation (git, cleanup, env config, persistence, hardening, validated AI output), 5-question quiz, pre-flight QA, pre-deploy fixes (C-27), full QA, **Supabase Milestone 1** (2026-09-30: accounts + `profiles`, ADR-018 accepted; owner moved it ahead of the deploy).
+**Owner decision (2026-10-01): deployment is postponed until Version 2 is complete.** Version 2 = Milestones 1–4 below. Don't recommend pushing-to-deploy, Render setup or production verification before then unless the owner explicitly asks. Done so far: foundation (git, cleanup, env config, persistence, hardening, validated AI output), 5-question quiz, pre-flight QA, pre-deploy fixes (C-27), full QA, **Milestone 1** (accounts + `profiles`, ADR-018; code 2026-09-30, verified with a real account 2026-10-01).
 
-1. **Owner: real sign-up test** — in Supabase Dashboard → Authentication → URL Configuration set Site URL `http://localhost:5173` and Redirect URL `http://localhost:5173/**`; then on `/login` create an account with your own inbox → confirm → header shows your email → sign out → sign in. Claude then checks the `profiles` row and `GET /api/me` with a real token.
-2. **Push to the private GitHub repo** (ROADMAP D-1) — only after the owner says so; `git check-ignore backend/.env` first; never change visibility.
-3. **Deploy to Render** (D-2 plan choice, D-3 Blueprint) — `docs/deployment.md`; now also `SUPABASE_URL`, `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`, and the live domain in Supabase's URL Configuration.
-4. **Verify production** (D-4) — `/health`, full flow, 404, CORS, logs, sign-up/sign-in, live URL in README, then `og:url`/`og:image` (N-22). Before sharing publicly: Gemini billing (D-6) + `YOUTUBE_API_KEY` (D-5) + custom SMTP (TD-65), ideally P-1–P-6.
-5. **Milestone 2: PostgreSQL roadmaps** (F-8) — roadmap/progress tables with RLS, save for signed-in users, import the browser-saved roadmap on first sign-in; decide which side (browser via RLS or FastAPI) writes them.
-6. **Resume Analyzer** (F-13).
-7. **AI Coach** (F-18).
+1. **Milestone 2: roadmaps in PostgreSQL (F-8).** Plan first (steps M2-x in ROADMAP, owner approval), then build: roadmap/progress tables with RLS + explicit grants as Supabase CLI migrations; save for signed-in users; import the browser-saved roadmap on first sign-in; guests keep localStorage. First decision: does the browser write via RLS, or FastAPI with the user's token? Record it in a new ADR.
+2. **Milestone 3: Resume Analyzer (F-13).** PDF upload → Gemini → structured critique against the user's target career; real output only (no simulated scores).
+3. **Milestone 4: AI Coach (F-18).** Chat with memory and tool calling (read/update the roadmap, find resources).
 
-Between steps, pick from ROADMAP *Post-Launch Improvements*: P-1–P-7 first (presentation & trust), then N-21 and P-8–P-11 (accessibility and polish).
+Version 2 is complete when Milestones 1–4 are done and verified locally. Only then return to the parked deployment steps (ROADMAP D-1–D-6) and the presentation fixes (P-1–P-11). Pick P-/N- items between milestones only when the owner asks.
+
+**Deployable at every commit** (the project stays ready to ship even though shipping is postponed):
+- Backend tests pass (`cd backend && python -m pytest -q`); lint stays at or below its baseline; `npm run build` passes with `VITE_API_URL` set.
+- The guest flow (quiz → results → dashboard, browser storage) works with the Supabase variables **unset** and **set**.
+- Every new environment variable goes into the `.env.example` files, `render.yaml` and `docs/deployment.md` in the same commit; every new backend dependency into `requirements.txt` (pinned).
+- Every schema change is a Supabase CLI migration in `supabase/migrations/`, applied to the project, with security advisors clean.
+- No secrets in the browser or in git (`git check-ignore backend/.env` before broad `git add`).
 
 ## 12. Never change without a reason (and an ADR)
 
@@ -189,7 +192,7 @@ Between steps, pick from ROADMAP *Post-Launch Improvements*: P-1–P-7 first (pr
 
 **Partially implemented:** persistence (one roadmap, this browser only) · `/home` hub (no personal data until accounts exist) · theming (two competing mechanisms).
 
-**Planned (not built):** roadmaps saved to accounts / Postgres persistence (Milestone 2, F-8) · OAuth sign-in providers · account settings (edit name, delete account) · real resume analyzer + skill-gap · AI coach chat with memory/tool-calling · streaming · RAG / grounded resources & salaries · shareable public roadmaps · tests/CI · live deployment (Blueprint ready) · observability · i18n (EN/FR). See `docs/future-features.md`.
+**Planned (not built):** roadmaps saved to accounts / Postgres persistence (Milestone 2, F-8) · OAuth sign-in providers · account settings (edit name, delete account) · real resume analyzer + skill-gap · AI coach chat with memory/tool-calling · streaming · RAG / grounded resources & salaries · shareable public roadmaps · tests/CI · live deployment (Blueprint ready; postponed until Version 2) · observability · i18n (EN/FR). See `docs/future-features.md`.
 
 ## 14. Long-term roadmap (phases)
 
@@ -206,4 +209,4 @@ Between steps, pick from ROADMAP *Post-Launch Improvements*: P-1–P-7 first (pr
 - Keep docs truthful: clearly separate *Implemented / Partially implemented / Planned*. Never describe planned work as existing.
 - Git: small, single-concern commits with conventional prefixes; explain every deleted file in its commit message. Run `git check-ignore backend/.env` before any broad `git add`. Remote: `origin` → private `YussafZarifi/pathway-ai`; push `main` only when the owner asks. Never change the repo's visibility.
 - Commands: frontend `cd frontend && cp .env.example .env.local && npm install && npm run dev` (lint: `npm run lint`, build: `npm run build`, which needs `VITE_API_URL`); backend `cd backend && cp .env.example .env` (set `GEMINI_API_KEY`) `&& pip install -r requirements.txt && uvicorn main:app --reload --port 8000`. Backend tests: `cd backend && pip install -r requirements-dev.txt && python -m pytest -q` (no network, no keys). The owner's running dev backend uses the repo-root `.venv` (pytest is installed in `backend/.venv`; install new requirements in both). Supabase: the MCP server in `.mcp.json` is scoped to project `pczczkmkavmxibxureck`; apply schema changes as migrations and save the same SQL in `supabase/migrations/<version>_<name>.sql`, then run the security advisors.
-- Deployment: Render via `render.yaml`; steps in `docs/deployment.md`. Don't deploy or push without the owner's go-ahead.
+- Deployment: Render via `render.yaml`; steps in `docs/deployment.md`. **Postponed until Version 2 (Milestones 1–4) is complete** — don't recommend or start a deploy before then unless the owner explicitly asks. Keep every commit deployable (§11). Don't deploy or push without the owner's go-ahead.

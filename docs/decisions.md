@@ -22,6 +22,8 @@ ADR-001 to ADR-008 were **reconstructed on 2026-09-24** from the existing code d
 | ADR-014 | Deployment readiness: env-only config, request validation, in-memory rate limits, Render Blueprint | Accepted |
 | ADR-015 | Validated AI output: JSON mode + response schema, per-item validation, one retry, content-free diagnostics | Accepted |
 | ADR-016 | A 5-question quiz, with temporary support for the 8-question answer format | Accepted |
+| ADR-017 | Routing shell: a catch-all 404 route and scroll-to-top on navigation | Accepted |
+| ADR-018 | Supabase for authentication and PostgreSQL | Accepted |
 
 ---
 

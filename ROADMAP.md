@@ -1,6 +1,7 @@
 # ROADMAP.md — Living roadmap
 
-> Sections: ✅ Completed · 🚀 Ready to Deploy · 🌱 Post-Launch Improvements · 🔮 Future Features · 📦 Backlog · 🌟 Stretch. Update at the end of every coding session. Move items between sections, set dates when completed.
+> Sections: ✅ Completed · 🎯 Version 2 (current focus) · 🔐 Milestone 1 · ⏸️ Deployment (postponed) · 🌱 Post-Launch Improvements · 🔮 Future Features · 📦 Backlog · 🌟 Stretch. Update at the end of every coding session. Move items between sections, set dates when completed.
+> **Current focus (owner, 2026-10-01): Version 2 = Milestones 1–4.** Deployment is postponed until Version 2 is complete; every commit must still keep the project deployable (CLAUDE.md §11).
 > **Priority:** P0 = blocker/critical · P1 = high · P2 = medium · P3 = nice-to-have
 > **Effort:** XS < 1h · S 1–2h · M ~half day · L 1–3 days · XL multiple days
 > **Recruiter impact:** ★★★ high · ★★ medium · ★ low
@@ -41,20 +42,33 @@
 | C-13 | Landing header: Log in / Sign up buttons open an accessible "Accounts are coming soon" dialog (native `<dialog>`: focus trap, Esc, focus return); no auth built (F-7 still planned) | 2026-09-26 |
 | C-12 | (was N-2) Pushed full history to the **private** GitHub repo `YussafZarifi/pathway-ai`; `main` tracks `origin/main` (placeholder README commits from repo creation replaced with `--force-with-lease`) | 2026-09-25 |
 
-## 🚀 Ready to Deploy
+## 🎯 Version 2 — current focus (owner decision, 2026-10-01)
 
-**Status (2026-09-29): code-complete for an initial release.** The pre-flight, the 5 must-fix launch issues (C-27) and a full QA pass are done. Render config (`render.yaml`) is complete. Nothing is deployed and nothing is pushed. Remaining steps, in order:
+Version 2 = Milestones 1–4, built and verified locally **before** any deployment. Order is fixed:
+
+| Milestone | Scope | Status |
+|---|---|---|
+| **M1** Accounts + profiles (F-7, ADR-018) | Supabase email + password, `profiles` with RLS, token check in FastAPI | ✅ Complete 2026-10-01 (verified with a real account, M1-8) |
+| **M2** Roadmaps in PostgreSQL (F-8) | Roadmap + progress tables (RLS, explicit grants, CLI migrations); save for signed-in users; import the browser-saved roadmap on first sign-in; guests keep localStorage. First decision (new ADR): browser writes via RLS, or FastAPI writes with the user's token | **Next** — plan (M2-x steps) with the owner, then build |
+| **M3** Resume Analyzer (F-13) | PDF upload → Gemini → structured critique against the target career; real output only | After M2 |
+| **M4** AI Coach (F-18) | Chat with memory and tool calling (read/update the roadmap, find resources) | After M3 |
+
+Rules for every Version 2 commit (keep it deployable): backend tests pass; lint at or below baseline; `npm run build` passes; guest flow works with Supabase variables unset and set; new env vars land in `.env.example`, `render.yaml` and `docs/deployment.md` in the same commit; schema changes are migrations in `supabase/migrations/` with advisors clean. Each milestone gets its own step table (like Milestone 1 below) written and approved before coding starts.
+
+## ⏸️ Deployment — postponed until Version 2 is complete
+
+**Status (2026-10-01):** the code has been deployable since 2026-09-29 and `render.yaml` stays current, but the owner has postponed the deploy until Version 2 (M1–M4) is finished. Don't recommend these steps before then unless the owner asks. Parked steps, in order, for when Version 2 is done:
 
 | ID | Step | Who | Priority | Notes |
 |---|---|---|---|---|
-| D-1 | Push `main` to the **private** GitHub repo (46+ unpushed commits) | Owner approves | P0 | Render builds from GitHub. Run `git check-ignore backend/.env` first; never change repo visibility |
+| D-1 | Push `main` to the **private** GitHub repo (54 unpushed commits on 2026-10-01) | Owner approves | P0 | Render builds from GitHub. Run `git check-ignore backend/.env` first; never change repo visibility |
 | D-2 | Choose the Render plan for `pathwayai-api` | Owner | P0 | Free sleeps (first request ~1 min); Starter is always on |
-| D-3 | Deploy with the Blueprint (was F-1) | Claude, after D-1/D-2 | P0 | Steps in `docs/deployment.md`; set `GEMINI_API_KEY`, `ALLOWED_ORIGINS`, `VITE_API_URL` (+ `YOUTUBE_API_KEY` if D-5 is done) |
+| D-3 | Deploy with the Blueprint (was F-1) | Claude, after D-1/D-2 | P0 | Steps in `docs/deployment.md`; set `GEMINI_API_KEY`, `ALLOWED_ORIGINS`, `VITE_API_URL`, the Supabase variables and any added by Milestones 2–4 (+ `YOUTUBE_API_KEY` if D-5 is done); add the live domain to Supabase's URL Configuration |
 | D-4 | Verify production | Claude | P0 | `/health`, full flow Landing → Quiz → Results → Dashboard → Regenerate, 404 page, CORS, logs with request IDs, no console errors; add the live URL to README; then N-22 (`og:url` + `og:image`) |
 | D-5 | `YOUTUBE_API_KEY` | Owner | P1, **before public launch** | Without it every step shows a "No video found yet" placeholder |
 | D-6 | Gemini billing + budget alert; set `GLOBAL_AI_LIMIT_PER_DAY` to match (was N-16) | Owner | P0, **before sharing publicly** | Free tier = 20 requests/day ≈ 7–10 quiz runs; after that visitors see "usage limit" |
 
-"Sharing publicly" (sending the URL to recruiters) should wait for D-5, D-6 and ideally P-1–P-6 below.
+"Sharing publicly" (sending the URL to recruiters) should wait for D-5, D-6, custom SMTP (TD-65) and ideally P-1–P-6 below.
 
 ## 🌱 Post-Launch Improvements
 
@@ -85,7 +99,7 @@
 | N-19 | Remove v1 (8-question) answer support once no saved roadmap needs it (ADR-016) | P3 | XS |
 | — | SDK AFC warning noise in logs (TD-58) | P3 | XS |
 
-## 🔐 Milestone 1 — Supabase Auth + profiles (F-7) — code complete 2026-09-30, waiting on the owner's sign-up test (M1-8)
+## 🔐 Milestone 1 — Supabase Auth + profiles (F-7) — ✅ complete 2026-10-01 (code 2026-09-30, verified with a real account 2026-10-01)
 
 Owner-approved (ADR-018). Built before the deploy. Rules: one small commit per step; the guest flow keeps working at every commit (with or without Supabase env vars); backend tests, lint baseline and the build pass after each commit; docs updated after each step.
 
@@ -98,21 +112,21 @@ Owner-approved (ADR-018). Built before the deploy. Rules: one small commit per s
 | M1-5 | Header account state + sign-out; Landing Log in / Sign up go to `/login` (the "coming soon" dialog stays only when auth is off) | ✅ 2026-09-30 |
 | M1-6 | Backend: verify Supabase access tokens (ES256 via JWKS, PyJWT) + `GET /api/me`; AI routes stay open to guests; 20 tests (100 total); live JWKS check | ✅ 2026-09-30 |
 | M1-7 | Config + docs: `.env.example`, `render.yaml`, `docs/deployment.md` (Supabase Site URL / redirect URLs), architecture, README, session handoff | ✅ 2026-09-30 |
-| M1-8 | **Owner:** set Site URL / Redirect URLs in Supabase, then a real sign-up with your own inbox (confirm → signed in → sign out → sign in); Claude then checks the `profiles` row and `/api/me` with a real token | ⏳ owner |
+| M1-8 | **Owner:** set Site URL / Redirect URLs in Supabase, then a real sign-up with your own inbox (confirm → signed in → sign out → sign in); Claude then checks the `profiles` row and `/api/me` with a real token | ✅ 2026-10-01: real sign-up, confirmation and sign-in by the owner; `GET /api/me` with the owner's real ES256 token → 200 with matching id + email; the same token tampered (signature, `sub`, `exp`, `aud`, `alg: none`) → 401 |
 
-Milestone 2 (F-8): roadmap tables + RLS, save roadmaps for signed-in users, import the browser-saved roadmap on first sign-in.
+Next: Milestone 2 (F-8) — see 🎯 Version 2 above.
 
 ## 🔮 Future Features
 
-In the recommended order (see "Next Session" in `SESSION.md`):
+F-8, F-13 and F-18 are Version 2 Milestones 2–4 (see 🎯 Version 2); the rest follow Version 2 unless the owner reorders them:
 
 | ID | Task | Priority | Effort | Impact |
 |---|---|---|---|---|
 | F-7 | **Supabase Authentication** (ADR-018) — code complete as Milestone 1 (C-29); OAuth providers and account settings (edit name, delete account) remain | P1 | M | ★★★ |
-| F-8 | **PostgreSQL** (Supabase Postgres): users, quiz_sessions, roadmaps, roadmap_steps, progress_events + migrations; migrate the browser-saved roadmap on first sign-in (`docs/database.md`) | P1 | L | ★★★ |
-| F-13 | **Resume Analyzer**: PDF upload → Gemini multimodal → structured critique vs target career | P1 | L | ★★★ |
-| F-18 | **AI Coach**: chat with memory and tool calling (read/update roadmap, find resources); was S-1 | P1 | XL | ★★★ |
-| F-2 | Tests: Vitest (`api.js`, `roadmapStore.js`, `dashboardData.js`, tracking engine, Quiz). Backend pytest has 80 tests | P1 | L | ★★★ |
+| F-8 | **Milestone 2 — PostgreSQL** (Supabase Postgres): users, quiz_sessions, roadmaps, roadmap_steps, progress_events + migrations; migrate the browser-saved roadmap on first sign-in (`docs/database.md`) | P1 | L | ★★★ |
+| F-13 | **Milestone 3 — Resume Analyzer**: PDF upload → Gemini multimodal → structured critique vs target career | P1 | L | ★★★ |
+| F-18 | **Milestone 4 — AI Coach**: chat with memory and tool calling (read/update roadmap, find resources); was S-1 | P1 | XL | ★★★ |
+| F-2 | Tests: Vitest (`api.js`, `roadmapStore.js`, `dashboardData.js`, tracking engine, Quiz). Backend pytest has 100 tests | P1 | L | ★★★ |
 | F-3 | Playwright E2E: quiz → results → dashboard with mocked API | P1 | M | ★★★ |
 | F-4 | GitHub Actions CI: lint, test, build (+ E2E) | P1 | S | ★★★ |
 | F-17 | Make the GitHub repo public (owner decision) | P1 | XS | ★★★ |

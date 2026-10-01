@@ -1,12 +1,20 @@
 # Deployment
 
 ## Current state
-**Deployment-ready for Render, not deployed, not pushed** (as of 2026-09-30). Supabase accounts (Milestone 1, ADR-018) were added before the deploy; they're optional per environment (see "Supabase" below). Pre-flight QA, the pre-deploy fix batch (C-27) and a full regression QA are done. Waiting only for the owner's decisions: Gemini billing, the Render plan, the push to the private GitHub repo, and the optional `YOUTUBE_API_KEY`.
+**Deployment-ready for Render, not deployed, not pushed — deployment is postponed until Version 2 is complete** (owner decision, 2026-10-01). Version 2 = Milestones 1–4: accounts (done in code), roadmaps in PostgreSQL, Resume Analyzer, AI Coach (ROADMAP → 🎯 Version 2). Until then, don't recommend or start a deploy unless the owner explicitly asks. Supabase accounts (Milestone 1, ADR-018) are optional per environment (see "Supabase" below).
 
-### Launch sequence (ROADMAP → Ready to Deploy)
-1. **D-1** Push `main` to the private repo (check `git check-ignore backend/.env` first).
+### Keeping it deployable (every commit until Version 2 ships)
+The deploy waits, but the project must stay shippable at every commit:
+- Backend tests pass (`cd backend && python -m pytest -q`); `npm run lint` at or below its baseline; `npm run build` passes with `VITE_API_URL` set.
+- The guest flow works with the Supabase variables unset (guest-only build) and set.
+- Every new environment variable is added in the same commit to the `.env.example` files, `render.yaml` (`sync: false` for secrets) and the table below. Every new backend dependency is pinned in `requirements.txt`.
+- Every schema change is a Supabase CLI migration in `supabase/migrations/`, applied to the project, security advisors clean.
+- Nothing here assumes a single long-lived process beyond what's documented (in-memory rate limits, YouTube cache); new features that need shared state or background work say so in their ADR, with the Render piece they'd need.
+
+### Launch sequence (parked until Version 2 — ROADMAP → ⏸️ Deployment)
+1. **D-1** Push `main` to the private repo (54 commits ahead on 2026-10-01) (check `git check-ignore backend/.env` first).
 2. **D-2** Choose the Render plan for `pathwayai-api` (free sleeps; Starter is always on).
-3. **D-3** Apply the Blueprint (steps below).
+3. **D-3** Apply the Blueprint (steps below), including any variables Milestones 2–4 add.
 4. **D-4** Verify production: `/health`, the full flow Landing → Quiz → Results → Dashboard → Regenerate, the 404 page, CORS, request-ID logs, no console errors; add the live URL to the README; then `og:url` / `og:image` (N-22).
 5. Before **sharing the URL publicly**: Gemini billing + budget alert (D-6) and `YOUTUBE_API_KEY` (D-5, otherwise every step shows a "No video found yet" placeholder); ideally also the presentation fixes P-1–P-6 (built-by footer, About, How it works, sorted matches, AI-estimate labels, fewer "Coming soon").
 
@@ -18,7 +26,7 @@ Done (ADR-014):
 - `render.yaml` Blueprint, validated against Render's JSON schema.
 
 Still missing before a public launch (not blockers for a first deploy):
-- No frontend tests and no CI (F-2–F-4; the backend has 80 pytest tests run locally); no error tracking (F-11).
+- No frontend tests and no CI (F-2–F-4; the backend has 100 pytest tests run locally); no error tracking (F-11).
 - **Gemini free-tier quota: 20 requests per day** for `gemini-2.5-flash-lite` (measured 2026-09-27). That's about 7–10 quiz runs a day in total (a run uses 2–3 requests, plus any retry); after that, users see "PathwayAI has reached its AI usage limit for now" until the daily reset. Before sharing the URL widely, enable billing on the Google AI Studio / Cloud project (paid tier) and set `GLOBAL_AI_LIMIT_PER_DAY` to the spend you accept. (AI output is validated and retried since ADR-015.)
 - No Gemini budget alert. The global daily cap (`GLOBAL_AI_LIMIT_PER_DAY`) is the only spend guard.
 
@@ -66,7 +74,7 @@ Both have `buildFilter` paths, so a frontend-only change doesn't redeploy the AP
 - Password rules: the app asks for ≥ 8 characters; you can enforce the same minimum under Authentication → Providers → Email.
 - Verify after deploying: sign up with a real inbox → the link lands on `/home` signed in → header shows the email → `GET /api/me` with the session token returns 200 → sign out.
 
-### First deploy (when approved)
+### First deploy (after Version 2, when the owner approves)
 1. Push `main` to GitHub (the Blueprint is read from the repo).
 2. Render Dashboard → **New → Blueprint** → pick `YussafZarifi/pathway-ai` (grant Render access to the private repo).
 3. Enter the `sync: false` values. The URLs aren't known before the first deploy, so either:
