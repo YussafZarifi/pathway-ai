@@ -1,6 +1,6 @@
 # ROADMAP.md — Living roadmap
 
-> Sections: ✅ Completed · 🎯 Version 2 (current focus) · 🔐 Milestone 1 · ⏸️ Deployment (postponed) · 🌱 Post-Launch Improvements · 🔮 Future Features · 📦 Backlog · 🌟 Stretch. Update at the end of every coding session. Move items between sections, set dates when completed.
+> Sections: ✅ Completed · 🎯 Version 2 (current focus) · 🔐 Milestone 1 · 🗄️ Milestone 2 · ⏸️ Deployment (postponed) · 🌱 Post-Launch Improvements · 🔮 Future Features · 📦 Backlog · 🌟 Stretch. Update at the end of every coding session. Move items between sections, set dates when completed.
 > **Current focus (owner, 2026-10-01): Version 2 = Milestones 1–4.** Deployment is postponed until Version 2 is complete; every commit must still keep the project deployable (CLAUDE.md §11).
 > **Priority:** P0 = blocker/critical · P1 = high · P2 = medium · P3 = nice-to-have
 > **Effort:** XS < 1h · S 1–2h · M ~half day · L 1–3 days · XL multiple days
@@ -49,7 +49,7 @@ Version 2 = Milestones 1–4, built and verified locally **before** any deployme
 | Milestone | Scope | Status |
 |---|---|---|
 | **M1** Accounts + profiles (F-7, ADR-018) | Supabase email + password, `profiles` with RLS, token check in FastAPI | ✅ Complete 2026-10-01 (verified with a real account, M1-8) |
-| **M2** Roadmaps in PostgreSQL (F-8) | Roadmap + progress tables (RLS, explicit grants, CLI migrations); save for signed-in users; import the browser-saved roadmap on first sign-in; guests keep localStorage. First decision (new ADR): browser writes via RLS, or FastAPI writes with the user's token | **Next** — plan (M2-x steps) with the owner, then build |
+| **M2** Roadmaps in PostgreSQL (F-8, ADR-019) | FastAPI writes AI content (`quiz_submissions`, `roadmaps`, `roadmap_steps`) as the `pathwayai_api` role; the browser reads its own rows and writes `step_progress` through RLS; guest import with a confirmation banner; guests keep localStorage | **In progress** — design accepted (M2-1, 2026-10-02); next M2-2. Steps: 🗄️ Milestone 2 below |
 | **M3** Resume Analyzer (F-13) | PDF upload → Gemini → structured critique against the target career; real output only | After M2 |
 | **M4** AI Coach (F-18) | Chat with memory and tool calling (read/update the roadmap, find resources) | After M3 |
 
@@ -114,7 +114,27 @@ Owner-approved (ADR-018). Built before the deploy. Rules: one small commit per s
 | M1-7 | Config + docs: `.env.example`, `render.yaml`, `docs/deployment.md` (Supabase Site URL / redirect URLs), architecture, README, session handoff | ✅ 2026-09-30 |
 | M1-8 | **Owner:** set Site URL / Redirect URLs in Supabase, then a real sign-up with your own inbox (confirm → signed in → sign out → sign in); Claude then checks the `profiles` row and `/api/me` with a real token | ✅ 2026-10-01: real sign-up, confirmation and sign-in by the owner; `GET /api/me` with the owner's real ES256 token → 200 with matching id + email; the same token tampered (signature, `sub`, `exp`, `aud`, `alg: none`) → 401 |
 
-Next: Milestone 2 (F-8) — see 🎯 Version 2 above.
+## 🗄️ Milestone 2 — Roadmaps in PostgreSQL (F-8) — in progress (design accepted 2026-10-02)
+
+Owner-approved design: ADR-019. Rules: one small commit per step; after every commit backend tests pass, lint stays at or below its baseline, `npm run build` passes, and the guest flow works with the Supabase variables unset **and** set; new env vars go into the `.env.example` files, `render.yaml` and `docs/deployment.md` in the same commit; every schema change is a migration in `supabase/migrations/`, applied to the project, with the security and performance advisors clean. `docs/database.md` and `docs/api.md` are updated in the step that builds what they describe, not before.
+
+| # | Step | Acceptance criteria | Status |
+|---|---|---|---|
+| M2-1 | ADR-019 (accepted design) + this table | Owner reviews and approves; docs only, no code, no migrations | ✅ 2026-10-02 (awaiting owner review) |
+| M2-2 | Migration: `quiz_submissions`, `roadmaps`, `roadmap_steps`, role `pathwayai_api` (no password yet), one shared RLS policy per operation, explicit grants | Applied and saved in `supabase/migrations/`; advisors clean. Rolled-back checks saved in `supabase/tests/`: user A sees none of B's rows; `authenticated` can't insert/update `roadmaps` or `roadmap_steps` and can't read `quiz_submissions` at all; `anon` gets nothing; `pathwayai_api` with A's claims can't read or write B's rows; a second `active` roadmap for the same user is rejected; a step can't reference another user's roadmap; `pathwayai_api` can call `auth.uid()` with only `usage` on `auth` + `execute` | Next |
+| M2-3 | Migration: `step_progress` | A can mark and unmark own steps; can't add progress for B's step even with B's or own `user_id` (composite foreign key); deleting a roadmap removes its steps and progress; advisors clean | |
+| M2-4 | **Owner:** set the `pathwayai_api` password in the Supabase dashboard; put `DATABASE_URL` (transaction pooler) in `backend/.env` | Claude confirms a connection as `pathwayai_api` and that RLS applies (no rows without claims, own rows with them) | |
+| M2-5 | Backend foundation: `db.py` (lazy pool, `transaction(user)` setting `request.jwt.claims`), `repositories/roadmaps.py` (Protocol + Postgres + in-memory fake), `DATABASE_URL` in config, pinned `psycopg` + `psycopg_pool` in `requirements.txt`, `.env.example`, `render.yaml`, `docs/deployment.md` | App starts and `/health` is ok without `DATABASE_URL`; repository tests with the fake; one live read-only smoke check; no network in tests | |
+| M2-6 | `POST /api/roadmaps` + `POST /api/roadmaps/{id}/regenerate` (`routers/roadmaps.py`; generation shared with the guest endpoint, DB transaction only after generation) | 401 without a token; 503 when not configured; 201 with step ids; the previous active roadmap is archived in the same transaction; another user's id → 404; rate limited; generation ok + save failure → 503; guest `/api/ai/roadmap` tests unchanged; `docs/api.md` updated | |
+| M2-7 | `POST /api/roadmaps/import` | Same `local_id` → 200 with the same id; invalid or oversized steps → 422; completions saved; `generated_at` clamped; older import stored as archived; 64 KB limit on this endpoint only; tests | |
+| M2-8 | Frontend refactor: token support in `api.js` + `lib/roadmaps/` (record shape, `localRepository`, `useRoadmaps()`), local mode only | No visible change for guests (manual run); lint and build pass | |
+| M2-9 | Frontend account mode: `accountRepository`; signed-in Results, Dashboard and Home read and write through it; activity, streak and achievements derived from `step_progress`, `roadmaps` and `quiz_submissions` | Generate while signed in → rows in the database → same roadmap and progress in a second browser; mark/undo persists; regenerate archives; loading and error states; build with accounts off behaves exactly as today; `docs/database.md` updated | |
+| M2-10 | Frontend guest import: confirmation banner | Accepting imports the local roadmap and its progress once; local copy cleared; retries and two tabs give no duplicate; a failure keeps the local copy and offers a retry; declining keeps the local copy; a second account on the same browser after a successful import sees no banner | |
+| M2-11 | QA + docs: guest flow (accounts off and on), signed-in end to end at desktop, 360 px and keyboard; update CLAUDE, ROADMAP, SESSION, decisions and the other docs; **owner** cross-device check | All earlier criteria re-checked; docs accurate | |
+
+Deferred from Milestone 2 (ADR-019): a browser-written activity events table; a roadmap list/switch UI (the schema already supports it); step editing (M4).
+
+Next after Milestone 2: Milestone 3 (F-13) — see 🎯 Version 2 above.
 
 ## 🔮 Future Features
 
@@ -123,7 +143,7 @@ F-8, F-13 and F-18 are Version 2 Milestones 2–4 (see 🎯 Version 2); the rest
 | ID | Task | Priority | Effort | Impact |
 |---|---|---|---|---|
 | F-7 | **Supabase Authentication** (ADR-018) — code complete as Milestone 1 (C-29); OAuth providers and account settings (edit name, delete account) remain | P1 | M | ★★★ |
-| F-8 | **Milestone 2 — PostgreSQL** (Supabase Postgres): users, quiz_sessions, roadmaps, roadmap_steps, progress_events + migrations; migrate the browser-saved roadmap on first sign-in (`docs/database.md`) | P1 | L | ★★★ |
+| F-8 | **Milestone 2 — PostgreSQL** (Supabase Postgres, ADR-019): `quiz_submissions`, `roadmaps`, `roadmap_steps`, `step_progress` + migrations; import the browser-saved roadmap after sign-in (confirmation banner). Steps: 🗄️ Milestone 2 | P1 | L | ★★★ |
 | F-13 | **Milestone 3 — Resume Analyzer**: PDF upload → Gemini multimodal → structured critique vs target career | P1 | L | ★★★ |
 | F-18 | **Milestone 4 — AI Coach**: chat with memory and tool calling (read/update roadmap, find resources); was S-1 | P1 | XL | ★★★ |
 | F-2 | Tests: Vitest (`api.js`, `roadmapStore.js`, `dashboardData.js`, tracking engine, Quiz). Backend pytest has 100 tests | P1 | L | ★★★ |

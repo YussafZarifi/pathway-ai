@@ -4,28 +4,25 @@
 
 ---
 
-## Current session — 2026-10-01 · Planning: deployment postponed, Version 2 priorities
+## Current session — 2026-10-02 · Milestone 2 design accepted (M2-1)
 
 ### Summary
-- Start-of-session review (docs only, no code changes). Baseline confirmed: 100/100 backend tests, lint at its 12-error baseline. No commits since `727038f`; `main` is 54 commits ahead of `origin/main`. Supabase still has 0 users / 0 profiles, at the start of the session.
-- **Owner decision: deployment is postponed until Version 2 is complete.** Version 2 = Milestones 1–4: M1 accounts (code complete) → **M2 roadmaps in PostgreSQL (F-8)** → **M3 Resume Analyzer (F-13)** → **M4 AI Coach (F-18)**. The project must stay deployable after every commit, but Claude must **not recommend deploying** (push-to-deploy, Render, production verification) until Version 2 is finished unless the owner explicitly asks.
-- Docs updated to match: `CLAUDE.md` (state at a glance, §2, §11 rewritten with a "Deployable at every commit" checklist, §15), `ROADMAP.md` (new 🎯 Version 2 section; "Ready to Deploy" became ⏸️ Deployment — postponed, D-1–D-6 parked), `docs/deployment.md` (postponed status + "Keeping it deployable" rules), `docs/decisions.md` (index table now lists ADR-017 and ADR-018). Stale counts fixed where touched (54 unpushed commits, 100 tests).
-
-- **Milestone 1 verified (M1-8), so Milestone 1 is complete.** The owner signed up, confirmed by email, signed in; 1 confirmed user with a `profiles` row. In the owner's signed-in browser session (token never left the page): access token is ES256 (kid `5ec8d865…`, matching the project JWKS), `iss` = the project's `/auth/v1`, `aud` = `authenticated`, role `authenticated`, not anonymous. `GET /api/me` with it → **200**, `{id, email}` matching the session user. The same token with a changed signature, a different `sub`, an old `exp`, `aud: anon`, or `alg: none` → **401** each; no header, a malformed token and `Basic` auth → 401. 100/100 backend tests.
+- The 2026-10-01 Milestone 2 draft (it existed only in that conversation) was recovered from the session transcript and reviewed critically. Six changes were adopted by the owner: one shared `auth.uid()` policy per operation for browser and API (FastAPI sets `request.jwt.claims` per transaction) instead of a custom `app.user_id` setting; quiz answers in a server-only `quiz_submissions` table instead of a hidden column; a partial unique index for at most one active roadmap per user; no `roadmap_id` copy on `step_progress`; no browser-written `activity_events` (activity derived from real rows); guest import behind a confirmation banner, no client marker.
+- Owner decisions: dedicated `pathwayai_api` role (not the service-role key); FastAPI writes all AI content; browser + RLS only for user-owned state and reads; newest roadmap is active; clear the browser copy after a successful import; honest 503 if generation succeeds but saving fails; activity events deferred.
+- **M2-1 done:** ADR-019 (accepted, not yet implemented) in `docs/decisions.md`; ROADMAP *🗄️ Milestone 2* with steps M2-1 → M2-11 and acceptance criteria; F-8 and the Version 2 table updated; CLAUDE.md updated. Docs only, no code or migrations.
 
 ### Next Session (exact order)
-1. **Milestone 2 planning (F-8):** decide who writes the roadmap tables (browser via RLS vs FastAPI with the user's token) → new ADR; schema for roadmaps, steps and progress; import of the browser-saved roadmap on first sign-in; write the M2-x step table in ROADMAP; owner approves before code.
-2. **Milestone 2 build**, one small deployable commit per step.
-3. Milestone 3 (Resume Analyzer) → Milestone 4 (AI Coach), each planned and approved the same way.
+1. **M2-2:** migration for `quiz_submissions`, `roadmaps`, `roadmap_steps`, role `pathwayai_api` (no password), shared RLS policies, grants; rolled-back RLS checks in `supabase/tests/`; advisors clean.
+2. M2-3 (`step_progress`) → M2-4 (owner sets the role password + `DATABASE_URL`) → M2-5 … M2-11 per ROADMAP.
 
 ### Open questions (for the owner)
-1. Milestone 2: should the browser write roadmaps directly through RLS, or should FastAPI write them with the user's token? (Claude will lay out the trade-offs at planning time.)
-2. Gemini's free tier (20 requests/day) will limit local testing of Milestones 3–4; enable billing during development, or keep testing within the quota?
-3. Upgrade the vulnerable npm packages (TD-64) as a separate commit during Version 2?
+1. Gemini's free tier (20 requests/day) will limit live checks in M2-9 to M2-11 and Milestones 3–4: enable billing during development, or stay within the quota?
+2. Upgrade the vulnerable npm packages (TD-64) as a separate commit during Version 2?
 
 ---
 
 ## History
+- 2026-10-01 — Planning: deployment postponed until Version 2 (M1–M4) is complete; Milestone 1 verified with the owner's real account (M1-8); first Milestone 2 draft written (conversation only).
 - 2026-09-30 — Supabase Milestone 1 in 7 commits (ADR-018 accepted): `profiles` table (RLS, sign-up trigger), `lib/supabase.js` + `AuthProvider`, `/login`, header sign-in/out, FastAPI token verification + `GET /api/me`, 20 new tests (100). Optional per environment; guest flow unchanged. Real sign-up test pending (owner's inbox).
 - 2026-09-29 — Pre-deploy fix batch (C-27, ADR-017: compare independence, scroll reset, honest copy, 404, metadata), full QA pass, recruiter-style review (P-1–P-11), ADR-018 proposed, ROADMAP restructured for deploy.
 - 2026-09-28 (evening) — Pre-flight: docs synced with the code; live `gemini-2.5-flash-lite` check (7/7 ok, v1 + v2); manual desktop / 360 px / keyboard QA; readiness report; findings TD-50–TD-58 → N-20 (fixed 2026-09-29) and N-21.

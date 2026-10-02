@@ -24,6 +24,7 @@ ADR-001 to ADR-008 were **reconstructed on 2026-09-24** from the existing code d
 | ADR-016 | A 5-question quiz, with temporary support for the 8-question answer format | Accepted |
 | ADR-017 | Routing shell: a catch-all 404 route and scroll-to-top on navigation | Accepted |
 | ADR-018 | Supabase for authentication and PostgreSQL | Accepted |
+| ADR-019 | Roadmaps in PostgreSQL: FastAPI writes AI content, the browser writes user state through RLS | Accepted (not yet implemented) |
 
 ---
 
@@ -189,6 +190,58 @@ ADR-001 to ADR-008 were **reconstructed on 2026-09-24** from the existing code d
   - **Writes:** in Milestone 1 the browser reads/updates its own `profiles` row through RLS; the row is created by a trigger on sign-up. Which side writes the F-8 tables is decided in Milestone 2.
   - **Plan:** Supabase free plan for now.
 - **Status:** Accepted (2026-09-30).
+
+## ADR-019 — Roadmaps in PostgreSQL: FastAPI writes AI content, the browser writes user state through RLS
+- **Date:** 2026-10-02
+- **Context:** Milestone 2 (F-8) moves roadmaps and progress for signed-in users from localStorage into Supabase Postgres (ADR-018), and must leave the guest flow exactly as it is. Milestones 3 (Resume Analyzer) and 4 (AI Coach) will add more AI-generated, per-user data, so the rule chosen here becomes the pattern for them. A first design (2026-10-01) was reviewed on 2026-10-02; six changes from that review are part of this decision (listed under *Alternatives considered*).
+- **Decision:**
+  - **General rule (also for M3/M4):** content the AI generates is written **only by FastAPI**; state the user owns (progress, later preferences) is written **by the browser** through supabase-js and row-level security (RLS). The browser reads its own rows directly; there are no GET endpoints for this data.
+  - **How FastAPI reaches Postgres:** a dedicated database role, `pathwayai_api` (`login noinherit nobypassrls`, not a member of `authenticated`, least-privilege grants), through Supabase's connection pooler (transaction mode, IPv4) with a server-only `DATABASE_URL`. Driver: synchronous `psycopg` 3 + `psycopg_pool` (the endpoints are sync), small pool (max 5), prepared statements off for the pooler, pool created on first use. The role is created without a password in a migration; the owner sets the password in the Supabase dashboard, so it never appears in git or chat. When `DATABASE_URL` is unset the app starts normally, guests work, and `/api/roadmaps*` return 503.
+  - **One ownership rule for both writers:** in each transaction FastAPI runs `set_config('request.jwt.claims', <claims from the token it already verified>, true)`, so `auth.uid()` returns the user's id for `pathwayai_api` as it does for the browser. Every table therefore has **one policy per operation**, `to authenticated, pathwayai_api using/with check (user_id = (select auth.uid()))`. *What* each side may do is decided by **grants** (e.g. the browser may only `select` roadmaps; the API role may also `insert`). RLS is a second layer under the repository's own `user_id` filters, so a query bug cannot reach another user's rows. To verify in M2-2: `pathwayai_api` can call `auth.uid()` with only `usage` on schema `auth` and `execute` on the function.
+  - **Short transactions:** Gemini and YouTube calls (up to ~60 s) happen **before** the transaction; the transaction contains only the inserts/updates, so a slow generation never holds a pooled connection.
+  - **Schema** (all in `public`; every table: `user_id uuid not null references auth.users on delete cascade`, RLS on, migration starts with `revoke all … from anon, authenticated` because Supabase grants new tables to them by default, then explicit grants; `private.set_updated_at` where a table has `updated_at`):
+    - `quiz_submissions (id uuid pk, user_id, answers jsonb ≤ 4 KB, answers_version smallint 1|2, created_at)` — **server only**: no browser grant at all. Holds the quiz answers needed for regenerate and, in M4, the Coach's context on the user's goals. One submission can lead to several roadmaps (another career, regenerate).
+    - `roadmaps (id uuid pk, user_id, quiz_submission_id, career text 1–100, career_data jsonb ≤ 4 KB, prompt_version text, source 'generated'|'imported', status 'active'|'archived', local_id text null, created_at, updated_at)`; `unique (id, user_id)` for composite foreign keys; `unique (user_id, local_id)` for idempotent imports; **partial unique index `(user_id) where status = 'active'`**, so the database guarantees at most one current roadmap per user; index `(user_id, created_at desc)`. Several roadmaps per user (archived history) are allowed from day one; a list/switch UI later needs no schema change. `quiz_submission_id` is a composite foreign key `(quiz_submission_id, user_id)` → `quiz_submissions (id, user_id)`, null for imports without answers.
+    - `roadmap_steps (id uuid pk, roadmap_id, user_id, position smallint 0–9, title, description, time_estimate, video_query, video_search_url (text with length limits), tasks/resources/videos jsonb arrays with size limits, created_at)`; composite foreign key `(roadmap_id, user_id)` → `roadmaps (id, user_id)` on delete cascade; `unique (id, user_id)`; `unique (roadmap_id, position) deferrable initially immediate`, so M4's Coach can reorder or insert steps inside one transaction without a schema rewrite. Steps are not edited in M2. Each step has a stable id for progress and for M4's tools.
+    - `step_progress (step_id uuid pk, user_id, completed_at timestamptz)`; composite foreign key `(step_id, user_id)` → `roadmap_steps (id, user_id)` on delete cascade, so progress can only point at the user's own steps; index on `user_id`. A row means "done"; undo deletes the row. No `roadmap_id` copy (it could disagree with the step's roadmap); the browser reads progress nested under steps.
+  - **Grants (enforced by one shared policy per operation):**
+
+    | Table | `authenticated` (browser) | `pathwayai_api` (FastAPI) | `anon` |
+    |---|---|---|---|
+    | `quiz_submissions` | none | select, insert | none |
+    | `roadmaps` | select | select, insert, update (`status`) | none |
+    | `roadmap_steps` | select | select, insert | none |
+    | `step_progress` | select, insert, delete | select, insert (imports) | none |
+    | `profiles` | unchanged (ADR-018) | none | none |
+  - **Endpoints** (all require a verified Supabase token; `POST /api/ai/roadmap` stays unchanged for guests):
+
+    | Endpoint | Body | Result |
+    |---|---|---|
+    | `POST /api/roadmaps` | `{answers, career, career_data?}` | 201 + `{id, career, career_data, created_at, roadmap: [steps with id]}`; saves the submission, the roadmap and its steps; archives the previous active roadmap in the same transaction. AI rate limit |
+    | `POST /api/roadmaps/{id}/regenerate` | none (stored answers + career) | 201 + a new roadmap from the same submission; the old one is archived. AI rate limit |
+    | `POST /api/roadmaps/import` | `{local_id, career, career_data?, answers?, generated_at, steps[≤5], completed: [{position, completed_at}]}` | 201 if new; 200 + the existing roadmap if this `local_id` was already imported. Light rate limit; 64 KB body limit on this endpoint only |
+
+    Errors: 401 bad or missing token; 404 for a roadmap that doesn't exist **or** isn't the caller's (the same answer, so ids can't be probed); 422 invalid body; 503 when accounts or the database aren't configured or the database is down. **If generation succeeds but saving fails, the answer is an honest 503** and the roadmap isn't returned (one wasted Gemini request, accepted for simplicity).
+  - **Untrusted client data:** imported steps go through the same Pydantic models as AI output (`ai_output.RoadmapStep`, same limits, http(s) URLs only); `career_data` is validated with `ai_output.Career`; `source = 'imported'` records where content came from; `generated_at` is clamped to [now − 1 year, now] and becomes the import's `created_at`. Client-supplied content is only visible to its owner in M2; any future public sharing must re-check it.
+  - **Current roadmap:** the newest one is active. Regenerate and new generations archive the previous active roadmap. An import becomes active only if its `created_at` is newer than the account's active roadmap; otherwise it is stored as archived.
+  - **Guest import:** when a session exists and a valid local roadmap (`pathwayai_roadmap`) is present, the dashboard shows a one-click banner, "Save the roadmap on this device to your account?" (never a silent import, so on a shared computer the next person to sign in doesn't silently receive a guest's roadmap). On success the browser copy and its progress keys are **cleared** and the account copy is shown; on failure the local copy stays and the banner offers a retry. Duplicates (retries, two tabs) are prevented by the server's idempotency on `(user_id, local_id)`; no client-side "imported" marker. Local activity events are not imported.
+  - **Activity for signed-in users:** no events table in M2. The activity chart, streak and achievements are derived from existing rows: `step_progress.completed_at`, `roadmaps.created_at`, `quiz_submissions.created_at`. For signed-in users the streak therefore counts days with real progress, not visits (in line with TD-29). Guests keep today's localStorage tracking, `EVENT_TYPES` and `METRIC_NAMES` unchanged.
+  - **Code structure:** backend gains `db.py` (pool + `transaction(user)` helper that sets the claims), `repositories/roadmaps.py` (a `RoadmapRepository` `Protocol`, `PostgresRoadmapRepository` where every method takes the user id, and an in-memory fake for tests) and `routers/roadmaps.py` (APIRouter; the repository is a FastAPI dependency). Generation logic is shared with the guest endpoint, not duplicated. Frontend gains `lib/roadmaps/` with one record shape for both modes, a `localRepository` (today's `roadmapStore` + tracking progress), an `accountRepository` (supabase-js reads/progress, `api.js` for generation) and a `useRoadmaps()` hook that picks one by session; `api.js` sends `Authorization` when a session exists; `dashboardData.js` stays pure.
+  - **Migrations:** Supabase CLI SQL files in `supabase/migrations/`, applied through the Supabase MCP tool with the same SQL saved in the repo, security and performance advisors run after each; forward-only. RLS checks are saved as SQL scripts in `supabase/tests/` that impersonate two users (and the API role) inside a rolled-back transaction. The tables start empty; user data moves only through the guest import.
+- **Alternatives considered:**
+  - *Supabase secret (service-role) key for FastAPI* — rejected: bypasses RLS, so a leak exposes every user's data.
+  - *FastAPI forwarding the user's token to the Supabase REST API* — rejected: needs an insert grant for `authenticated`, which would let the browser create "AI" roadmaps directly.
+  - *The browser writing roadmaps through RLS* — rejected: AI output must pass server-side validation and rate limits, and the Gemini key stays server-side (ADR-002).
+  - *Review changes adopted on 2026-10-02 over the 2026-10-01 draft:* (1) a custom `app.user_id` setting with a second set of policies for the API role → replaced by `request.jwt.claims` and one shared `auth.uid()` policy per operation; (2) quiz answers in a column of `roadmaps` hidden by column-level grants (breaks `select('*')`, every new column needs a grant) → separate server-only `quiz_submissions`; (3) "current = newest active" with several active rows possible → partial unique index, at most one active; (4) a denormalized `roadmap_id` on `step_progress` that could disagree with the step → dropped; (5) a browser-written `activity_events` table (unbounded growth with no rate limit, measures visits) → deferred, activity derived from real rows; (6) silent automatic import + a per-user localStorage marker (the marker didn't stop a second account) → confirmation banner + server idempotency.
+- **Consequences:**
+  - New server-only configuration (`DATABASE_URL`) and dependencies (`psycopg`, `psycopg_pool`, pinned), documented in `backend/.env.example`, `render.yaml` and `docs/deployment.md` when they're added (M2-5). A new database role whose password the owner manages.
+  - Two persistence modes in the frontend (guest localStorage, account Postgres) behind one repository interface; account mode needs loading and error states.
+  - Signed-in streaks measure progress instead of visits; guest and account dashboards may show different activity numbers for the same behaviour.
+  - Clearing the browser copy after import means a signed-out visitor on that device sees the empty state; the roadmap is in the account.
+  - M3/M4 follow the same rule (e.g. `resume_analyses`, coach messages: written by FastAPI, read by the browser through RLS) without a new decision; M4's step editing needs an `update` grant on `roadmap_steps` for `pathwayai_api` in a later migration.
+  - Removing the v1 quiz format (N-19) can later be done as a stored-data migration on `quiz_submissions`.
+  - Free-plan limits still apply (500 MB database, Gemini 20 requests/day); live checks in M2-9 to M2-11 spend Gemini quota, automated tests don't.
+- **Status:** Accepted (owner, 2026-10-02). Not yet implemented.
 
 ---
 
