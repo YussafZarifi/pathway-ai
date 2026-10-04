@@ -35,12 +35,14 @@ import {
   EVENT_TYPES,
   METRIC_NAMES,
 } from "../lib/trackingEngine";
-import { errorMessage, requestCareers, requestRoadmap } from "../lib/api";
-import { saveCurrentRoadmap } from "../lib/roadmapStore";
+import { errorMessage, requestCareers } from "../lib/api";
+import { useAuth } from "../lib/authContext";
+import { repositoryFor } from "../lib/roadmaps";
 
 export default function Results() {
   const location = useLocation();
   const navigate = useNavigate();
+  const { session } = useAuth();
 
   const answers = location.state?.answers;
 
@@ -197,7 +199,18 @@ export default function Results() {
       setLoadingRoadmap(true);
       setError("");
 
-      const steps = await requestRoadmap(answers, selectedCareer);
+      const selectedCareerData = aiResult.careers.find(
+        (c) => c.title === selectedCareer
+      );
+
+      // Generates and saves: in this browser for guests, in the account
+      // for signed-in users (ADR-019).
+      const saved = await repositoryFor(session).generate({
+        answers,
+        career: selectedCareer,
+        careerData: selectedCareerData || null,
+      });
+      const steps = saved.roadmap;
 
       // Track roadmap generation
       trackEvent(EVENT_TYPES.ROADMAP_GENERATED, {
@@ -207,9 +220,6 @@ export default function Results() {
       trackMetric(METRIC_NAMES.ROADMAP_STEPS_TOTAL, steps.length);
 
       // Track career selection with match score
-      const selectedCareerData = aiResult.careers.find(
-        (c) => c.title === selectedCareer
-      );
       if (selectedCareerData) {
         trackEvent(EVENT_TYPES.CAREER_SELECTED, {
           careerTitle: selectedCareer,
@@ -219,13 +229,6 @@ export default function Results() {
         });
         trackMetric(METRIC_NAMES.CAREER_MATCH_SCORE, selectedCareerData.match_score || 85);
       }
-
-      saveCurrentRoadmap({
-        career: selectedCareer,
-        careerData: selectedCareerData || null,
-        answers,
-        roadmap: steps,
-      });
 
       navigate("/dashboard", {
         state: { career: selectedCareer, roadmap: steps },

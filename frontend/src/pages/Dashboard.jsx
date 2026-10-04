@@ -10,19 +10,11 @@ import RoadmapStepper from "../components/dashboard/RoadmapStepper";
 import AchievementGrid from "../components/dashboard/AchievementGrid";
 import InsightsPanel from "../components/dashboard/InsightsPanel";
 import QuickActions from "../components/dashboard/QuickActions";
+import { trackEvent, trackMetric, EVENT_TYPES, METRIC_NAMES } from "../lib/trackingEngine";
+import { errorMessage } from "../lib/api";
+import { stepProgressKey } from "../lib/roadmapStore";
+import { useCurrentRoadmap } from "../lib/roadmaps/useCurrentRoadmap";
 import {
-  trackEvent,
-  trackMetric,
-  trackProgress,
-  getAllProgress,
-  getEvents,
-  EVENT_TYPES,
-  METRIC_NAMES,
-} from "../lib/trackingEngine";
-import { loadCurrentRoadmap, saveCurrentRoadmap, stepProgressKey } from "../lib/roadmapStore";
-import { errorMessage, requestRoadmap } from "../lib/api";
-import {
-  getStepStatuses,
   summarizeProgress,
   estimateRemaining,
   getActivity,
@@ -43,24 +35,6 @@ const PLANNED = {
   },
 };
 
-// The stored roadmap survives reloads and new tabs (ADR-013). Router state
-// is only a fallback for a roadmap that couldn't be saved.
-function initialRecord(state) {
-  const stored = loadCurrentRoadmap();
-  if (stored) return stored;
-  if (state?.career && Array.isArray(state.roadmap) && state.roadmap.length > 0) {
-    return {
-      id: "unsaved",
-      career: state.career,
-      careerData: null,
-      answers: null,
-      roadmap: state.roadmap,
-      generatedAt: null,
-    };
-  }
-  return null;
-}
-
 function prefersReducedMotion() {
   return window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 }
@@ -69,10 +43,18 @@ export default function Dashboard() {
   const location = useLocation();
   const navigate = useNavigate();
 
-  const [record, setRecord] = useState(() => initialRecord(location.state));
-  const [progress, setProgress] = useState(() => getAllProgress());
-  const [events, setEvents] = useState(() => getEvents());
+  // The saved roadmap survives reloads and new tabs (ADR-013). Router state
+  // is only a fallback for a roadmap that couldn't be saved.
+  const {
+    status,
+    record,
+    error: loadError,
+    reload,
+    setStepDone,
+    regenerate: regenerateRecord,
+  } = useCurrentRoadmap({ fallbackState: location.state });
   const [expanded, setExpanded] = useState(() => new Set());
+  const [stepError, setStepError] = useState("");
   const [regenerating, setRegenerating] = useState(false);
   const [regenError, setRegenError] = useState("");
   const [confirmRegenerate, setConfirmRegenerate] = useState(false);
@@ -92,7 +74,7 @@ export default function Dashboard() {
 
   const view = useMemo(() => {
     if (!record) return null;
-    const statuses = getStepStatuses(record.roadmap, progress, record.id);
+    const { statuses, events } = record;
     const summary = summarizeProgress(statuses);
     const remaining = estimateRemaining(record.roadmap, statuses);
     const activity = getActivity(events);
@@ -103,28 +85,32 @@ export default function Dashboard() {
       activity,
       focus: getTodayFocus(record.roadmap, summary),
       achievements: getAchievements({ events, statuses, generatedAt: record.generatedAt }),
-      insights: getInsights({ roadmap: record.roadmap, statuses, summary, remaining, activity }),
+      insights: getInsights({
+        roadmap: record.roadmap,
+        statuses,
+        summary,
+        remaining,
+        activity,
+        activityKind: record.activityKind,
+      }),
       motivation: getMotivation(summary),
     };
-  }, [record, progress, events]);
-
-  function refreshTracking() {
-    setProgress(getAllProgress());
-    setEvents(getEvents());
-  }
+  }, [record]);
 
   function toggleDone(index) {
-    const key = stepProgressKey(record.id, index);
-    const isDone = Boolean(progress[key]?.completed);
+    const isDone = Boolean(record.statuses[index]?.done);
 
-    trackProgress(key, isDone ? "incomplete" : "completed");
     if (!isDone) {
       trackEvent(EVENT_TYPES.ROADMAP_STEP_COMPLETED, {
-        stepId: key,
+        stepId: stepProgressKey(record.id, index),
         stepTitle: record.roadmap[index]?.title || "",
       });
     }
-    refreshTracking();
+    setStepError("");
+    setStepDone(index, !isDone).catch((e) => {
+      console.error("Error saving step progress:", e);
+      setStepError(errorMessage(e, "Couldn't save that change. Please try again."));
+    });
   }
 
   function toggleExpand(index) {
@@ -157,24 +143,16 @@ export default function Dashboard() {
     setRegenError("");
 
     try {
-      const steps = await requestRoadmap(record.answers, record.career);
-      if (steps.length === 0) throw new Error("Empty roadmap");
+      const next = await regenerateRecord();
+      const total = next?.roadmap.length || 0;
 
       trackEvent(EVENT_TYPES.ROADMAP_GENERATED, {
         careerTitle: record.career,
-        totalSteps: steps.length,
+        totalSteps: total,
       });
-      trackMetric(METRIC_NAMES.ROADMAP_STEPS_TOTAL, steps.length);
+      trackMetric(METRIC_NAMES.ROADMAP_STEPS_TOTAL, total);
 
-      const next = saveCurrentRoadmap({
-        career: record.career,
-        careerData: record.careerData,
-        answers: record.answers,
-        roadmap: steps,
-      });
-      setRecord(next);
       setExpanded(new Set());
-      refreshTracking();
       // Same route, so ScrollToTop doesn't run: show the new roadmap from its hero.
       window.scrollTo(0, 0);
     } catch (e) {
@@ -185,6 +163,49 @@ export default function Dashboard() {
     } finally {
       setRegenerating(false);
     }
+  }
+
+  if (status === "loading") {
+    return (
+      <div className="homePage">
+        <AppHeader />
+        <main className="dashMain" aria-busy="true">
+          <p className="srOnly" role="status">
+            Loading your roadmap…
+          </p>
+          <div className="stepperSkeleton" aria-hidden="true">
+            {Array.from({ length: 5 }, (_, i) => (
+              <div key={i} className="skeletonRow">
+                <span className="skeleton skeletonNode" />
+                <span className="skeleton skeletonCard" />
+              </div>
+            ))}
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  if (status === "error") {
+    return (
+      <div className="homePage">
+        <AppHeader />
+        <main className="dashMain">
+          <section className="dashCard dashEmpty" role="alert">
+            <span className="dashEmptyIcon" aria-hidden="true">
+              <Map size={26} />
+            </span>
+            <h1 className="dashEmptyTitle">Couldn&apos;t load your roadmap</h1>
+            <p className="dashEmptyText">
+              {errorMessage(loadError, "Something went wrong while loading your saved roadmap.")}
+            </p>
+            <button type="button" className="homePrimaryBtn" onClick={reload}>
+              Try again
+            </button>
+          </section>
+        </main>
+      </div>
+    );
   }
 
   if (!record) {
@@ -263,7 +284,11 @@ export default function Dashboard() {
             icon={<Flame size={15} />}
             label="Day streak"
             value={activity.streak}
-            hint="Consecutive days using PathwayAI"
+            hint={
+              record.activityKind === "progress"
+                ? "Consecutive days with progress"
+                : "Consecutive days using PathwayAI"
+            }
           />
           <StatTile
             icon={<Activity size={15} />}
@@ -284,6 +309,11 @@ export default function Dashboard() {
                 {summary.done} of {summary.total} complete
               </span>
             </div>
+            {stepError && (
+              <p className="dashError" role="alert">
+                {stepError}
+              </p>
+            )}
 
             {regenerating ? (
               <div className="stepperSkeleton" aria-hidden="true">
@@ -310,7 +340,7 @@ export default function Dashboard() {
             <AchievementGrid achievements={view.achievements} />
             <InsightsPanel insights={view.insights} />
             <QuickActions
-              canRegenerate={Boolean(record.answers)}
+              canRegenerate={record.canRegenerate}
               regenerating={regenerating}
               error={regenError}
               onRegenerate={() => setConfirmRegenerate(true)}

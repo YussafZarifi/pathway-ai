@@ -105,8 +105,9 @@ function startOfDay(ts) {
 }
 
 /**
- * Activity in the app, from the event log. This measures days the user
- * used PathwayAI, not study time, and the UI labels it that way.
+ * Activity from an event list. For guests that is the local event log (days
+ * the user used PathwayAI); for signed-in users it is built from saved
+ * progress (ADR-019). Never study time, and the UI labels it accordingly.
  * @returns {{days:Array<{date:number,count:number}>, activeDays:number, streak:number}}
  */
 export function getActivity(events, { days = 14, now = Date.now() } = {}) {
@@ -226,7 +227,15 @@ export function getTodayFocus(roadmap, summary) {
  * the UI calls them "Insights", not "AI insights".
  * @returns {Array<{id:string, text:string}>}
  */
-export function getInsights({ roadmap, statuses, summary, remaining, activity, now = Date.now() }) {
+export function getInsights({
+  roadmap,
+  statuses,
+  summary,
+  remaining,
+  activity,
+  activityKind = "visits",
+  now = Date.now(),
+}) {
   const insights = [];
 
   if (summary.complete) {
@@ -278,7 +287,11 @@ export function getInsights({ roadmap, statuses, summary, remaining, activity, n
   if (activity?.streak >= 2) {
     insights.push({
       id: "streak",
-      text: `You've used PathwayAI ${activity.streak} days in a row.`,
+      // Signed-in activity comes from real progress (ADR-019); guests' from visits.
+      text:
+        activityKind === "progress"
+          ? `You've made progress ${activity.streak} days in a row.`
+          : `You've used PathwayAI ${activity.streak} days in a row.`,
     });
   }
 

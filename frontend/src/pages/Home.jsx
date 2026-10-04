@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Map,
@@ -8,23 +8,18 @@ import {
   ArrowRight,
 } from "lucide-react";
 import AppHeader from "../components/AppHeader";
-import { loadCurrentRoadmap } from "../lib/roadmapStore";
-import { getAllProgress } from "../lib/trackingEngine";
-import { getStepStatuses, summarizeProgress } from "../lib/dashboardData";
-
-// The browser-saved roadmap (ADR-013), if any, with its real progress.
-function loadSavedRoadmap() {
-  const record = loadCurrentRoadmap();
-  if (!record) return null;
-  const statuses = getStepStatuses(record.roadmap, getAllProgress(), record.id);
-  return { career: record.career, summary: summarizeProgress(statuses) };
-}
+import { summarizeProgress } from "../lib/dashboardData";
+import { useCurrentRoadmap } from "../lib/roadmaps/useCurrentRoadmap";
 
 // Future signed-in hub. Until accounts exist it shows the one roadmap saved
 // in this browser, or an honest empty state: nothing that isn't real.
 export default function Home() {
   const navigate = useNavigate();
-  const [saved] = useState(loadSavedRoadmap);
+  const { record } = useCurrentRoadmap();
+  // The current roadmap, if any, with its real progress.
+  const saved = record
+    ? { career: record.career, summary: summarizeProgress(record.statuses) }
+    : null;
 
   useEffect(() => {
     document.body.classList.add("theme-landing");

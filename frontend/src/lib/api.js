@@ -35,7 +35,7 @@ export function errorMessage(error, fallback) {
   return specific && error.message ? error.message : fallback;
 }
 
-async function request(path, body, { signal } = {}) {
+async function request(path, body, { signal, token } = {}) {
   if (!API_URL) {
     console.error("VITE_API_URL is not set; see frontend/.env.example");
     throw new ApiError("PathwayAI isn't configured correctly. Please try again later.", 500);
@@ -52,7 +52,11 @@ async function request(path, body, { signal } = {}) {
   try {
     res = await fetch(`${API_URL}${path}`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        // Supabase access token for account routes (ADR-018/019); guests send none.
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
       body: JSON.stringify(body),
       signal: controller.signal,
     });
@@ -93,9 +97,16 @@ export async function requestCareers(answers, { signal } = {}) {
  */
 export async function requestRoadmap(answers, career, { signal } = {}) {
   const data = await request("/api/ai/roadmap", { answers, career }, { signal });
+  return normalizeSteps(data?.roadmap);
+}
 
-  return Array.isArray(data?.roadmap)
-    ? data.roadmap.map((step, idx) => ({
+/**
+ * Roadmap steps with step numbers and safe defaults, from the API or from
+ * the database (saved steps also carry `id` and `position`).
+ */
+export function normalizeSteps(steps) {
+  return Array.isArray(steps)
+    ? steps.map((step, idx) => ({
         ...step,
         step: idx + 1,
         time: step.time || "Varies",
@@ -104,4 +115,31 @@ export async function requestRoadmap(answers, career, { signal } = {}) {
         videos: Array.isArray(step.videos) ? step.videos : [],
       }))
     : [];
+}
+
+// --- Signed-in users: saved roadmaps (ADR-019) ------------------------------
+
+/**
+ * Generate a roadmap and save it to the signed-in user's account.
+ * @returns {Promise<object>} the saved roadmap (id, career, roadmap[steps with id], …)
+ */
+export function createSavedRoadmap(token, { answers, career, careerData }, { signal } = {}) {
+  return request(
+    "/api/roadmaps",
+    { answers, career, career_data: careerData || null },
+    { signal, token }
+  );
+}
+
+/** A new roadmap from a saved roadmap's stored answers; it becomes current. */
+export function regenerateSavedRoadmap(token, roadmapId, { signal } = {}) {
+  return request(`/api/roadmaps/${encodeURIComponent(roadmapId)}/regenerate`, {}, { signal, token });
+}
+
+/**
+ * Save the browser's roadmap to the account once (201 new, 200 already saved).
+ * @param {object} payload { local_id, career, career_data, answers, generated_at, steps, completed }
+ */
+export function importLocalRoadmap(token, payload, { signal } = {}) {
+  return request("/api/roadmaps/import", payload, { signal, token });
 }
