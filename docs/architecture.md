@@ -47,11 +47,12 @@ flowchart TB
 |---|---|---|
 | React SPA | All UI, routing, quiz state, rendering AI output, tracking | Plain JS; one API client (`lib/api.js`); no global state library |
 | Router state | Moves `answers` Quiz → Results; a fallback copy of `{career, roadmap}` Results → Dashboard | Since 2026-09-26 the dashboard reads the roadmap from localStorage first (ADR-013) |
-| Roadmap store | `pathwayai_roadmap`: the current roadmap with careerData and answers | One roadmap, this browser only (`lib/roadmapStore.js`) |
+| Roadmap store (guests) | `pathwayai_roadmap`: the current roadmap with careerData and answers | One roadmap, this browser only (`lib/roadmapStore.js`), reached through `lib/roadmaps/localRepository.js` |
+| Saved roadmaps (signed in) | The account's roadmaps, steps and progress | Supabase Postgres (ADR-019): read and progress-written by the browser through RLS (`lib/roadmaps/accountRepository.js`); generated, regenerated and imported by FastAPI as `pathwayai_api` |
 | Tracking store | Event log, metrics history, step progress | `pathwayai_tracking`; unbounded growth; rewritten on every read (TD-27) |
-| Accounts (optional) | Email + password sign-in/up in the browser; session in `AuthProvider` (`useAuth()`) | Supabase Auth via `lib/supabase.js` with the publishable key (ADR-018). Off when the `VITE_SUPABASE_*` variables are unset. Roadmaps are **not** tied to accounts yet (Milestone 2) |
-| FastAPI | Holds the API keys; validates requests; rate limits; builds prompts; validates AI output; adds YouTube videos; verifies Supabase tokens on `/api/me` | Config from env (`config.py`); Pydantic request models (ADR-014); output validation + one retry (ADR-015); in-memory rate limits; AI routes need no token (guests) |
-| Supabase | Auth users + `public.profiles` (RLS, sign-up trigger) | Project `pczczkmkavmxibxureck`; migrations in `supabase/migrations/` |
+| Accounts (optional) | Email + password sign-in/up in the browser; session in `AuthProvider` (`useAuth()`) | Supabase Auth via `lib/supabase.js` with the publishable key (ADR-018). Off when the `VITE_SUPABASE_*` variables are unset. Signed-in users' roadmaps live in the account since 2026-10-03 (ADR-019) |
+| FastAPI | Holds the API keys; validates requests; rate limits; builds prompts; validates AI output; adds YouTube videos; verifies Supabase tokens on `/api/me` and `/api/roadmaps*`; saves signed-in users' roadmaps (`db.py`, `repositories/`, `routers/`) | Config from env (`config.py`); Pydantic request models (ADR-014); output validation + one retry (ADR-015); in-memory rate limits; AI routes need no token (guests) |
+| Supabase | Auth users + `public.profiles` (RLS, sign-up trigger) + roadmap tables (`quiz_submissions`, `roadmaps`, `roadmap_steps`, `step_progress`; RLS; role `pathwayai_api` via the transaction pooler) | Project `pczczkmkavmxibxureck`; migrations in `supabase/migrations/` |
 | Gemini | Generates careers and roadmaps | JSON mode + `response_schema` (ADR-015) |
 | YouTube Data API | Real videos per roadmap step | Optional `YOUTUBE_API_KEY`; search-link fallback (ADR-012) |
 
@@ -68,7 +69,7 @@ flowchart TB
 4. `Dashboard` loads the stored roadmap and derives everything in `lib/dashboardData.js`; marking a step done writes `progress["roadmap_step_<roadmapId>_<index>"]` and a `roadmap_step_completed` event.
 
 ## Known architectural problems
-- ~~The roadmap exists only in router state; progress keys collide across careers~~ — resolved 2026-09-26 (ADR-013). Still one roadmap per browser, no server-side ownership: accounts exist since 2026-09-30 (Milestone 1), roadmaps move to Postgres in Milestone 2 (F-8).
+- ~~The roadmap exists only in router state; progress keys collide across careers~~ — resolved 2026-09-26 (ADR-013). Guests: still one roadmap per browser. Signed-in users: roadmaps in Postgres since 2026-10-03 (Milestone 2, ADR-019).
 - ~~Hard-coded origins/URLs prevent any deployment~~ — resolved 2026-09-27 (ADR-014).
 - Two competing theme mechanisms (`ThemeGate` and per-page `useEffect` body classes).
 - ~~Two dashboard designs~~ — resolved 2026-09-25 (ADR-010): the unrouted `/app/*` shell was deleted; the tabbed `/dashboard` is the roadmap view and `/home` is the future signed-in hub.

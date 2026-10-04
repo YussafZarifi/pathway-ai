@@ -76,6 +76,10 @@ Found in the 2026-09-24 audit. When an item is resolved, strike it through and n
 | TD-65 | Auth | Supabase free-plan built-in email sender is rate-limited and for testing only: confirmation emails can be slow or blocked at volume. Needs custom SMTP before a public launch; Site URL / Redirect URLs must be set per environment (`docs/deployment.md`) | Supabase Dashboard |
 | TD-66 | Auth UX | Landing shows Log in / Sign up for a moment before switching to "Your home" for a signed-in visitor (session loads asynchronously); the header hides its account control while loading instead | `Landing.jsx` |
 | TD-41 | Privacy | Raw quiz answers (incl. the optional career-in-mind text) stored in the localStorage event log and in `pathwayai_roadmap` | `Quiz.jsx`, `trackingEngine.js`, `roadmapStore.js` |
+| TD-67 | Security | `private.request_user_id()` copies `auth.uid()`'s logic because `pathwayai_api` can't call `auth.uid()` (ADR-019 amendment). If Supabase changes how `auth.uid()` reads the claims, the helper won't follow; re-run `supabase/tests/` after Supabase platform changes | `supabase/migrations/20261004014249_create_roadmaps.sql` |
+| TD-68 | Testing | No automated frontend tests for Milestone 2 (account/local repositories, import banner): verified with throwaway Playwright scripts only. Add Vitest for `lib/roadmaps/*` and a Playwright suite (F-2) | `frontend/src/lib/roadmaps/` |
+| TD-69 | Product | Signed-in users see only their current roadmap; archived roadmaps (after regenerate/import) are kept but not browsable; steps can't be edited (needs an `update` grant on `roadmap_steps` for the AI Coach, M4) | `accountRepository.js`, ADR-019 |
+| TD-70 | Operations | Signed-in generation requires both the frontend Supabase variables and the API's `DATABASE_URL`; a half-configured deploy gives signed-in users an honest 503 on generate while guests work. Document/check both together at deploy time | `render.yaml`, `docs/deployment.md` |
 
 ## 🟢 Low
 

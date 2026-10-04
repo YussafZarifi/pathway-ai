@@ -4,7 +4,7 @@
 
 ---
 
-## Current session — 2026-10-03 · M2-2, M2-3, M2-4: tables applied, API role can log in
+## Current session — 2026-10-03 · Milestone 2 complete (M2-2 → M2-11)
 
 ### Summary
 - **M2-2** (`ee500a4`): `pathwayai_api` can't call `auth.uid()`, so policies use `private.request_user_id()` (owner-approved ADR-019 amendment). Migration `20261004014249_create_roadmaps`: role, `quiz_submissions`, `roadmaps`, `roadmap_steps`, shared policies, explicit grants.
@@ -16,19 +16,24 @@
 - **M2-8:** frontend repository layer (`lib/roadmaps/`), `api.js` token support and saved-roadmap calls; Dashboard/Home/Results refactored onto `useCurrentRoadmap` / `repositoryFor` (local only). Guest UI check in an isolated headless Chrome (Playwright from a scratch venv, system Chrome, throwaway profile): 11/11, no Gemini calls.
 - **M2-9:** `accountRepository` (Supabase reads with embedded steps/progress, RLS mark/unmark, FastAPI generate/regenerate, activity from rows), mode-aware copy. QA with a throwaway confirmed test user (`m2-qa1-…@example.test`, bcrypt hash inserted via SQL, password only in the scratchpad) signing in through real Supabase Auth in isolated Chrome: 18/19 (the failure is the pre-existing dev-only AbortError log, N-21); ~3 Gemini requests spent. Accounts-off build (Supabase vars empty) served with `vite preview`: guest check 11/11.
 - **M2-10:** import banner (`ImportRoadmapBanner`, `useLocalImport`, storage clear helpers) on Home + Dashboard. Second throwaway user created the same way. Isolated-browser check 14/14 (decline, simulated failure + retry, two tabs at once → 1 roadmap, local cleared, repeat import → 200, second account sees nothing). No Gemini.
+- **M2-11:** final QA — full guest flow from the quiz with real Gemini (saved in the browser) + keyboard step marking; signed-in at 360 px (no horizontal scroll) + keyboard import; 53/53 SQL + 18/18 pooled checks re-run; advisors: only the existing leaked-password Auth warning. All throwaway users deleted (database back to the owner's 1 user, 0 Milestone 2 rows); test credentials deleted from the scratchpad; the owner's dev servers were used, never restarted. Docs updated across CLAUDE, ROADMAP, SESSION, ADR-019, database, api, backend, frontend, architecture, testing, technical-debt (TD-67–TD-70) and README.
+- Gemini spent this session: about 6–8 requests (signed-in generate + regenerate, guest generate, career lists).
+- Known, not fixed (outside Milestone 2): the dev-only "Error fetching careers: AbortError" console log on Results under React StrictMode (N-21).
 
 ### Next Session (exact order)
-1. **M2-5:** backend foundation — `db.py` (lazy pool, `prepare_threshold=None`, `transaction(user)` setting claims with `is_local = true`), `repositories/roadmaps.py` (Protocol + Postgres + in-memory fake), `DATABASE_URL` in config (optional: app starts without it), pinned `psycopg` + `psycopg_pool`, `.env.example`, `render.yaml`, `docs/deployment.md`.
-2. M2-6 … M2-11 per ROADMAP.
+1. **Owner:** real-account check of Milestone 2 — sign in with your account on two browsers/devices, generate (or import) a roadmap, mark a step on one and see it on the other; try Regenerate; sign out and confirm the guest view.
+2. **Milestone 3 (F-13) planning:** Resume Analyzer — ADR + M3-x step table, owner approval before code.
 
 ### Open questions (for the owner)
-1. Gemini's free tier (20 requests/day) will limit live checks in M2-9 to M2-11 and Milestones 3–4: enable billing during development, or stay within the quota?
+1. Gemini's free tier (20 requests/day) will limit Milestones 3–4 testing: enable billing during development, or stay within the quota?
 2. Upgrade the vulnerable npm packages (TD-64) as a separate commit during Version 2?
 3. Leaked-password protection (Supabase Auth advisor warning, pre-existing): enable it if the plan allows.
+4. Push `main` (66 commits ahead) to the private GitHub repo as a backup, without deploying?
 
 ---
 
 ## History
+- 2026-10-03 — Milestone 2 (M2-2 → M2-11): roadmap tables + `pathwayai_api` role, pooled login, backend pool/repository/endpoints, frontend repositories, account mode, import banner, QA; ADR-019 amended (`private.request_user_id()`).
 - 2026-10-02 — Milestone 2 design reviewed (six changes adopted) and accepted as ADR-019; ROADMAP step table M2-1 → M2-11 (M2-1, commit `bfaf1b8`).
 - 2026-10-01 — Planning: deployment postponed until Version 2 (M1–M4) is complete; Milestone 1 verified with the owner's real account (M1-8); first Milestone 2 draft written (conversation only).
 - 2026-09-30 — Supabase Milestone 1 in 7 commits (ADR-018 accepted): `profiles` table (RLS, sign-up trigger), `lib/supabase.js` + `AuthProvider`, `/login`, header sign-in/out, FastAPI token verification + `GET /api/me`, 20 new tests (100). Optional per environment; guest flow unchanged. Real sign-up test pending (owner's inbox).

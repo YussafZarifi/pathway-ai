@@ -2,7 +2,7 @@
 
 **AI-powered tech career guidance.** Answer a short quiz, get three personalized tech-career matches, and turn the one you pick into a step-by-step learning roadmap you can track.
 
-> **Project status: early MVP.** The core flow (quiz → AI career matches → AI roadmap → progress dashboard) works end-to-end locally. Optional accounts (Supabase email + password) are built; saving roadmaps to an account, the resume analyzer and the AI coach are **planned, not built**. See [Roadmap](#roadmap) and [`ROADMAP.md`](ROADMAP.md).
+> **Project status: early MVP.** The core flow (quiz → AI career matches → AI roadmap → progress dashboard) works end-to-end locally. Optional accounts (Supabase email + password) are built, and signed-in users' roadmaps and progress are saved to their account (Postgres); the resume analyzer and the AI coach are **planned, not built**. See [Roadmap](#roadmap) and [`ROADMAP.md`](ROADMAP.md).
 
 ---
 
@@ -28,7 +28,7 @@
 - **Export** — download results as PDF or print.
 - **Home hub (`/home`)** — quiz entry point, the roadmap saved in this browser with its real progress (or an honest empty state) and clearly labelled planned features.
 - **Friendly 404 page** — unknown links show a branded page with ways back instead of a blank screen.
-- **Local persistence** — the current roadmap and its progress survive reloads and new tabs (`localStorage`, this browser only).
+- **Persistence** — guests: the current roadmap and its progress survive reloads and new tabs (`localStorage`, this browser only). Signed-in users: roadmaps and progress are saved to their account and follow them across devices; a roadmap made as a guest can be saved to the account once, after sign-in.
 - **Reliable AI output** — Gemini JSON mode with a response schema, per-item validation, one retry, and clear messages when the AI is busy or out of quota.
 - **Optional accounts** — sign up / sign in with email + password (Supabase Auth, email confirmation), a `profiles` table protected by row-level security, and a backend that verifies Supabase access tokens (`GET /api/me`). Everything else still works as a guest; builds without Supabase configured simply hide accounts.
 
@@ -77,7 +77,7 @@ flowchart LR
 
 - The **frontend** is a single-page React app. Quiz answers move to Results through React Router navigation state; the chosen roadmap and its progress are saved in `localStorage`. Every backend call goes through one client, `src/lib/api.js`.
 - The **backend** is a FastAPI service that holds the API keys server-side, validates and rate-limits requests, builds prompts, validates the model's JSON and adds real YouTube videos to roadmap steps.
-- **Accounts** (optional) use Supabase: the browser signs in with the publishable key; the backend verifies access tokens locally against the project's public keys (ES256/JWKS). Postgres holds a `profiles` table with row-level security; roadmaps are not stored server-side yet.
+- **Accounts** (optional) use Supabase: the browser signs in with the publishable key; the backend verifies access tokens locally against the project's public keys (ES256/JWKS). Postgres holds `profiles` and signed-in users' roadmaps, steps and progress, all protected by row-level security. AI-generated content is written only by the backend, as a least-privilege database role; the browser reads its own rows and records progress directly.
 
 More: [`docs/architecture.md`](docs/architecture.md).
 
@@ -100,8 +100,8 @@ Current limitations: no streaming, no caching, and salary figures and resource U
 | Frontend | React 19, Vite 7, React Router 7, framer-motion, lucide-react, html2pdf.js |
 | Backend | Python, FastAPI, Uvicorn, Pydantic 2 |
 | AI | Google Gemini (`google-genai` SDK, `gemini-2.5-flash-lite`) |
-| Auth + DB | Supabase Auth (email + password), Supabase Postgres (`profiles`, RLS), PyJWT token verification |
-| Storage | Browser `localStorage` for roadmaps (saving to accounts planned) |
+| Auth + DB | Supabase Auth (email + password), Supabase Postgres (`profiles`, roadmaps, RLS), PyJWT token verification, psycopg 3 |
+| Storage | Browser `localStorage` for guests; Supabase Postgres for signed-in users |
 | Tooling | ESLint 9, pytest (100 backend tests, no network) |
 
 ---
@@ -203,7 +203,7 @@ roadmap-ai/
 Key choices and their trade-offs are recorded as ADRs in [`docs/decisions.md`](docs/decisions.md). Highlights:
 - **FastAPI proxy for AI** keeps the API key off the client and gives one place for validation, rate limiting and caching.
 - **Gemini Flash-Lite** was chosen for low latency and low cost on structured, short outputs.
-- **localStorage first** made an account-free MVP possible. **Supabase** (ADR-018) now adds optional accounts; moving roadmaps into Postgres is the next step.
+- **localStorage first** made an account-free MVP possible. **Supabase** (ADR-018) adds optional accounts, and since Milestone 2 (ADR-019) signed-in users' roadmaps live in Postgres, written by the backend as a least-privilege role and protected by row-level security.
 - **Tech-only scope**: the product narrowed from general careers to technology careers to give deeper, more accurate guidance.
 
 ---
