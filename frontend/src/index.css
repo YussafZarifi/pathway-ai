@@ -4673,3 +4673,52 @@ body.theme-landing .trustRow {
     transform: none;
   }
 }
+
+/* Signed-in: offer to save this browser's roadmap to the account (ADR-019) */
+.importBanner {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 14px 16px;
+  margin-bottom: 18px;
+  text-align: left;
+}
+
+.importBannerIcon {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: rgba(168, 85, 247, 0.14);
+  color: #d8b4fe;
+}
+
+.importBannerTitle {
+  margin: 0 0 4px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.importBannerBody {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--dash-muted);
+}
+
+.importBannerActions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 640px) {
+  .importBanner {
+    grid-template-columns: auto 1fr;
+  }
+
+  .importBannerActions {
+    grid-column: 1 / -1;
+  }
+}

@@ -313,6 +313,21 @@ export function getAllProgress() {
 }
 
 /**
+ * Remove every progress entry whose key starts with `prefix` (e.g. one
+ * roadmap's steps after it was saved to the user's account). Events stay.
+ * @param {string} prefix
+ * @returns {boolean} - Success status
+ */
+export function clearProgress(prefix) {
+  if (!prefix) return false;
+  const data = getTrackingData();
+  Object.keys(data.progress || {}).forEach((key) => {
+    if (key.startsWith(prefix)) delete data.progress[key];
+  });
+  return saveTrackingData(data);
+}
+
+/**
  * Get tracking statistics
  * @returns {object}
  */

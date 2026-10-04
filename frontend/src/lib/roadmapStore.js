@@ -66,3 +66,20 @@ export function loadCurrentRoadmap() {
 export function stepProgressKey(roadmapId, index) {
   return `roadmap_step_${roadmapId}_${index}`;
 }
+
+/**
+ * Forget the current roadmap (after it was saved to the user's account,
+ * ADR-019). Its progress keys are removed separately (trackingEngine).
+ */
+export function clearCurrentRoadmap() {
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+  } catch (error) {
+    console.error("[Roadmap Store] Failed to clear roadmap:", error);
+  }
+}
+
+/** Prefix of every progress key of one roadmap (see stepProgressKey). */
+export function stepProgressPrefix(roadmapId) {
+  return `roadmap_step_${roadmapId}_`;
+}

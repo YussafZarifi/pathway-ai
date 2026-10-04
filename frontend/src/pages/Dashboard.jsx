@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { CheckCircle2, PlayCircle, Flame, Activity, Map } from "lucide-react";
 import AppHeader from "../components/AppHeader";
 import Dialog from "../components/Dialog";
+import ImportRoadmapBanner from "../components/ImportRoadmapBanner";
 import DashboardHero from "../components/dashboard/DashboardHero";
 import StatTile, { StepsBar, ActivityBars } from "../components/dashboard/StatTile";
 import TodayFocus from "../components/dashboard/TodayFocus";
@@ -214,6 +215,7 @@ export default function Dashboard() {
       <div className="homePage">
         <AppHeader />
         <main className="dashMain">
+          <ImportRoadmapBanner enabled={mode === "account"} onImported={reload} />
           <section className="dashCard dashEmpty">
             <span className="dashEmptyIcon" aria-hidden="true">
               <Map size={26} />
@@ -248,6 +250,7 @@ export default function Dashboard() {
       <AppHeader />
 
       <main className="dashMain">
+        <ImportRoadmapBanner enabled={mode === "account"} onImported={reload} />
         <div className="dashTop">
           <DashboardHero
             career={record.career}

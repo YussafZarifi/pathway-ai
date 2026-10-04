@@ -8,6 +8,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 import AppHeader from "../components/AppHeader";
+import ImportRoadmapBanner from "../components/ImportRoadmapBanner";
 import { summarizeProgress } from "../lib/dashboardData";
 import { useAuth } from "../lib/authContext";
 import { useCurrentRoadmap } from "../lib/roadmaps/useCurrentRoadmap";
@@ -17,7 +18,7 @@ import { useCurrentRoadmap } from "../lib/roadmaps/useCurrentRoadmap";
 export default function Home() {
   const navigate = useNavigate();
   const { enabled: accountsEnabled } = useAuth();
-  const { mode, status, record } = useCurrentRoadmap();
+  const { mode, status, record, reload } = useCurrentRoadmap();
   const inAccount = mode === "account";
   // The current roadmap, if any, with its real progress.
   const saved = record
@@ -59,6 +60,7 @@ export default function Home() {
 
         <section className="homeSection" aria-labelledby="homeRoadmapsTitle">
           <h2 className="homeSectionTitle" id="homeRoadmapsTitle">Your roadmap</h2>
+          <ImportRoadmapBanner enabled={inAccount} onImported={reload} />
 
           {status === "loading" ? (
             <div className="homeEmpty" aria-busy="true">

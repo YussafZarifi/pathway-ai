@@ -27,6 +27,7 @@ Signed-in users' roadmaps live in Postgres; guests keep browser storage (below).
 - **Account deletion** cascades from `auth.users` to every table.
 - **How the browser reads:** one PostgREST request, `roadmaps` with embedded `roadmap_steps` and their `step_progress` (`lib/roadmaps/accountRepository.js`), newest 20.
 - **Activity for signed-in users** (streak, active days, achievements) is derived from these rows: `roadmaps.created_at` (each generated roadmap = a completed quiz and a chosen career) and `step_progress.completed_at`. No events table (deferred, ADR-019).
+- **Guest import:** a signed-in user can save the browser's `pathwayai_roadmap` (with its completed steps) to the account once (`POST /api/roadmaps/import`, idempotent per `local_id`); afterwards `pathwayai_roadmap` and that roadmap's `roadmap_step_<id>_*` progress keys are removed from the browser (events stay).
 - **Checks:** `supabase/tests/m2_2_roadmaps_rls.sql` (31), `m2_3_step_progress_rls.sql` (22), `m2_4_api_role_connection.py` (18, through the pooler).
 
 ## Browser storage (✅): the guest flow
