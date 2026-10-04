@@ -130,3 +130,16 @@ class RoadmapRequest(BaseModel):
     career: Annotated[str, Field(min_length=1, max_length=MAX_CAREER_LENGTH)]
 
     _strip = field_validator("career", mode="before")(_clean)
+
+
+class SaveRoadmapRequest(BaseModel):
+    """POST /api/roadmaps: generate a roadmap for a signed-in user and save it.
+
+    career_data is the chosen career's card (title, match score, salary…),
+    re-validated with ai_output.Career before it is stored (ADR-019)."""
+
+    answers: QuizAnswers
+    career: Annotated[str, Field(min_length=1, max_length=MAX_CAREER_LENGTH)]
+    career_data: Optional[dict] = None
+
+    _strip = field_validator("career", mode="before")(_clean)

@@ -7,7 +7,9 @@ user's id and runs in `db.transaction(user_id)`, so RLS limits it to that
 user's rows on top of the explicit `user_id` filters below.
 
 Callers keep transactions short: Gemini/YouTube calls happen before any
-method here is called.
+method here is called. Writes for one user are serialized with a
+transaction-scoped advisory lock, so concurrent saves (two tabs) never race
+on the one-active-roadmap index or on an import's local_id.
 
 `PostgresRoadmapRepository` is the real one; `InMemoryRoadmapRepository`
 implements the same contract for tests (no network).
@@ -17,13 +19,9 @@ import uuid
 from datetime import datetime, timezone
 from typing import Protocol
 
-import psycopg
 from psycopg.types.json import Jsonb
 
 import db
-
-ACTIVE_INDEX = "roadmaps_one_active_per_user"
-LOCAL_ID_KEY = "roadmaps_user_id_local_id_key"
 
 ROADMAP_COLUMNS = "id, career, career_data, status, source, quiz_submission_id, created_at"
 STEP_COLUMNS = (
@@ -104,30 +102,28 @@ def _step_values(step: dict) -> dict:
     }
 
 
-def _unique_violation(error: psycopg.Error, *names: str) -> bool:
-    return isinstance(error, psycopg.errors.UniqueViolation) and error.diag.constraint_name in names
+def _lock_user(conn, user_id) -> None:
+    """Serialize this user's roadmap writes until the transaction ends.
+    Transaction-scoped, so it works through the transaction pooler and is
+    always released at commit or rollback."""
+    conn.execute(
+        "select pg_advisory_xact_lock(hashtextextended(%s, 0))", (f"pathwayai.roadmaps:{user_id}",)
+    )
 
 
 # --- Postgres ------------------------------------------------------------------
 
 class PostgresRoadmapRepository:
     def create(self, user_id, *, answers, answers_version, career, career_data, prompt_version, steps):
-        # Two tabs saving at once can race on the one-active-roadmap index;
-        # the loser retries once and then simply becomes the newest.
-        for attempt in range(2):
-            try:
-                with db.transaction(user_id) as conn:
-                    submission_id = self._insert_submission(conn, user_id, answers, answers_version)
-                    self._archive_active(conn, user_id)
-                    row = self._insert_roadmap(
-                        conn, user_id, submission_id=submission_id, career=career,
-                        career_data=career_data, prompt_version=prompt_version,
-                    )
-                    return roadmap_out(row, self._insert_steps(conn, user_id, row["id"], steps))
-            except psycopg.Error as e:
-                if attempt == 0 and _unique_violation(e, ACTIVE_INDEX):
-                    continue
-                raise
+        with db.transaction(user_id) as conn:
+            _lock_user(conn, user_id)
+            submission_id = self._insert_submission(conn, user_id, answers, answers_version)
+            self._archive_active(conn, user_id)
+            row = self._insert_roadmap(
+                conn, user_id, submission_id=submission_id, career=career,
+                career_data=career_data, prompt_version=prompt_version,
+            )
+            return roadmap_out(row, self._insert_steps(conn, user_id, row["id"], steps))
 
     def get_source(self, user_id, roadmap_id):
         with db.transaction(user_id) as conn:
@@ -141,68 +137,55 @@ class PostgresRoadmapRepository:
             ).fetchone()
 
     def add_regenerated(self, user_id, *, source, prompt_version, steps):
-        for attempt in range(2):
-            try:
-                with db.transaction(user_id) as conn:
-                    self._archive_active(conn, user_id)
-                    row = self._insert_roadmap(
-                        conn, user_id, submission_id=source["quiz_submission_id"],
-                        career=source["career"], career_data=source["career_data"],
-                        prompt_version=prompt_version,
-                    )
-                    return roadmap_out(row, self._insert_steps(conn, user_id, row["id"], steps))
-            except psycopg.Error as e:
-                if attempt == 0 and _unique_violation(e, ACTIVE_INDEX):
-                    continue
-                raise
+        with db.transaction(user_id) as conn:
+            _lock_user(conn, user_id)
+            self._archive_active(conn, user_id)
+            row = self._insert_roadmap(
+                conn, user_id, submission_id=source["quiz_submission_id"],
+                career=source["career"], career_data=source["career_data"],
+                prompt_version=prompt_version,
+            )
+            return roadmap_out(row, self._insert_steps(conn, user_id, row["id"], steps))
 
     def import_local(self, user_id, *, local_id, career, career_data, answers, answers_version,
                      created_at, steps, completed):
-        for attempt in range(2):
-            try:
-                with db.transaction(user_id) as conn:
-                    existing = conn.execute(
-                        "select id from public.roadmaps where user_id = %s and local_id = %s",
-                        (user_id, local_id),
-                    ).fetchone()
-                    if existing:
-                        return self._load(conn, user_id, existing["id"]), False
+        with db.transaction(user_id) as conn:
+            # Under the lock, a concurrent import of the same roadmap (two
+            # tabs, a retry) waits and then finds this one: no duplicate.
+            _lock_user(conn, user_id)
+            existing = conn.execute(
+                "select id from public.roadmaps where user_id = %s and local_id = %s",
+                (user_id, local_id),
+            ).fetchone()
+            if existing:
+                return self._load(conn, user_id, existing["id"]), False
 
-                    submission_id = (
-                        self._insert_submission(conn, user_id, answers, answers_version)
-                        if answers else None
+            submission_id = (
+                self._insert_submission(conn, user_id, answers, answers_version) if answers else None
+            )
+            active = conn.execute(
+                "select created_at from public.roadmaps where user_id = %s and status = 'active'",
+                (user_id,),
+            ).fetchone()
+            make_active = active is None or created_at > active["created_at"]
+            if make_active:
+                self._archive_active(conn, user_id)
+            row = self._insert_roadmap(
+                conn, user_id, submission_id=submission_id, career=career,
+                career_data=career_data, prompt_version=None, source="imported",
+                status="active" if make_active else "archived",
+                local_id=local_id, created_at=created_at,
+            )
+            step_rows = self._insert_steps(conn, user_id, row["id"], steps)
+            by_position = {s["position"]: s["id"] for s in step_rows}
+            for position, completed_at in completed:
+                if position in by_position:
+                    conn.execute(
+                        "insert into public.step_progress (step_id, user_id, completed_at) "
+                        "values (%s, %s, %s)",
+                        (by_position[position], user_id, completed_at),
                     )
-                    active = conn.execute(
-                        "select created_at from public.roadmaps "
-                        "where user_id = %s and status = 'active'",
-                        (user_id,),
-                    ).fetchone()
-                    make_active = active is None or created_at > active["created_at"]
-                    if make_active:
-                        self._archive_active(conn, user_id)
-                    row = self._insert_roadmap(
-                        conn, user_id, submission_id=submission_id, career=career,
-                        career_data=career_data, prompt_version=None, source="imported",
-                        status="active" if make_active else "archived",
-                        local_id=local_id, created_at=created_at,
-                    )
-                    step_rows = self._insert_steps(conn, user_id, row["id"], steps)
-                    by_position = {s["position"]: s["id"] for s in step_rows}
-                    for position, completed_at in completed:
-                        if position in by_position:
-                            conn.execute(
-                                "insert into public.step_progress (step_id, user_id, completed_at) "
-                                "values (%s, %s, %s)",
-                                (by_position[position], user_id, completed_at),
-                            )
-                    return roadmap_out(row, step_rows), True
-            except psycopg.Error as e:
-                # A concurrent import of the same roadmap (two tabs) or a
-                # concurrent generation: the retry returns the existing one or
-                # recomputes which roadmap is active.
-                if attempt == 0 and _unique_violation(e, LOCAL_ID_KEY, ACTIVE_INDEX):
-                    continue
-                raise
+            return roadmap_out(row, step_rows), True
 
     # -- helpers ----------------------------------------------------------------
 

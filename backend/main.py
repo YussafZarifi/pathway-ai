@@ -1,21 +1,20 @@
 import logging
-from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
 
-from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 import config
 import db
-import llm
 import request_log
-import youtube
-from ai_output import CareerSchema, RoadmapSchema, parse_careers, parse_roadmap
+from ai_output import CareerSchema, parse_careers
 from auth import AuthUser, current_user
-from prompts import build_career_prompt, build_roadmap_prompt
+from generation import AI_FAILED, generate, generate_roadmap
+from prompts import build_career_prompt
 from rate_limit import limit_ai_requests
+from routers import roadmaps as roadmaps_router
 from schemas import CareerRequest, RoadmapRequest
 
 request_log.setup(config.LOG_LEVEL)
@@ -23,12 +22,12 @@ logger = logging.getLogger("pathwayai")
 
 # Answers are a handful of short strings; anything bigger is not a quiz.
 MAX_BODY_BYTES = 16 * 1024
+# Except an imported browser roadmap: up to 5 steps with tasks, resources
+# and video metadata (ADR-019).
+MAX_BODY_BYTES_BY_PATH = {"/api/roadmaps/import": 64 * 1024}
 
-AI_UNAVAILABLE = "PathwayAI's AI service is temporarily unavailable. Please try again later."
-AI_QUOTA = "PathwayAI has reached its AI usage limit for now. Please try again later."
-AI_BUSY = "PathwayAI's AI service is busy right now. Please wait a minute and try again."
-AI_FAILED = "We couldn't generate results right now. Please try again."
 INVALID_ANSWERS = "Some quiz answers are missing or too long. Please retake the quiz and try again."
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -48,11 +47,11 @@ if not config.DATABASE_URL:
     logger.info("DATABASE_URL is not set: saved-roadmap routes will return 503")
 
 
-
 @app.middleware("http")
 async def limit_body_size(request: Request, call_next):
+    limit = MAX_BODY_BYTES_BY_PATH.get(request.url.path, MAX_BODY_BYTES)
     length = request.headers.get("content-length")
-    if length and (not length.isdigit() or int(length) > MAX_BODY_BYTES):
+    if length and (not length.isdigit() or int(length) > limit):
         return JSONResponse(status_code=413, content={"detail": "Request is too large."})
     return await call_next(request)
 
@@ -91,22 +90,6 @@ async def unexpected_error(request: Request, exc: Exception):
     return JSONResponse(status_code=500, content={"detail": AI_FAILED})
 
 
-def generate(prompt: str, label: str, schema, parse) -> dict:
-    """Run llm.generate and turn its failures into user-safe HTTP errors."""
-    try:
-        return llm.generate(prompt, label, schema, parse)
-    except llm.AIServiceError as e:
-        if e.kind == "unavailable":
-            raise HTTPException(status_code=503, detail=AI_UNAVAILABLE) from None
-        if e.kind == "quota":
-            raise HTTPException(status_code=503, detail=AI_QUOTA) from None
-        if e.kind == "busy":
-            raise HTTPException(
-                status_code=503, detail=AI_BUSY, headers={"Retry-After": str(e.retry_after or 60)}
-            ) from None
-        raise HTTPException(status_code=502, detail=AI_FAILED) from None
-
-
 @app.get("/")
 def root():
     return {"status": "ok", "message": "Backend is running"}
@@ -132,33 +115,9 @@ def career_ai(payload: CareerRequest):
 
 @app.post("/api/ai/roadmap", dependencies=[Depends(limit_ai_requests)])
 def roadmap_ai(payload: RoadmapRequest):
-    career = payload.career
-    prompt = build_roadmap_prompt(payload.answers, career)
-    result = generate(
-        prompt, f"roadmap v{payload.answers.version}", RoadmapSchema,
-        lambda text: parse_roadmap(text, career),
-    )
-    add_videos(result, career)
-    return result
+    """Guests: generate a roadmap without saving it (the browser keeps it)."""
+    return generate_roadmap(payload.answers, payload.career)
 
 
-def add_videos(result, career):
-    """Attach real YouTube videos (and a search-link fallback) to each step."""
-    steps = result.get("roadmap") if isinstance(result, dict) else None
-    if not isinstance(steps, list):
-        return
-
-    steps = [s for s in steps if isinstance(s, dict)]
-    queries = [
-        str(s.get("video_query") or f"{s.get('title', '')} {career} tutorial").strip()
-        for s in steps
-    ]
-
-    # One API call per step, run in parallel so 5 steps take ~1 request's time.
-    with ThreadPoolExecutor(max_workers=5) as pool:
-        video_lists = list(pool.map(youtube.search_videos, queries))
-
-    for step, query, videos in zip(steps, queries, video_lists):
-        step["video_query"] = query
-        step["videos"] = videos
-        step["video_search_url"] = youtube.search_url(query)
+# Signed-in users: generate and save roadmaps (ADR-019).
+app.include_router(roadmaps_router.router)

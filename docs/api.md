@@ -1,6 +1,6 @@
 # API Reference
 
-Base URL: `VITE_API_URL` in the frontend (local dev: `http://127.0.0.1:8000`). No versioning, no authentication. Content type: `application/json`. Request bodies over 16 KB → 413.
+Base URL: `VITE_API_URL` in the frontend (local dev: `http://127.0.0.1:8000`). No versioning. The AI routes need no authentication (guests); `/api/me` and `/api/roadmaps*` need a Supabase access token (ADR-018/019). Content type: `application/json`. Request bodies over 16 KB → 413.
 
 Since 2026-09-27 (ADR-014) both AI endpoints validate requests with Pydantic (`backend/schemas.py`), are rate limited, and return only user-friendly `detail` messages, never exception text. Since ADR-015 their **responses are validated too** (`backend/ai_output.py`): the shapes below are guaranteed, with defaults for missing optional fields. Every response carries an `X-Request-ID` header that matches the backend log lines.
 
@@ -138,6 +138,52 @@ Validation guarantees 1–5 steps, each with a `title`; `description` `""`, `tim
 Frontend normalization adds `step` (1-based) and defaults `time: "Varies"`, `resources: []`, `tasks: []`, `videos: []`.
 
 **Errors:** same table as `/api/ai/career` (413, 422, 429, 502, 503).
+
+---
+
+## ✅ `POST /api/roadmaps`
+Generate a roadmap for a **signed-in** user and save it to their account (added 2026-10-03, ADR-019, M2-6). Requires `Authorization: Bearer <Supabase access token>`. Dependencies run in order: token check → database configured → AI rate limit (the same per-IP/global limiter as `/api/ai/*`), so rejected requests spend no quota. Gemini + YouTube run first; only then a short database transaction (as the `pathwayai_api` role, RLS-scoped to the user) saves the quiz submission, archives the previous active roadmap and inserts the new one with its steps.
+
+Request:
+```json
+{ "answers": { "...": "v2 (or v1) quiz answers, as /api/ai/roadmap" }, "career": "Data Engineer",
+  "career_data": { "title": "Data Engineer", "match_score": 88, "salary_range": "...", "growth_rate": "...", "education": "...", "reason": "...", "skills": ["SQL"] } }
+```
+`career_data` is optional; when present it's re-validated with `ai_output.Career` (invalid → 422 before Gemini).
+
+Response **201**:
+```json
+{ "id": "<uuid>", "career": "Data Engineer", "career_data": { "...": "..." }, "status": "active",
+  "source": "generated", "can_regenerate": true, "created_at": "2026-10-03T12:00:00Z",
+  "roadmap": [ { "id": "<step uuid>", "position": 0, "title": "...", "description": "...", "time": "2-3 weeks",
+                 "resources": [ { "name": "...", "url": "https://..." } ], "tasks": ["..."],
+                 "video_query": "...", "videos": [ { "id": "...", "title": "...", "channel": "...", "thumbnail": "...", "url": "..." } ],
+                 "video_search_url": "https://www.youtube.com/results?search_query=..." } ] }
+```
+
+| Status | When | `detail` |
+|---|---|---|
+| 401 | missing/invalid token | "Please sign in again." |
+| 422 | invalid answers/career, invalid `career_data` | user-safe message |
+| 429 | rate limit | as `/api/ai/*` |
+| 502 / 503 | Gemini failure / quota / busy | as `/api/ai/*`; nothing is saved |
+| 503 | `SUPABASE_URL` unset | "Accounts are not available on this server." |
+| 503 | `DATABASE_URL` unset | "Saving roadmaps to your account isn't available right now." |
+| 503 | generated but saving failed (database down, constraint) | "Your roadmap was generated but couldn't be saved to your account. Please try again." (one Gemini request is spent; accepted in ADR-019) |
+
+---
+
+## ✅ `POST /api/roadmaps/{id}/regenerate`
+A new roadmap for the same career from the **saved** quiz answers (no body). The new one becomes active; the previous active one is archived. Same auth, ordering, rate limit and 201 shape as above.
+
+| Status | When |
+|---|---|
+| 404 "We couldn't find that roadmap." | the id doesn't exist **or** belongs to another user (same answer, so ids can't be probed) |
+| 409 | the roadmap has no saved answers (an import without answers): "…can't be regenerated… Retake the quiz…" |
+| 422 | the id isn't a UUID |
+| 503 | database unreachable while loading ("We couldn't reach your saved roadmaps right now…"), or saving failed after generation |
+
+Saved roadmaps are **read** by the browser directly through Supabase (RLS), so there is no GET route.
 
 ---
 
