@@ -173,6 +173,37 @@ Response **201**:
 
 ---
 
+## ✅ `POST /api/roadmaps/import`
+Save the roadmap kept in this browser (localStorage, ADR-013) to the signed-in user's account, **once** per `(user, local_id)` (added 2026-10-03, ADR-019, M2-7). Requires a token. Dependencies: token → database configured → its own light rate limit (per IP 10/min and 100/day, global 5,000/day; separate from the AI limit, no Gemini call). Body limit **64 KB** on this path only (16 KB elsewhere).
+
+Request (what `lib/roadmapStore.js` keeps, plus completed steps by position):
+```json
+{ "local_id": "mg8x2k1abcdef", "career": "Web Developer",
+  "career_data": { "title": "Web Developer", "match_score": 84 },
+  "answers": { "...": "v2 or v1 quiz answers (optional)" },
+  "generated_at": 1790812345678,
+  "steps": [ { "title": "...", "description": "...", "time": "...", "resources": [], "tasks": [],
+               "video_query": "...", "videos": [ { "id": "...", "url": "https://www.youtube.com/watch?v=..." } ],
+               "video_search_url": "https://www.youtube.com/results?search_query=..." } ],
+  "completed": [ { "position": 0, "completed_at": 1790898745678 } ] }
+```
+- `steps`: 1–5, each validated like AI output (`ai_output.RoadmapStep`: a missing title → 422, long text truncated, non-http(s) resources dropped) plus video metadata (non-http(s) videos/search URLs dropped).
+- `answers` / `career_data`: optional and **lenient**: invalid ones are dropped (the import still succeeds; without answers the roadmap can't be regenerated → `can_regenerate: false`).
+- `generated_at` / `completed_at`: milliseconds; clamped to [now − 1 year, now]. `completed` positions beyond the steps are ignored (≤10 items, positions 0–9).
+- The import becomes the **active** roadmap only if it's newer than the account's active one; otherwise it's stored `archived`.
+
+| Status | When |
+|---|---|
+| **201** | imported now (body: the saved roadmap, same shape as `POST /api/roadmaps`, `source: "imported"`) |
+| **200** | this `local_id` was imported before: the existing roadmap (retries, two tabs; concurrent imports are serialized) |
+| 401 / 503 | as above (`SUPABASE_URL` / `DATABASE_URL` unset) |
+| 413 | body over 64 KB |
+| 422 | invalid `local_id` (`[A-Za-z0-9_-]{1,64}`), career, steps or `completed` |
+| 429 | import rate limit |
+| 503 | database failure: "We couldn't save this roadmap to your account right now. The copy on this device is unchanged…" |
+
+---
+
 ## ✅ `POST /api/roadmaps/{id}/regenerate`
 A new roadmap for the same career from the **saved** quiz answers (no body). The new one becomes active; the previous active one is archived. Same auth, ordering, rate limit and 201 shape as above.
 

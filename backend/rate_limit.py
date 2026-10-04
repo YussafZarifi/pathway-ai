@@ -96,18 +96,37 @@ limiter = RateLimiter(
     config.GLOBAL_AI_LIMIT_PER_DAY,
 )
 
+# Importing a browser-saved roadmap (ADR-019) spends no AI quota, only a
+# small database write; it gets its own, looser limits.
+import_limiter = RateLimiter(10, 100, 5000)
 
-def limit_ai_requests(request: Request) -> None:
-    """FastAPI dependency: raise 429 when the caller is over a limit.
+IMPORT_MESSAGES = {
+    "minute": "Too many requests. Please wait a minute and try again.",
+    "day": "You've reached today's limit for saving roadmaps. Please try again tomorrow.",
+    "global": "PathwayAI is busy right now. Please try again later.",
+}
+
+
+def _enforce(active: RateLimiter, request: Request, messages: dict, label: str) -> None:
+    """Raise 429 when the caller is over a limit.
 
     The client IP comes from request.client, which Uvicorn fills from
     X-Forwarded-For when started with --proxy-headers (see render.yaml).
     """
     ip = request.client.host if request.client else "unknown"
-    wait, scope = limiter.check(ip)
+    wait, scope = active.check(ip)
     if not wait:
         return
 
-    message = MESSAGES[scope]
-    logger.warning("Rate limit (%s) reached", scope)
-    raise HTTPException(status_code=429, detail=message, headers={"Retry-After": str(wait)})
+    logger.warning("Rate limit (%s, %s) reached", label, scope)
+    raise HTTPException(status_code=429, detail=messages[scope], headers={"Retry-After": str(wait)})
+
+
+def limit_ai_requests(request: Request) -> None:
+    """FastAPI dependency for routes that spend Gemini/YouTube quota."""
+    _enforce(limiter, request, MESSAGES, "ai")
+
+
+def limit_import_requests(request: Request) -> None:
+    """FastAPI dependency for POST /api/roadmaps/import."""
+    _enforce(import_limiter, request, IMPORT_MESSAGES, "import")

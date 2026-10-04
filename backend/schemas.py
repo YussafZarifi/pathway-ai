@@ -16,7 +16,7 @@ import json
 import re
 from typing import Annotated, Literal, Optional, Union
 
-from pydantic import BaseModel, ConfigDict, Discriminator, Field, Tag, field_validator
+from pydantic import BaseModel, ConfigDict, Discriminator, Field, Tag, ValidationError, field_validator
 
 MAX_CHOICE_LENGTH = 80
 MAX_TEXT_LENGTH = 300  # v1 free-text answer
@@ -141,5 +141,82 @@ class SaveRoadmapRequest(BaseModel):
     answers: QuizAnswers
     career: Annotated[str, Field(min_length=1, max_length=MAX_CAREER_LENGTH)]
     career_data: Optional[dict] = None
+
+    _strip = field_validator("career", mode="before")(_clean)
+
+
+# --- Import of a browser-saved roadmap (POST /api/roadmaps/import) ----------
+
+from ai_output import MAX_LIST_ITEMS, MAX_STEPS, RoadmapStep, _is_web_url  # noqa: E402
+
+MAX_COMPLETED = 10
+
+
+class ImportedVideo(BaseModel):
+    """A video the backend attached when the roadmap was generated. Coming
+    back from the browser it is untrusted: same limits, http(s) links only."""
+
+    id: str = Field(min_length=1, max_length=32)
+    title: str = Field(default="", max_length=300)
+    channel: str = Field(default="", max_length=200)
+    thumbnail: str = Field(default="", max_length=500)
+    url: str = Field(min_length=1, max_length=500)
+
+    @field_validator("url")
+    @classmethod
+    def _web_url(cls, v):
+        if not _is_web_url(v):
+            raise ValueError("not an http(s) URL")
+        return v
+
+    @field_validator("thumbnail")
+    @classmethod
+    def _thumbnail(cls, v):
+        return v if not v or _is_web_url(v) else ""
+
+
+class ImportedStep(RoadmapStep):
+    """A roadmap step as the browser stored it: validated exactly like AI
+    output (ai_output.RoadmapStep), plus the video fields the backend added.
+    Invalid videos are dropped; a step without a title is rejected."""
+
+    videos: list = []
+    video_search_url: Optional[str] = None
+
+    @field_validator("videos", mode="before")
+    @classmethod
+    def _videos(cls, v):
+        kept = []
+        for item in v if isinstance(v, list) else []:
+            try:
+                kept.append(ImportedVideo.model_validate(item).model_dump())
+            except ValidationError:
+                continue
+        return kept[:MAX_LIST_ITEMS]
+
+    @field_validator("video_search_url", mode="before")
+    @classmethod
+    def _search_url(cls, v):
+        return v if isinstance(v, str) and len(v) <= 500 and _is_web_url(v) else None
+
+
+class CompletedStep(BaseModel):
+    position: int = Field(ge=0, le=9)
+    completed_at: int = Field(ge=0)  # milliseconds since the epoch, as the browser stores it
+
+
+class ImportRoadmapRequest(BaseModel):
+    """The roadmap saved in this browser (localStorage, ADR-013), sent once
+    after sign-in. Answers and career_data are optional and checked
+    leniently by the route (invalid ones are dropped, not fatal); steps are
+    checked strictly."""
+
+    local_id: Annotated[str, Field(pattern=r"^[A-Za-z0-9_-]{1,64}$")]
+    career: Annotated[str, Field(min_length=1, max_length=MAX_CAREER_LENGTH)]
+    career_data: Optional[dict] = None
+    answers: Optional[dict] = None
+    generated_at: Optional[int] = Field(default=None, ge=0)  # milliseconds since the epoch
+    steps: list[ImportedStep] = Field(min_length=1, max_length=MAX_STEPS)
+    completed: list[CompletedStep] = Field(default=[], max_length=MAX_COMPLETED)
 
     _strip = field_validator("career", mode="before")(_clean)

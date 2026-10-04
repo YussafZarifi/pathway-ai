@@ -6,11 +6,11 @@ A small FastAPI app in `backend/`. Run locally with `uvicorn main:app --reload -
 |---|---|
 | `main.py` | App, middleware (body limit: 16 KB, 64 KB for `/api/roadmaps/import`), error handlers, guest endpoints, includes `routers/roadmaps.py` |
 | `generation.py` | Shared by guest and saved-roadmap routes: `generate()` (maps LLM errors to HTTP errors), `generate_roadmap()`, `add_videos()`, `prompt_version()` (moved out of `main.py` 2026-10-03) |
-| `routers/roadmaps.py` | Saved roadmaps (ADR-019): `POST /api/roadmaps`, `POST /api/roadmaps/{id}/regenerate`; `get_repository` dependency (503 without `DATABASE_URL`) (added 2026-10-03, M2-6) |
+| `routers/roadmaps.py` | Saved roadmaps (ADR-019): `POST /api/roadmaps`, `POST /api/roadmaps/{id}/regenerate`, `POST /api/roadmaps/import` (M2-7); `get_repository` dependency (503 without `DATABASE_URL`) (added 2026-10-03, M2-6) |
 | `config.py` | Settings read once from environment variables (added 2026-09-27) |
 | `schemas.py` | Pydantic request models: `QuizAnswersV2` (5-question quiz) and `QuizAnswersV1` (8-question quiz, temporary) behind one discriminated `QuizAnswers` (added 2026-09-27; v2 2026-09-28) |
 | `prompts.py` | Prompt builders: v2 prompts for the 5-question quiz, v1 prompts unchanged (added 2026-09-28, ADR-016) |
-| `rate_limit.py` | In-memory rate limiter used as a FastAPI dependency (added 2026-09-27) |
+| `rate_limit.py` | In-memory rate limiters used as FastAPI dependencies: `limit_ai_requests` (added 2026-09-27) and `limit_import_requests` (10/min, 100/day per IP, 5,000/day global; 2026-10-03) |
 | `youtube.py` | YouTube Data API lookups for roadmap step videos (ADR-012) |
 | `llm.py` | Gemini client, JSON mode + response schema, retry policy, per-attempt diagnostics (added 2026-09-27, ADR-015) |
 | `ai_output.py` | Generation schemas, output models, JSON extraction and per-item validation (added 2026-09-27) |
@@ -18,7 +18,7 @@ A small FastAPI app in `backend/`. Run locally with `uvicorn main:app --reload -
 | `auth.py` | Supabase access-token verification: `current_user` dependency, `verify_token` (PyJWT + cached JWKS, ES256/RS256 only, no shared secret; never logs tokens or claims) (added 2026-09-30, ADR-018) |
 | `db.py` | Postgres access for saved roadmaps (ADR-019): lazy `psycopg_pool` pool as `pathwayai_api` through the transaction pooler (prepared statements off), `transaction(user_id)` sets the verified user's claims transaction-locally so RLS applies; connection problems → `DatabaseUnavailable` (added 2026-10-03, M2-5) |
 | `repositories/roadmaps.py` | `RoadmapRepository` Protocol: `create`, `get_source`, `add_regenerated`, `import_local`; `PostgresRoadmapRepository` (every method takes the user id; a per-user transaction-scoped advisory lock serializes one user's writes) and `InMemoryRoadmapRepository` for tests; `roadmap_out` / `step_out` map rows to the API shape (`time_estimate` → `time`) (added 2026-10-03, M2-5) |
-| `tests/` | 136 pytest tests (`requirements-dev.txt`); see `docs/testing.md` |
+| `tests/` | 162 pytest tests (`requirements-dev.txt`); see `docs/testing.md` |
 
 ## Configuration (`config.py`)
 `load_dotenv()` reads `backend/.env` locally; on Render the service environment is used. Template: `backend/.env.example`.
@@ -48,6 +48,7 @@ A small FastAPI app in `backend/`. Run locally with `uvicorn main:app --reload -
 | POST | `/api/ai/roadmap` | `roadmap_ai` | ≤5-step roadmap with videos (rate limited); guests, nothing saved |
 | POST | `/api/roadmaps` | `create_roadmap` | Signed-in: generate + save; 201 with step ids (since 2026-10-03) |
 | POST | `/api/roadmaps/{id}/regenerate` | `regenerate_roadmap` | Signed-in: new roadmap from saved answers; 404 not yours, 409 no answers |
+| POST | `/api/roadmaps/import` | `import_roadmap` | Signed-in: import the browser-saved roadmap once; 201 new / 200 existing; 64 KB body limit; own rate limit |
 
 Full contracts: `docs/api.md`.
 
