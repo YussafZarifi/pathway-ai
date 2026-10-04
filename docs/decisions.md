@@ -203,7 +203,7 @@ ADR-001 to ADR-008 were **reconstructed on 2026-09-24** from the existing code d
     - `quiz_submissions (id uuid pk, user_id, answers jsonb ≤ 4 KB, answers_version smallint 1|2, created_at)` — **server only**: no browser grant at all. Holds the quiz answers needed for regenerate and, in M4, the Coach's context on the user's goals. One submission can lead to several roadmaps (another career, regenerate).
     - `roadmaps (id uuid pk, user_id, quiz_submission_id, career text 1–100, career_data jsonb ≤ 4 KB, prompt_version text, source 'generated'|'imported', status 'active'|'archived', local_id text null, created_at, updated_at)`; `unique (id, user_id)` for composite foreign keys; `unique (user_id, local_id)` for idempotent imports; **partial unique index `(user_id) where status = 'active'`**, so the database guarantees at most one current roadmap per user; index `(user_id, created_at desc)`. Several roadmaps per user (archived history) are allowed from day one; a list/switch UI later needs no schema change. `quiz_submission_id` is a composite foreign key `(quiz_submission_id, user_id)` → `quiz_submissions (id, user_id)`, null for imports without answers.
     - `roadmap_steps (id uuid pk, roadmap_id, user_id, position smallint 0–9, title, description, time_estimate, video_query, video_search_url (text with length limits), tasks/resources/videos jsonb arrays with size limits, created_at)`; composite foreign key `(roadmap_id, user_id)` → `roadmaps (id, user_id)` on delete cascade; `unique (id, user_id)`; `unique (roadmap_id, position) deferrable initially immediate`, so M4's Coach can reorder or insert steps inside one transaction without a schema rewrite. Steps are not edited in M2. Each step has a stable id for progress and for M4's tools.
-    - `step_progress (step_id uuid pk, user_id, completed_at timestamptz)`; composite foreign key `(step_id, user_id)` → `roadmap_steps (id, user_id)` on delete cascade, so progress can only point at the user's own steps; index on `user_id`. A row means "done"; undo deletes the row. No `roadmap_id` copy (it could disagree with the step's roadmap); the browser reads progress nested under steps.
+    - `step_progress (step_id, user_id, completed_at timestamptz default now())`, primary key `(step_id, user_id)` (one row per step, since a step belongs to exactly one user; the key also indexes the foreign key); composite foreign key `(step_id, user_id)` → `roadmap_steps (id, user_id)` on delete cascade, so progress can only point at the user's own steps; index `(user_id, completed_at desc)` for activity. The browser may insert only `step_id` and `user_id`, so `completed_at` is always the database time and can't be backdated; `pathwayai_api` may set it (imports keep the original time). A row means "done"; undo deletes the row. No `roadmap_id` copy (it could disagree with the step's roadmap); the browser reads progress nested under steps.
   - **Grants (enforced by one shared policy per operation):**
 
     | Table | `authenticated` (browser) | `pathwayai_api` (FastAPI) | `anon` |
@@ -211,7 +211,7 @@ ADR-001 to ADR-008 were **reconstructed on 2026-09-24** from the existing code d
     | `quiz_submissions` | none | select, insert | none |
     | `roadmaps` | select | select, insert, update (`status`) | none |
     | `roadmap_steps` | select | select, insert | none |
-    | `step_progress` | select, insert, delete | select, insert (imports) | none |
+    | `step_progress` | select, insert (`step_id`, `user_id` only), delete | select, insert (imports) | none |
     | `profiles` | unchanged (ADR-018) | none | none |
   - **Endpoints** (all require a verified Supabase token; `POST /api/ai/roadmap` stays unchanged for guests):
 
@@ -248,7 +248,8 @@ ADR-001 to ADR-008 were **reconstructed on 2026-09-24** from the existing code d
   - *Rejected:* making `pathwayai_api` a member of `authenticated` (inherits the browser's grants and `profiles` policies, breaks least privilege); two policies per operation, browser on `auth.uid()` and API on the raw claim (the duplication this ADR removed); a `security definer` wrapper around `auth.uid()` (works, but definer functions should not be used to get around a permission error).
   - *Risk:* if Supabase changes how `auth.uid()` reads the claims, the helper won't follow automatically; the M2 RLS checks in `supabase/tests/` would show it.
   - *Testing:* the migration also runs `grant pathwayai_api to postgres with inherit false, set true`, so the saved checks can `set role pathwayai_api`; `postgres` does not gain the role's privileges by inheritance.
-- **Status:** Accepted (owner, 2026-10-02; amended 2026-10-03). Being built: M2-2 applied 2026-10-03 (migration `20261004014249_create_roadmaps`).
+- **Implementation notes (M2-3, 2026-10-03):** the `step_progress` primary key is `(step_id, user_id)` rather than `step_id` alone, and the browser's insert grant is limited to `step_id` + `user_id` (both recorded above). Test lesson: `set_config('request.jwt.claims', …, true)` lasts until the end of the transaction, so a "no claims" check must clear the setting first; FastAPI must likewise set the claims inside each transaction (`is_local = true`) so they never outlive it on a pooled connection.
+- **Status:** Accepted (owner, 2026-10-02; amended 2026-10-03). Being built: M2-2 and M2-3 applied 2026-10-03 (migrations `20261004014249_create_roadmaps`, `20261004014958_create_step_progress`).
 
 ---
 

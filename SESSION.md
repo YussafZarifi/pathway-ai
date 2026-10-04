@@ -4,16 +4,16 @@
 
 ---
 
-## Current session — 2026-10-03 · M2-2: roadmap tables applied
+## Current session — 2026-10-03 · M2-2 and M2-3: roadmap and progress tables applied
 
 ### Summary
-- **Finding:** `pathwayai_api` can't call `auth.uid()`: schema `auth` belongs to `supabase_admin` and `postgres` can't grant `usage` on it (the grant silently does nothing). Owner approved a helper, `private.request_user_id()`, with the same body as `auth.uid()` (security invoker, reads only the request claims, executable only by `authenticated` and `pathwayai_api`). ADR-019 amended.
-- **M2-2 applied:** migration `20261004014249_create_roadmaps` — role `pathwayai_api` (`nologin noinherit nobypassrls`, member of nothing), `quiz_submissions` (server only), `roadmaps` (at most one active per user, idempotent `local_id`, composite foreign keys), `roadmap_steps` (deferrable position uniqueness), one shared policy per operation, default grants revoked, explicit grants.
-- **Checks:** 31/31 in `supabase/tests/m2_2_roadmaps_rls.sql`, first in a rolled-back transaction before applying, then on the live schema. Advisors: nothing for the new tables (the existing leaked-password-protection Auth warning; INFO "unused index" on the empty tables). Live state verified: 1 user, new tables empty, grants and policies as designed.
+- **M2-2** (commit `ee500a4`): `pathwayai_api` can't call `auth.uid()` (schema `auth` belongs to `supabase_admin`; `postgres` can't grant `usage` on it), so policies use `private.request_user_id()`, same body as `auth.uid()`, security invoker (owner-approved, ADR-019 amended). Migration `20261004014249_create_roadmaps`: role `pathwayai_api`, `quiz_submissions`, `roadmaps`, `roadmap_steps`, one shared policy per operation, explicit grants.
+- **M2-3:** migration `20261004014958_create_step_progress`: primary key `(step_id, user_id)`, composite foreign key to the user's own steps (cascade), index `(user_id, completed_at desc)`; browser select / insert (`step_id`, `user_id` only, so `completed_at` can't be backdated) / delete; `pathwayai_api` select / insert (imports keep the original time); no update for anyone; `anon` nothing.
+- **Checks:** 22/22 new checks (`supabase/tests/m2_3_step_progress_rls.sql`) + 31/31 M2-2 checks on the live schema. A test bug was found and fixed in both files: the "pathwayai_api without claims" check didn't clear claims set earlier in the same transaction, so in M2-2 it had passed without testing anything; it now clears them and still passes. Advisors: nothing new (existing leaked-password-protection warning; INFO unused index on empty tables). Backend 100/100, lint at its 12-error baseline, build passes.
 
 ### Next Session (exact order)
-1. **M2-3:** `step_progress` migration (browser select/insert/delete own; composite foreign key to the user's own steps); RLS checks; advisors.
-2. M2-4 (owner sets the role's login + password, `DATABASE_URL`) → M2-5 … M2-11 per ROADMAP.
+1. **M2-4 (owner):** enable login for `pathwayai_api` and set its password in the Supabase dashboard (SQL editor), then put `DATABASE_URL` (transaction pooler) in `backend/.env`; Claude confirms the connection and that RLS applies. Claude will give exact steps when M2-4 starts.
+2. M2-5 … M2-11 per ROADMAP.
 
 ### Open questions (for the owner)
 1. Gemini's free tier (20 requests/day) will limit live checks in M2-9 to M2-11 and Milestones 3–4: enable billing during development, or stay within the quota?

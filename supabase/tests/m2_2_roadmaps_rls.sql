@@ -106,6 +106,8 @@ do $$
 declare n int;
 begin
   set local role pathwayai_api;
+  -- Earlier blocks set claims for the rest of the transaction; clear them.
+  perform set_config('request.jwt.claims', '', true);
   select count(*) into n from public.roadmaps;
   reset role;
   insert into results (check_name, ok, detail) values ('pathwayai_api without claims sees no rows', n = 0, n::text);
