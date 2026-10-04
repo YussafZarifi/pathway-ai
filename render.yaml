@@ -2,7 +2,7 @@
 # Apply from the Render Dashboard (New > Blueprint). Render asks for every
 # `sync: false` value on first apply. See docs/deployment.md.
 services:
-  # Backend: FastAPI AI proxy (Gemini + YouTube). No database yet.
+  # Backend: FastAPI AI proxy (Gemini + YouTube) + saved roadmaps (Supabase Postgres).
   - type: web
     name: pathwayai-api
     runtime: python
@@ -30,6 +30,12 @@ services:
       # Optional accounts (ADR-018): https://<project-ref>.supabase.co, used
       # to verify access tokens via the project's public JWKS. Not a secret.
       - key: SUPABASE_URL
+        sync: false
+      # Optional saved roadmaps (ADR-019). SECRET: Supabase transaction-pooler
+      # URL for the least-privilege pathwayai_api role, e.g.
+      # postgresql://pathwayai_api.<ref>:<password>@<pooler-host>:6543/postgres?sslmode=require
+      # Unset -> /api/roadmaps* return 503; guests are unaffected.
+      - key: DATABASE_URL
         sync: false
 
   # Frontend: Vite build served as a static site.

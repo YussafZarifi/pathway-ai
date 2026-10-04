@@ -9,6 +9,9 @@ import pytest
 os.environ["GEMINI_API_KEY"] = "test-key"
 os.environ["YOUTUBE_API_KEY"] = ""
 os.environ["ALLOWED_ORIGINS"] = "http://localhost:5173"
+# Never reach the real database from tests, whatever backend/.env says
+# (load_dotenv doesn't override variables that are already set).
+os.environ["DATABASE_URL"] = ""
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 

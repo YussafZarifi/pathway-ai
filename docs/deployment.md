@@ -34,7 +34,7 @@ Still missing before a public launch (not blockers for a first deploy):
 ```bash
 # backend (terminal 1)
 cd backend
-cp .env.example .env          # set GEMINI_API_KEY (optional: YOUTUBE_API_KEY, SUPABASE_URL)
+cp .env.example .env          # set GEMINI_API_KEY (optional: YOUTUBE_API_KEY, SUPABASE_URL, DATABASE_URL)
 uvicorn main:app --reload --port 8000
 
 # frontend (terminal 2)
@@ -64,6 +64,8 @@ Both have `buildFilter` paths, so a frontend-only change doesn't redeploy the AP
 | `VITE_API_URL` | web | `sync: false` | The API's URL, e.g. `https://pathwayai-api.onrender.com`. **Build time**: redeploy the site after changing it |
 | `NODE_VERSION` | web | in `render.yaml` | `22` (Vite 7 needs ≥ 20.19) |
 | `SUPABASE_URL` | api | `sync: false` | Optional (ADR-018): `https://pczczkmkavmxibxureck.supabase.co`. Issuer + JWKS for token checks; not a secret. Unset → `/api/me` 503, AI routes unchanged |
+| `DATABASE_URL` | api | `sync: false` | Optional **secret** (ADR-019, Milestone 2): `postgresql://pathwayai_api.<project-ref>:<password>@<pooler-host>:6543/postgres?sslmode=require` — Supabase transaction pooler, least-privilege `pathwayai_api` role (never `postgres`/service_role). Unset → `/api/roadmaps*` 503 (signed-in users can't save roadmaps); guests unchanged |
+| `DB_POOL_MAX` | api | optional, Dashboard | Max pooled connections per instance (default 5) |
 | `VITE_SUPABASE_URL` | web | `sync: false` | Optional, build time: same project URL. Unset → no account UI (guest-only build) |
 | `VITE_SUPABASE_PUBLISHABLE_KEY` | web | `sync: false` | Optional, build time: the `sb_publishable_…` key (public by design). **Never** the secret / service_role key |
 
@@ -72,6 +74,7 @@ Both have `buildFilter` paths, so a frontend-only change doesn't redeploy the AP
 - **Authentication → URL Configuration** (Supabase Dashboard, owner): set **Site URL** to the live site (`https://pathwayai-web.onrender.com` once deployed; `http://localhost:5173` until then) and add **Redirect URLs** `http://localhost:5173/**` and `https://pathwayai-web.onrender.com/**`. The sign-up confirmation link redirects to `<origin>/home`; an origin that isn't listed falls back to the Site URL.
 - **Authentication → Providers → Email**: enabled, "Confirm email" on (the default). The free plan's built-in email sender is rate-limited (a few emails per hour) and meant for testing: set up custom SMTP before a public launch.
 - Password rules: the app asks for ≥ 8 characters; you can enforce the same minimum under Authentication → Providers → Email.
+- **Database role for the API (ADR-019):** `pathwayai_api` is created by migration `20261004014249_create_roadmaps` without a password. To enable it (done for the dev project on 2026-10-03, M2-4), generate a strong password locally and run `alter role pathwayai_api with login password '<SCRAM-SHA-256 hash>'` in the SQL Editor — a hash, not the plain password, because the project logs DDL statements — then put the matching `DATABASE_URL` in the API's environment. Get the pooler host from **Connect → Transaction pooler**. Check: `supabase/tests/m2_4_api_role_connection.py`.
 - Verify after deploying: sign up with a real inbox → the link lands on `/home` signed in → header shows the email → `GET /api/me` with the session token returns 200 → sign out.
 
 ### First deploy (after Version 2, when the owner approves)
@@ -90,7 +93,7 @@ Both have `buildFilter` paths, so a frontend-only change doesn't redeploy the AP
 ## Later (🗺️)
 | Piece | Plan |
 |---|---|
-| Database | Supabase Postgres (ADR-018): `profiles` done in Milestone 1; roadmap tables in Milestone 2 (F-8) |
+| Database | Supabase Postgres (ADR-018/019): `profiles` (Milestone 1); roadmap tables + `pathwayai_api` role (Milestone 2, F-8, in progress) |
 | Shared rate limits / cache | Render Key Value (Redis-compatible) once there is more than one instance |
 | Errors | Sentry (F-11) |
 | Containers | Optional `backend/Dockerfile` + `docker-compose.yml` for local dev (F-5) |

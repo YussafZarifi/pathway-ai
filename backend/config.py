@@ -43,4 +43,11 @@ GLOBAL_AI_LIMIT_PER_DAY = _int("GLOBAL_AI_LIMIT_PER_DAY", 500)
 # without it, account routes return 503 and the AI routes work as before.
 SUPABASE_URL = os.getenv("SUPABASE_URL", "").strip().rstrip("/")
 
+# Server-only Postgres connection as the pathwayai_api role (ADR-019),
+# through Supabase's transaction pooler (port 6543). A secret: it holds the
+# role's password. Optional: without it the app starts normally, guests
+# work, and the saved-roadmap routes (/api/roadmaps*) return 503.
+DATABASE_URL = os.getenv("DATABASE_URL", "").strip()
+DB_POOL_MAX = _int("DB_POOL_MAX", 5)
+
 LOG_LEVEL =os.getenv("LOG_LEVEL", "").strip().upper() or "INFO"

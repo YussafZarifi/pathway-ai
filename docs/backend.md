@@ -14,7 +14,9 @@ A small FastAPI app in `backend/`. Run locally with `uvicorn main:app --reload -
 | `ai_output.py` | Generation schemas, output models, JSON extraction and per-item validation (added 2026-09-27) |
 | `request_log.py` | Logging setup with a per-request ID (`X-Request-ID`) (added 2026-09-27) |
 | `auth.py` | Supabase access-token verification: `current_user` dependency, `verify_token` (PyJWT + cached JWKS, ES256/RS256 only, no shared secret; never logs tokens or claims) (added 2026-09-30, ADR-018) |
-| `tests/` | 100 pytest tests (`requirements-dev.txt`); see `docs/testing.md` |
+| `db.py` | Postgres access for saved roadmaps (ADR-019): lazy `psycopg_pool` pool as `pathwayai_api` through the transaction pooler (prepared statements off), `transaction(user_id)` sets the verified user's claims transaction-locally so RLS applies; connection problems → `DatabaseUnavailable` (added 2026-10-03, M2-5) |
+| `repositories/roadmaps.py` | `RoadmapRepository` Protocol: `create`, `get_source`, `add_regenerated`, `import_local`; `PostgresRoadmapRepository` (every method takes the user id; retries once on the one-active / local-id unique races) and `InMemoryRoadmapRepository` for tests; `roadmap_out` / `step_out` map rows to the API shape (`time_estimate` → `time`) (added 2026-10-03, M2-5) |
+| `tests/` | 118 pytest tests (`requirements-dev.txt`); see `docs/testing.md` |
 
 ## Configuration (`config.py`)
 `load_dotenv()` reads `backend/.env` locally; on Render the service environment is used. Template: `backend/.env.example`.
@@ -30,6 +32,8 @@ A small FastAPI app in `backend/`. Run locally with `uvicorn main:app --reload -
 | `RATE_LIMIT_PER_DAY` | 50 | Per client IP |
 | `GLOBAL_AI_LIMIT_PER_DAY` | 500 | All clients together |
 | `SUPABASE_URL` | empty | Optional (ADR-018). `https://<ref>.supabase.co`; issuer + JWKS for token checks. Empty: `/api/me` returns 503, AI routes unaffected. Not a secret |
+| `DATABASE_URL` | empty | Optional **secret** (ADR-019): transaction-pooler URL for the `pathwayai_api` role. Empty: the app starts normally, `/api/roadmaps*` return 503, guests unaffected. Tests force it empty |
+| `DB_POOL_MAX` | 5 | Max pooled database connections |
 | `LOG_LEVEL` | `INFO` | |
 
 ## Endpoints (✅)
@@ -81,7 +85,7 @@ WARNING pathwayai.llm rid=3f575856b373: career attempt 1: Gemini 429 RESOURCE_EX
 ``` The `google_genai` and `httpx` libraries also log at INFO (request URLs without keys; Gemini sends its key in a header).
 
 ## Dependencies (`requirements.txt`)
-fastapi 0.128, uvicorn 0.40, pydantic 2.12, google-genai 2.25, python-dotenv, httpx, plus transitive packages. **`openai` 2.14 is listed but unused** (open question 4). Two virtualenvs exist (repo root `.venv`, which the owner's dev server uses, and `backend/.venv`); consolidate to one.
+fastapi 0.128, uvicorn 0.40, pydantic 2.12, google-genai 2.25, python-dotenv, httpx, PyJWT 2.15.1, psycopg 3.3.6 (+ psycopg-binary) and psycopg-pool 3.3.3 (since 2026-10-03), plus transitive packages (`tzdata` on Windows only). **`openai` 2.14 is listed but unused** (open question 4). Two virtualenvs exist (repo root `.venv`, which the owner's dev server uses, and `backend/.venv`); consolidate to one.
 
 ## Remaining security gaps
 - No auth: anyone can call the AI endpoints within the rate limits.

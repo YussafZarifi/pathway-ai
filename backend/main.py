@@ -1,5 +1,6 @@
 import logging
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
@@ -7,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 import config
+import db
 import llm
 import request_log
 import youtube
@@ -28,7 +30,13 @@ AI_BUSY = "PathwayAI's AI service is busy right now. Please wait a minute and tr
 AI_FAILED = "We couldn't generate results right now. Please try again."
 INVALID_ANSWERS = "Some quiz answers are missing or too long. Please retake the quiz and try again."
 
-app = FastAPI(title="PathwayAI API")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    yield
+    db.close()  # the saved-roadmap pool, if it was ever opened
+
+
+app = FastAPI(title="PathwayAI API", lifespan=lifespan)
 
 if not config.ALLOWED_ORIGINS:
     logger.warning("ALLOWED_ORIGINS is empty: browsers on other origins can't call this API")
@@ -36,6 +44,8 @@ if not config.GEMINI_API_KEY:
     logger.error("GEMINI_API_KEY is not set: AI endpoints will return 503")
 if not config.SUPABASE_URL:
     logger.info("SUPABASE_URL is not set: account routes will return 503")
+if not config.DATABASE_URL:
+    logger.info("DATABASE_URL is not set: saved-roadmap routes will return 503")
 
 
 
