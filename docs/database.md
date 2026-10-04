@@ -10,11 +10,28 @@ Project `pczczkmkavmxibxureck` (free plan). Migrations are Supabase CLI SQL file
 
 Verified on 2026-09-30 in a rolled-back transaction: the trigger creates the row, a user sees 1 row and cannot update another user's row, `anon` has no privileges, clients cannot insert. Security and performance advisors: no findings.
 
-**Nothing else is stored in Postgres yet**: roadmaps and progress stay in the browser (below) until Milestone 2 (F-8).
+## Saved roadmaps (✅ since 2026-10-03, Milestone 2, ADR-019)
+
+Signed-in users' roadmaps live in Postgres; guests keep browser storage (below). Migrations `20261004014249_create_roadmaps` and `20261004014958_create_step_progress`.
+
+| Table | Key columns | Written by | Browser (`authenticated`) |
+|---|---|---|---|
+| `quiz_submissions` | `id`, `user_id`, `answers jsonb` (≤4 KB), `answers_version` 1/2, `created_at` | FastAPI (`pathwayai_api`) | **no access** (server-only answers) |
+| `roadmaps` | `id`, `user_id`, `quiz_submission_id` (composite FK to the same user's submission; required unless imported), `career`, `career_data jsonb`, `prompt_version`, `source` generated/imported, `status` active/archived, `local_id` (unique per user), `created_at`, `updated_at` | FastAPI | select own |
+| `roadmap_steps` | `id`, `roadmap_id` + `user_id` (composite FK, cascade), `position` 0–9 (unique per roadmap, deferrable), `title`, `description`, `time_estimate`, `tasks`/`resources`/`videos` jsonb (size-limited), `video_query`, `video_search_url` | FastAPI | select own |
+| `step_progress` | PK `(step_id, user_id)` → `roadmap_steps (id, user_id)` cascade, `completed_at` default `now()` | browser (mark/unmark); FastAPI on import | select, insert (`step_id`, `user_id` only: the time is the database's), delete own |
+
+- **One current roadmap:** partial unique index `(user_id) where status = 'active'`; generating, regenerating or importing a newer roadmap archives the previous one. Archived roadmaps stay (history; a list/switch UI can come later without schema changes).
+- **RLS:** one policy per operation shared by `authenticated` and `pathwayai_api`: `user_id = (select private.request_user_id())` (same logic as `auth.uid()`; ADR-019 amendment). `anon` has no grants. `pathwayai_api` (`nobypassrls`, member of no role) can insert submissions/roadmaps/steps/progress, update only `roadmaps.status`, and delete nothing.
+- **Ownership by foreign keys:** composite `(…, user_id)` keys make it impossible for a step, a progress row or a roadmap's submission to point at another user's rows, even for a buggy writer.
+- **Account deletion** cascades from `auth.users` to every table.
+- **How the browser reads:** one PostgREST request, `roadmaps` with embedded `roadmap_steps` and their `step_progress` (`lib/roadmaps/accountRepository.js`), newest 20.
+- **Activity for signed-in users** (streak, active days, achievements) is derived from these rows: `roadmaps.created_at` (each generated roadmap = a completed quiz and a chosen career) and `step_progress.completed_at`. No events table (deferred, ADR-019).
+- **Checks:** `supabase/tests/m2_2_roadmaps_rls.sql` (31), `m2_3_step_progress_rls.sql` (22), `m2_4_api_role_connection.py` (18, through the pooler).
 
 ## Browser storage (✅): the guest flow
 
-All roadmap persistence is **client-side**, in two `localStorage` keys: `pathwayai_roadmap` (the current roadmap, since 2026-09-26, ADR-013) and `pathwayai_tracking` (events, metrics, progress).
+For guests (and builds without accounts) all roadmap persistence is **client-side**, in two `localStorage` keys: `pathwayai_roadmap` (the current roadmap, since 2026-09-26, ADR-013) and `pathwayai_tracking` (events, metrics, progress).
 
 ### `pathwayai_roadmap` (`lib/roadmapStore.js`)
 ```jsonc
@@ -71,6 +88,8 @@ The current roadmap is persisted (above). Still planned before accounts: several
 Include a migration from v1 (drop or ignore old unscoped `roadmap_step_*` keys).
 
 ## Target schema (🗺️) — PostgreSQL
+
+> Partly superseded by Milestone 2 (above): `quiz_sessions` became `quiz_submissions`, progress is `step_progress` (one row per completed step) instead of `progress_events`, and career suggestions are not stored. The rest (resources, resumes, coach messages, sharing) is still a sketch for later milestones.
 
 ```mermaid
 erDiagram

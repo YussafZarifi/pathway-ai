@@ -13,11 +13,16 @@
  *   activityKind ("visits" | "progress") }.
  */
 
+import { authEnabled } from "../supabase";
+import { accountRepository } from "./accountRepository";
 import { localRepository } from "./localRepository";
 
-export { localRepository };
+export { accountRepository, localRepository };
 
-/** The repository for this visitor. Guests (and auth-off builds) → local. */
-export function repositoryFor() {
-  return localRepository;
+/**
+ * The repository for this visitor: signed-in users → their account
+ * (Postgres); guests and auth-off builds → this browser.
+ */
+export function repositoryFor(session) {
+  return authEnabled && session ? accountRepository : localRepository;
 }

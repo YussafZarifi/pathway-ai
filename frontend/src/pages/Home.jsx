@@ -9,13 +9,16 @@ import {
 } from "lucide-react";
 import AppHeader from "../components/AppHeader";
 import { summarizeProgress } from "../lib/dashboardData";
+import { useAuth } from "../lib/authContext";
 import { useCurrentRoadmap } from "../lib/roadmaps/useCurrentRoadmap";
 
 // Future signed-in hub. Until accounts exist it shows the one roadmap saved
 // in this browser, or an honest empty state: nothing that isn't real.
 export default function Home() {
   const navigate = useNavigate();
-  const { record } = useCurrentRoadmap();
+  const { enabled: accountsEnabled } = useAuth();
+  const { mode, status, record } = useCurrentRoadmap();
+  const inAccount = mode === "account";
   // The current roadmap, if any, with its real progress.
   const saved = record
     ? { career: record.career, summary: summarizeProgress(record.statuses) }
@@ -57,16 +60,23 @@ export default function Home() {
         <section className="homeSection" aria-labelledby="homeRoadmapsTitle">
           <h2 className="homeSectionTitle" id="homeRoadmapsTitle">Your roadmap</h2>
 
-          {saved ? (
+          {status === "loading" ? (
+            <div className="homeEmpty" aria-busy="true">
+              <p className="homeEmptyText" role="status">
+                Loading your roadmap…
+              </p>
+            </div>
+          ) : saved ? (
             <div className="homeEmpty">
               <div className="homeEmptyIcon">
                 <Map size={28} aria-hidden="true" />
               </div>
               <h3 className="homeEmptyTitle">{saved.career}</h3>
               <p className="homeEmptyText">
-                {saved.summary.done} of {saved.summary.total} steps done. Your roadmap and
-                progress are saved in this browser. PathwayAI keeps one roadmap at a time, so
-                generating a new one replaces it. Saving across devices will come with accounts.
+                {saved.summary.done} of {saved.summary.total} steps done.{" "}
+                {inAccount
+                  ? "Your roadmap and progress are saved to your account, so they're here on any device where you sign in. Generating a new one makes it your current roadmap."
+                  : `Your roadmap and progress are saved in this browser. PathwayAI keeps one roadmap at a time, so generating a new one replaces it.${accountsEnabled ? " Sign in to save it to your account and use it on any device." : ""}`}
               </p>
               <button type="button" className="ghostBtn" onClick={() => navigate("/dashboard")}>
                 Open your dashboard
@@ -79,9 +89,10 @@ export default function Home() {
               </div>
               <h3 className="homeEmptyTitle">No roadmap yet</h3>
               <p className="homeEmptyText">
-                Take the quiz and pick a career. Your roadmap and progress are saved in this
-                browser, so they'll be here when you come back. Saving across devices will come
-                with accounts.
+                Take the quiz and pick a career.{" "}
+                {inAccount
+                  ? "Your roadmap and progress will be saved to your account, so they'll be here on any device where you sign in."
+                  : "Your roadmap and progress are saved in this browser, so they'll be here when you come back."}
               </p>
               <button type="button" className="ghostBtn" onClick={() => navigate("/quiz")}>
                 Generate a roadmap

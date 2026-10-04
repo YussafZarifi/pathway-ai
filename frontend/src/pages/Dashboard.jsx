@@ -46,6 +46,7 @@ export default function Dashboard() {
   // The saved roadmap survives reloads and new tabs (ADR-013). Router state
   // is only a fallback for a roadmap that couldn't be saved.
   const {
+    mode,
     status,
     record,
     error: loadError,
@@ -220,7 +221,7 @@ export default function Dashboard() {
             <h1 className="dashEmptyTitle">No roadmap yet</h1>
             <p className="dashEmptyText">
               Take the 5-question quiz and pick a career. Your roadmap and progress will
-              live here, saved in this browser.
+              live here, {mode === "account" ? "saved to your account" : "saved in this browser"}.
             </p>
             <button type="button" className="homePrimaryBtn" onClick={() => navigate("/quiz")}>
               Take the career quiz
