@@ -4,35 +4,37 @@
 
 ---
 
-## Current session — 2026-10-03 · Milestone 2 complete (M2-2 → M2-11)
+## Current session — 2026-10-04 · Pre-Milestone 3 audit and fixes
 
 ### Summary
-- **M2-2** (`ee500a4`): `pathwayai_api` can't call `auth.uid()`, so policies use `private.request_user_id()` (owner-approved ADR-019 amendment). Migration `20261004014249_create_roadmaps`: role, `quiz_submissions`, `roadmaps`, `roadmap_steps`, shared policies, explicit grants.
-- **M2-3** (`4233d0d`): migration `20261004014958_create_step_progress`; browser can't backdate `completed_at`. Test bug fixed in both suites (the "no claims" check hadn't cleared earlier claims).
-- **M2-4:** the owner enabled the role's login with a locally generated SCRAM hash (the project logs DDL, so no plain password in `alter role`) and put `DATABASE_URL` (transaction pooler, `pathwayai_api.<ref>`, port 6543, SSL) into `backend/.env` only. The first attempt didn't land (neither the role nor `.env` changed); the helper was recreated inside the repo (git-excluded via `.git/info/exclude`, then deleted by the owner) and the second run worked. Verified through the pooler with `supabase/tests/m2_4_api_role_connection.py`: 18/18 (role identity and no bypass, no rows without claims, exactly the user's rows with claims, claims don't leak to the next transaction, cross-user writes / extra grants / `row_security = off` / disabling RLS / `set role` all refused). Two fixture users were created for the check and deleted afterwards (database back to 1 user, 0 Milestone 2 rows). SQL suites 53/53; advisors: only the existing leaked-password Auth warning. Backend 100/100, lint 12-error baseline, build passes.
-- **M2-5:** backend foundation — `db.py` (lazy `psycopg_pool` pool as `pathwayai_api`, prepared statements off, `transaction(user_id)` with transaction-local claims, `DatabaseUnavailable`), `repositories/roadmaps.py` (Protocol, Postgres, in-memory), `DATABASE_URL`/`DB_POOL_MAX` config (optional), pinned psycopg 3.3.6 / psycopg-binary 3.3.6 / psycopg-pool 3.3.3 (+ `tzdata` on Windows), installed in both venvs; `.env.example`, `render.yaml`, `docs/deployment.md`, `docs/backend.md`. Tests force `DATABASE_URL` empty. 118 tests; live read-only smoke check through the pooler.
-- **M2-6:** `generation.py` (moved from `main.py`, shared), `routers/roadmaps.py` with `POST /api/roadmaps` and `POST /api/roadmaps/{id}/regenerate`; 136 tests. Live repository check with throwaway users found that one retry didn't survive 4 concurrent saves → replaced retries with a per-user `pg_advisory_xact_lock` (6 concurrent saves OK, 1 active). Fixture users deleted.
-- **M2-7:** `POST /api/roadmaps/import` (strict steps, lenient answers/career_data, clamped dates, 64 KB on this path only, own rate limiter); 162 tests; live Postgres import check with a throwaway user (idempotent, older → archived, 3 concurrent imports → 1). Fixture user deleted.
-- **M2-8:** frontend repository layer (`lib/roadmaps/`), `api.js` token support and saved-roadmap calls; Dashboard/Home/Results refactored onto `useCurrentRoadmap` / `repositoryFor` (local only). Guest UI check in an isolated headless Chrome (Playwright from a scratch venv, system Chrome, throwaway profile): 11/11, no Gemini calls.
-- **M2-9:** `accountRepository` (Supabase reads with embedded steps/progress, RLS mark/unmark, FastAPI generate/regenerate, activity from rows), mode-aware copy. QA with a throwaway confirmed test user (`m2-qa1-…@example.test`, bcrypt hash inserted via SQL, password only in the scratchpad) signing in through real Supabase Auth in isolated Chrome: 18/19 (the failure is the pre-existing dev-only AbortError log, N-21); ~3 Gemini requests spent. Accounts-off build (Supabase vars empty) served with `vite preview`: guest check 11/11.
-- **M2-10:** import banner (`ImportRoadmapBanner`, `useLocalImport`, storage clear helpers) on Home + Dashboard. Second throwaway user created the same way. Isolated-browser check 14/14 (decline, simulated failure + retry, two tabs at once → 1 roadmap, local cleared, repeat import → 200, second account sees nothing). No Gemini.
-- **M2-11:** final QA — full guest flow from the quiz with real Gemini (saved in the browser) + keyboard step marking; signed-in at 360 px (no horizontal scroll) + keyboard import; 53/53 SQL + 18/18 pooled checks re-run; advisors: only the existing leaked-password Auth warning. All throwaway users deleted (database back to the owner's 1 user, 0 Milestone 2 rows); test credentials deleted from the scratchpad; the owner's dev servers were used, never restarted. Docs updated across CLAUDE, ROADMAP, SESSION, ADR-019, database, api, backend, frontend, architecture, testing, technical-debt (TD-67–TD-70) and README.
-- Gemini spent this session: about 6–8 requests (signed-in generate + regenerate, guest generate, career lists).
-- Known, not fixed (outside Milestone 2): the dev-only "Error fetching careers: AbortError" console log on Results under React StrictMode (N-21).
+- **Full audit** (no code changes during it): live HTTP security tests with real Supabase tokens for two throwaway users (JWT tampering, IDOR, privilege escalation through Supabase REST/RPC/GraphQL, injection, XSS, CORS, body limits, rate limits, config fallbacks, logs), database schema/grants/policies/migration-hash checks, atomicity, pool/concurrency/leak tests, browser suites, secret scans (history, files, bundle), dependency audits. Findings: two High bugs, dependency advisories, dead code, docs drift. Report given in chat; score 68/100.
+- **Fixes (one commit each, all verified):**
+  - `65bcf95` JWT clock-skew leeway (30 s): this PC's clock is ~1.4–2.0 s behind Supabase, so fresh tokens were rejected for ~2 s ("Please sign in again" right after sign-in). TD-71 resolved.
+  - `365ef3d` body limits counted while reading (`body_limit.py`): chunked bodies without `Content-Length` bypassed the 16 KB/64 KB limits (a 2 MB body reached Gemini). Innermost ASGI middleware raising FastAPI's `HTTPException(413)`. TD-72 resolved.
+  - `aa2ae16` backend dependencies: fastapi 0.128.0 → 0.133.1, starlette 0.50.0 → 1.3.1, anyio 4.14.2, idna 3.15, click 8.3.3, python-dotenv 1.2.2 (minimal fixed versions). pip-audit clean. TD-73 resolved; new TD-74 (test-only Starlette deprecation warning).
+  - `c79c2d6` frontend dependencies within existing ranges (lockfile only): jspdf 4.2.1, dompurify 3.4.16, react-router 7.18.4, vite 7.3.6, rollup 4.64.0, postcss 8.5.28 and tooling. npm audit: 0. TD-64 resolved.
+- **Verification after the fixes:** 173 backend tests (+11 regression tests), lint identical (12), build; live HTTP audit 50/50 on the upgraded backend; browser suites on the upgraded stack (separate dev server on 5174 → backend on 8011): deps/PDF 8/8, guest 11/11, account 16/16, import 14/14, 360 px + keyboard 6/6; full database suites 31 + 22 + 18.
+- **Incidents (handled):** `npm ci` while dev servers held `esbuild.exe`/Rollup locks left `node_modules` half-removed; the owner stopped `npm run dev`, then a clean `npm ci` restored it. A fixture-cleanup `delete` was rolled back together with a test transaction in the same SQL call (re-done separately). Gemini's free daily quota ran out late in the session (the app showed the honest "usage limit" message).
+- Throwaway users created for the audit and the fixes were deleted at the end.
 
 ### Next Session (exact order)
-1. **Owner:** real-account check of Milestone 2 — sign in with your account on two browsers/devices, generate (or import) a roadmap, mark a step on one and see it on the other; try Regenerate; sign out and confirm the guest view.
-2. **Milestone 3 (F-13) planning:** Resume Analyzer — ADR + M3-x step table, owner approval before code.
+1. **Owner:** restart the backend (it still has the old packages loaded) and `npm run dev`; then the manual Milestone 2 QA checklist from Step 0 (paused).
+2. Tag Milestone 2 as complete once the manual QA passes.
+3. **Milestone 3 (F-13) planning:** Resume Analyzer — ADR + M3-x steps, owner approval before code.
 
 ### Open questions (for the owner)
 1. Gemini's free tier (20 requests/day) will limit Milestones 3–4 testing: enable billing during development, or stay within the quota?
 2. ~~Upgrade the vulnerable npm packages (TD-64)~~ — done 2026-10-04 (0 vulnerabilities).
 3. Leaked-password protection (Supabase Auth advisor warning, pre-existing): enable it if the plan allows.
-4. Push `main` (66 commits ahead) to the private GitHub repo as a backup, without deploying?
+4. Push `main` (71 commits ahead) to the private GitHub repo as a backup, without deploying?
+
+---
+
 
 ---
 
 ## History
+- 2026-10-03 — Milestone 2 complete (M2-2 → M2-11), see ROADMAP 🗄️ Milestone 2 and ADR-019.
 - 2026-10-03 — Milestone 2 (M2-2 → M2-11): roadmap tables + `pathwayai_api` role, pooled login, backend pool/repository/endpoints, frontend repositories, account mode, import banner, QA; ADR-019 amended (`private.request_user_id()`).
 - 2026-10-02 — Milestone 2 design reviewed (six changes adopted) and accepted as ADR-019; ROADMAP step table M2-1 → M2-11 (M2-1, commit `bfaf1b8`).
 - 2026-10-01 — Planning: deployment postponed until Version 2 (M1–M4) is complete; Milestone 1 verified with the owner's real account (M1-8); first Milestone 2 draft written (conversation only).
