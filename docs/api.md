@@ -26,7 +26,7 @@ Liveness check used by Render. No external calls, no quota, not rate limited. Ad
 ---
 
 ## ✅ `GET /api/me`
-The signed-in user (added 2026-09-30, ADR-018). Requires `Authorization: Bearer <Supabase access token>`; the token is verified locally (ES256/RS256 via the project's JWKS, `exp`, `iss = <SUPABASE_URL>/auth/v1`, `aud = authenticated`, `role = authenticated`, not anonymous). Not rate limited, no Gemini call.
+The signed-in user (added 2026-09-30, ADR-018). Requires `Authorization: Bearer <Supabase access token>`; the token is verified locally (ES256/RS256 via the project's JWKS, `exp`/`iat`/`nbf` with a 30 s clock-skew leeway, `iss = <SUPABASE_URL>/auth/v1`, `aud = authenticated`, `role = authenticated`, not anonymous). Not rate limited, no Gemini call.
 ```json
 { "id": "<auth user uuid>", "email": "learner@example.com" }
 ```

@@ -22,6 +22,13 @@ logger = logging.getLogger("pathwayai.auth")
 ALGORITHMS = ["ES256", "RS256"]
 AUDIENCE = "authenticated"
 
+# Tolerated clock difference between Supabase (which issues tokens) and this
+# server, applied by PyJWT to iat, nbf and exp. Without it a token used in the
+# first moments after sign-in or refresh is rejected as "not yet valid" on a
+# server whose clock runs slightly behind (measured: ~2 s on a dev PC). An
+# expired token stays usable for at most this much longer (tokens last 1 h).
+CLOCK_SKEW_SECONDS = 30
+
 NOT_CONFIGURED = "Accounts are not available on this server."
 SIGN_IN = "Please sign in again."
 UNAVAILABLE = "We couldn't check your sign-in right now. Please try again."
@@ -74,6 +81,7 @@ def verify_token(token: str) -> AuthUser:
             algorithms=ALGORITHMS,
             audience=AUDIENCE,
             issuer=issuer(),
+            leeway=CLOCK_SKEW_SECONDS,
             options={"require": ["exp", "iat", "sub", "aud", "iss"]},
         )
     except jwt.InvalidTokenError as e:

@@ -88,7 +88,8 @@ def test_missing_or_malformed_header_is_401(client, headers):
 
 
 @pytest.mark.parametrize("raw", [
-    pytest.param(token(exp=int(time.time()) - 10), id="expired"),
+    pytest.param(token(exp=int(time.time()) - auth.CLOCK_SKEW_SECONDS - 60), id="expired"),
+    pytest.param(token(iat=int(time.time()) + auth.CLOCK_SKEW_SECONDS + 60), id="issued-in-the-future"),
     pytest.param(token(aud="anon"), id="wrong-audience"),
     pytest.param(token(iss="https://other.supabase.co/auth/v1"), id="wrong-issuer"),
     pytest.param(token(key=OTHER_KEY), id="wrong-signature"),
@@ -100,6 +101,19 @@ def test_missing_or_malformed_header_is_401(client, headers):
 def test_bad_tokens_are_401(client, raw):
     r = client.get("/api/me", headers=bearer(raw))
     assert r.status_code == 401
+
+
+@pytest.mark.parametrize("raw", [
+    # Issued by Supabase a few seconds "ahead" of this server's clock: the
+    # real failure seen on a dev PC 2 s behind (ImmatureSignatureError).
+    pytest.param(token(iat=int(time.time()) + 2), id="iat-2s-ahead"),
+    pytest.param(token(iat=int(time.time()) + auth.CLOCK_SKEW_SECONDS - 5), id="iat-just-inside-leeway"),
+    pytest.param(token(exp=int(time.time()) - 5), id="exp-just-passed"),
+])
+def test_small_clock_skew_is_tolerated(client, raw):
+    r = client.get("/api/me", headers=bearer(raw))
+    assert r.status_code == 200
+    assert r.json()["id"] == USER_ID
 
 
 def test_unknown_key_id_is_401(client):
@@ -123,7 +137,7 @@ def test_accounts_off_without_supabase_url(client, monkeypatch):
 
 def test_tokens_and_claims_are_never_logged(client, caplog):
     caplog.set_level(logging.DEBUG)
-    good, bad = token(), token(exp=int(time.time()) - 10)
+    good, bad = token(), token(exp=int(time.time()) - auth.CLOCK_SKEW_SECONDS - 60)
     client.get("/api/me", headers=bearer(good))
     client.get("/api/me", headers=bearer(bad))
     for secret in (good, bad, "learner@example.com", USER_ID):

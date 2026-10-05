@@ -80,6 +80,7 @@ Found in the 2026-09-24 audit. When an item is resolved, strike it through and n
 | TD-68 | Testing | No automated frontend tests for Milestone 2 (account/local repositories, import banner): verified with throwaway Playwright scripts only. Add Vitest for `lib/roadmaps/*` and a Playwright suite (F-2) | `frontend/src/lib/roadmaps/` |
 | TD-69 | Product | Signed-in users see only their current roadmap; archived roadmaps (after regenerate/import) are kept but not browsable; steps can't be edited (needs an `update` grant on `roadmap_steps` for the AI Coach, M4) | `accountRepository.js`, ADR-019 |
 | TD-70 | Operations | Signed-in generation requires both the frontend Supabase variables and the API's `DATABASE_URL`; a half-configured deploy gives signed-in users an honest 503 on generate while guests work. Document/check both together at deploy time | `render.yaml`, `docs/deployment.md` |
+| ~~TD-71~~ | Bug | ~~Token verification had no clock-skew tolerance: with this server's clock ~2 s behind Supabase's, freshly issued or refreshed tokens failed with `ImmatureSignatureError` → 401 "Please sign in again" (seen live: "Save to my account" right after sign-in)~~ — **resolved 2026-10-04** (audit finding; `auth.CLOCK_SKEW_SECONDS = 30` passed as PyJWT `leeway`; regression tests in `test_auth.py`) | `backend/auth.py` |
 
 ## 🟢 Low
 

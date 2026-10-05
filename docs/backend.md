@@ -15,7 +15,7 @@ A small FastAPI app in `backend/`. Run locally with `uvicorn main:app --reload -
 | `llm.py` | Gemini client, JSON mode + response schema, retry policy, per-attempt diagnostics (added 2026-09-27, ADR-015) |
 | `ai_output.py` | Generation schemas, output models, JSON extraction and per-item validation (added 2026-09-27) |
 | `request_log.py` | Logging setup with a per-request ID (`X-Request-ID`) (added 2026-09-27) |
-| `auth.py` | Supabase access-token verification: `current_user` dependency, `verify_token` (PyJWT + cached JWKS, ES256/RS256 only, no shared secret; never logs tokens or claims) (added 2026-09-30, ADR-018) |
+| `auth.py` | Supabase access-token verification: `current_user` dependency, `verify_token` (PyJWT + cached JWKS, ES256/RS256 only, no shared secret, 30 s clock-skew leeway `CLOCK_SKEW_SECONDS` since 2026-10-04; never logs tokens or claims) (added 2026-09-30, ADR-018) |
 | `db.py` | Postgres access for saved roadmaps (ADR-019): lazy `psycopg_pool` pool as `pathwayai_api` through the transaction pooler (prepared statements off), `transaction(user_id)` sets the verified user's claims transaction-locally so RLS applies; connection problems → `DatabaseUnavailable` (added 2026-10-03, M2-5) |
 | `repositories/roadmaps.py` | `RoadmapRepository` Protocol: `create`, `get_source`, `add_regenerated`, `import_local`; `PostgresRoadmapRepository` (every method takes the user id; a per-user transaction-scoped advisory lock serializes one user's writes) and `InMemoryRoadmapRepository` for tests; `roadmap_out` / `step_out` map rows to the API shape (`time_estimate` → `time`) (added 2026-10-03, M2-5) |
 | `tests/` | 162 pytest tests (`requirements-dev.txt`); see `docs/testing.md` |

@@ -1,12 +1,12 @@
 # Testing
 
 ## Current state
-- **Backend: 162 pytest tests** (since 2026-09-27; 80 since 2026-09-28; 100 since 2026-09-30; 162 since 2026-10-03) in `backend/tests/`, run with `cd backend && pip install -r requirements-dev.txt && python -m pytest -q` (under 1 s, no network: Gemini is a scripted fake, no keys needed).
+- **Backend: 166 pytest tests** (since 2026-09-27; 80 since 2026-09-28; 100 since 2026-09-30; 162 since 2026-10-03; 166 since 2026-10-04) in `backend/tests/`, run with `cd backend && pip install -r requirements-dev.txt && python -m pytest -q` (under 1 s, no network: Gemini is a scripted fake, no keys needed).
   - `test_ai_output.py` (34): JSON extraction (fences, prose, trailing commas, truncation), defaults for missing fields, dropped bad items, score normalization, limits, content-free errors.
   - `test_llm.py` (16): retry policy (unusable reply, 5xx, timeouts, per-minute vs daily 429, 400), and logs that describe failures without reply content.
   - `test_api.py` (10): `/health`, response shape, user-friendly 502/503 messages with CORS headers, `Retry-After`, 422 before any Gemini call, rate limit, disallowed origin.
   - `test_quiz_formats.py` (20): v1 answers ("Regenerate" on old roadmaps) still work with the original prompts; v2 prompts carry the labelled profile and weekly-hour pacing; v2 validation and cleaning (interests 1–3 and deduplicated, weekly hours 2/5/10/20, optional career in mind, newlines removed, leftover keys ignored).
-  - `test_auth.py` (20, 2026-09-30): Supabase token checks for `GET /api/me` with a local EC key and a fake JWKS client: valid token; missing/malformed header; expired, wrong audience/issuer/signature, anon role, anonymous user, no subject, HS256 algorithm confusion, unknown key id → 401; JWKS down or `SUPABASE_URL` unset → 503; tokens/claims never logged; CORS allows `Authorization`; guests still reach the AI routes.
+  - `test_auth.py` (24, 2026-09-30; +4 on 2026-10-04): Supabase token checks for `GET /api/me` with a local EC key and a fake JWKS client: valid token; small clock skew tolerated (issued 2 s "in the future", just inside the 30 s leeway, just expired) while tokens issued or expired beyond the leeway are rejected; missing/malformed header; expired, wrong audience/issuer/signature, anon role, anonymous user, no subject, HS256 algorithm confusion, unknown key id → 401; JWKS down or `SUPABASE_URL` unset → 503; tokens/claims never logged; CORS allows `Authorization`; guests still reach the AI routes.
   - `test_db.py` (8, 2026-10-03): `DATABASE_URL` optional (app + `/health` start without it), transaction-local claims set first, commit/rollback, pool timeout and connection loss → `DatabaseUnavailable`, other DB errors propagate.
   - `test_roadmap_repository.py` (10): the repository contract on the in-memory implementation (one active roadmap, archive, user scoping, regenerate reuses the submission, idempotent/older imports, completions by position) and the row → API mapping.
   - `test_roadmaps_api.py` (18): `POST /api/roadmaps` + `/{id}/regenerate` — 201 shape with step ids, v1/v2 answers stored with their version, archive, 422 before Gemini, honest 503 when saving fails after generation, 404 for another user's id, 409 without saved answers, 401/503 configuration, rate limit order, guest route unchanged.
@@ -62,5 +62,5 @@ See `ai-system.md` §6. A golden set of about 30 profiles; schema and rule check
 ```bash
 cd frontend && npm test          # vitest
 cd frontend && npm run test:e2e  # playwright
-cd backend  && python -m pytest -q   # ✅ exists (162 tests)
+cd backend  && python -m pytest -q   # ✅ exists (166 tests)
 ```
