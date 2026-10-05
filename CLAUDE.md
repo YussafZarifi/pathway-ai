@@ -71,7 +71,7 @@ Supabase holds accounts, profiles and signed-in users' roadmaps/progress (ADR-01
 ## 4. Tech stack
 
 - **Frontend:** React 19.2, Vite 7, React Router 7 (`BrowserRouter`), framer-motion 12, lucide-react, html2pdf.js (lazy-imported), `@supabase/supabase-js` 2.117.2 (pinned). Plain JavaScript (no TypeScript). ESLint 9 flat config. Plain CSS (`src/index.css` ~4,400 lines; the only stylesheet).
-- **Backend:** Python, FastAPI 0.128, Uvicorn, Pydantic 2, `google-genai`, python-dotenv, PyJWT 2.15.1 (token verification), psycopg 3.3.6 + psycopg-pool 3.3.3 (Postgres as `pathwayai_api`, ADR-019). (`openai` is in requirements.txt but unused.)
+- **Backend:** Python, FastAPI 0.133.1 (Starlette 1.3.1, since 2026-10-04), Uvicorn, Pydantic 2, `google-genai`, python-dotenv, PyJWT 2.15.1 (token verification), psycopg 3.3.6 + psycopg-pool 3.3.3 (Postgres as `pathwayai_api`, ADR-019). (`openai` is in requirements.txt but unused.)
 - **AI:** Gemini 2.5 Flash-Lite, JSON mode + `response_schema`, validated in `ai_output.py` (ADR-015).
 - **Auth + DB:** Supabase (ADR-018/019): Auth (email + password) and Postgres (`profiles`, roadmap tables), migrations as Supabase CLI SQL files in `supabase/migrations/`; FastAPI reaches Postgres with psycopg 3 as `pathwayai_api`.
 - **Storage:** guests: roadmaps and progress in browser localStorage; signed-in users: Supabase Postgres (since 2026-10-03).

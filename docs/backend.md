@@ -91,7 +91,7 @@ WARNING pathwayai.llm rid=3f575856b373: career attempt 1: Gemini 429 RESOURCE_EX
 ``` The `google_genai` and `httpx` libraries also log at INFO (request URLs without keys; Gemini sends its key in a header).
 
 ## Dependencies (`requirements.txt`)
-fastapi 0.128, uvicorn 0.40, pydantic 2.12, google-genai 2.25, python-dotenv, httpx, PyJWT 2.15.1, psycopg 3.3.6 (+ psycopg-binary) and psycopg-pool 3.3.3 (since 2026-10-03), plus transitive packages (`tzdata` on Windows only). **`openai` 2.14 is listed but unused** (open question 4). Two virtualenvs exist (repo root `.venv`, which the owner's dev server uses, and `backend/.venv`); consolidate to one.
+fastapi 0.133.1 + starlette 1.3.1 (upgraded 2026-10-04 from 0.128.0 / 0.50.0 for security advisories; with anyio 4.14.2, idna 3.15, click 8.3.3, python-dotenv 1.2.2), uvicorn 0.40, pydantic 2.12, google-genai 2.25, python-dotenv, httpx, PyJWT 2.15.1, psycopg 3.3.6 (+ psycopg-binary) and psycopg-pool 3.3.3 (since 2026-10-03), plus transitive packages (`tzdata` on Windows only). **`openai` 2.14 is listed but unused** (open question 4). Two virtualenvs exist (repo root `.venv`, which the owner's dev server uses, and `backend/.venv`); consolidate to one.
 
 ## Remaining security gaps
 - No auth: anyone can call the AI endpoints within the rate limits.
