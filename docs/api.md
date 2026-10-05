@@ -1,6 +1,6 @@
 # API Reference
 
-Base URL: `VITE_API_URL` in the frontend (local dev: `http://127.0.0.1:8000`). No versioning. The AI routes need no authentication (guests); `/api/me` and `/api/roadmaps*` need a Supabase access token (ADR-018/019). Content type: `application/json`. Request bodies over 16 KB → 413.
+Base URL: `VITE_API_URL` in the frontend (local dev: `http://127.0.0.1:8000`). No versioning. The AI routes need no authentication (guests); `/api/me` and `/api/roadmaps*` need a Supabase access token (ADR-018/019). Content type: `application/json`. Request bodies over 16 KB (64 KB for `/api/roadmaps/import`) → 413, whether or not the client sends `Content-Length` (chunked bodies are counted as they are read, since 2026-10-04).
 
 Since 2026-09-27 (ADR-014) both AI endpoints validate requests with Pydantic (`backend/schemas.py`), are rate limited, and return only user-friendly `detail` messages, never exception text. Since ADR-015 their **responses are validated too** (`backend/ai_output.py`): the shapes below are guaranteed, with defaults for missing optional fields. Every response carries an `X-Request-ID` header that matches the backend log lines.
 

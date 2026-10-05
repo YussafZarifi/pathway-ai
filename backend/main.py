@@ -8,6 +8,7 @@ from fastapi.responses import JSONResponse
 
 import config
 import db
+from body_limit import BodySizeLimitMiddleware
 import request_log
 from ai_output import CareerSchema, parse_careers
 from auth import AuthUser, current_user
@@ -46,14 +47,15 @@ if not config.SUPABASE_URL:
 if not config.DATABASE_URL:
     logger.info("DATABASE_URL is not set: saved-roadmap routes will return 503")
 
-
-@app.middleware("http")
-async def limit_body_size(request: Request, call_next):
-    limit = MAX_BODY_BYTES_BY_PATH.get(request.url.path, MAX_BODY_BYTES)
-    length = request.headers.get("content-length")
-    if length and (not length.isdigit() or int(length) > limit):
-        return JSONResponse(status_code=413, content={"detail": "Request is too large."})
-    return await call_next(request)
+# Body limits are enforced while the body is read (chunked bodies included;
+# see body_limit.py). Registered first so it is the innermost middleware:
+# FastAPI then reads the body through it directly, and its 413 isn't wrapped
+# by the BaseHTTPMiddleware below (which would turn it into a 400).
+app.add_middleware(
+    BodySizeLimitMiddleware,
+    default_limit=MAX_BODY_BYTES,
+    limits_by_path=MAX_BODY_BYTES_BY_PATH,
+)
 
 
 @app.middleware("http")
@@ -64,7 +66,7 @@ async def add_request_id(request: Request, call_next):
     return response
 
 
-# Added last so it wraps everything, including the 413 above and 429s.
+# Added last so it wraps everything, including 413s and 429s.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=config.ALLOWED_ORIGINS,

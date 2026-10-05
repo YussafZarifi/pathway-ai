@@ -4,7 +4,8 @@ A small FastAPI app in `backend/`. Run locally with `uvicorn main:app --reload -
 
 | File | Role |
 |---|---|
-| `main.py` | App, middleware (body limit: 16 KB, 64 KB for `/api/roadmaps/import`), error handlers, guest endpoints, includes `routers/roadmaps.py` |
+| `main.py` | App, middleware, error handlers, guest endpoints, includes `routers/roadmaps.py` |
+| `body_limit.py` | `BodySizeLimitMiddleware` (ASGI, innermost): 16 KB per request, 64 KB for `/api/roadmaps/import`; rejects a declared `Content-Length` over the limit at once and **counts the bytes actually read**, so chunked bodies without a length are limited too (since 2026-10-04, audit finding; before that only `Content-Length` was checked) |
 | `generation.py` | Shared by guest and saved-roadmap routes: `generate()` (maps LLM errors to HTTP errors), `generate_roadmap()`, `add_videos()`, `prompt_version()` (moved out of `main.py` 2026-10-03) |
 | `routers/roadmaps.py` | Saved roadmaps (ADR-019): `POST /api/roadmaps`, `POST /api/roadmaps/{id}/regenerate`, `POST /api/roadmaps/import` (M2-7); `get_repository` dependency (503 without `DATABASE_URL`) (added 2026-10-03, M2-6) |
 | `config.py` | Settings read once from environment variables (added 2026-09-27) |

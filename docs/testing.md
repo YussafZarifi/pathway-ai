@@ -1,7 +1,7 @@
 # Testing
 
 ## Current state
-- **Backend: 166 pytest tests** (since 2026-09-27; 80 since 2026-09-28; 100 since 2026-09-30; 162 since 2026-10-03; 166 since 2026-10-04) in `backend/tests/`, run with `cd backend && pip install -r requirements-dev.txt && python -m pytest -q` (under 1 s, no network: Gemini is a scripted fake, no keys needed).
+- **Backend: 173 pytest tests** (since 2026-09-27; 80 since 2026-09-28; 100 since 2026-09-30; 162 since 2026-10-03; 173 since 2026-10-04) in `backend/tests/`, run with `cd backend && pip install -r requirements-dev.txt && python -m pytest -q` (under 1 s, no network: Gemini is a scripted fake, no keys needed).
   - `test_ai_output.py` (34): JSON extraction (fences, prose, trailing commas, truncation), defaults for missing fields, dropped bad items, score normalization, limits, content-free errors.
   - `test_llm.py` (16): retry policy (unusable reply, 5xx, timeouts, per-minute vs daily 429, 400), and logs that describe failures without reply content.
   - `test_api.py` (10): `/health`, response shape, user-friendly 502/503 messages with CORS headers, `Retry-After`, 422 before any Gemini call, rate limit, disallowed origin.
@@ -11,6 +11,7 @@
   - `test_roadmap_repository.py` (10): the repository contract on the in-memory implementation (one active roadmap, archive, user scoping, regenerate reuses the submission, idempotent/older imports, completions by position) and the row → API mapping.
   - `test_roadmaps_api.py` (18): `POST /api/roadmaps` + `/{id}/regenerate` — 201 shape with step ids, v1/v2 answers stored with their version, archive, 422 before Gemini, honest 503 when saving fails after generation, 404 for another user's id, 409 without saved answers, 401/503 configuration, rate limit order, guest route unchanged.
   - `test_roadmap_import.py` (26): `POST /api/roadmaps/import` — 201 then 200 (idempotent), completions and clamped dates, older import archived, lenient answers/career data, unsafe links dropped, truncation like AI output, 422 cases, 64 KB limit on this path only, 503, own rate limit.
+  - `test_body_limit.py` (7, 2026-10-04): body limits hold for chunked bodies without `Content-Length` (2 MB and just-over-limit → 413 before Gemini, CORS headers kept; import keeps its 64 KB limit and still rejects more), a declared `Content-Length` over the limit or an invalid one → 413, small chunked bodies still work.
   - Privacy guard: a marker planted in answers and replies must never appear in logs or responses.
 - **Database (Milestone 2):** `supabase/tests/m2_2_roadmaps_rls.sql` (31) and `m2_3_step_progress_rls.sql` (22) run as `postgres` in a rolled-back transaction (e.g. MCP `execute_sql`), impersonating two users, `anon` and `pathwayai_api`; `m2_4_api_role_connection.py` (18) connects through the pooler as `pathwayai_api` with two fixture users (SQL to create/delete them in its header).
 - **Live checks done for Milestone 2 (not committed):** the Postgres repository against the real database with throwaway users (concurrent saves/imports), and Playwright scripts driving the dev server in isolated Chrome profiles (guest flow, account mode with throwaway confirmed users signing in through real Supabase Auth, import banner, 360 px, keyboard, accounts-off build).
@@ -62,5 +63,5 @@ See `ai-system.md` §6. A golden set of about 30 profiles; schema and rule check
 ```bash
 cd frontend && npm test          # vitest
 cd frontend && npm run test:e2e  # playwright
-cd backend  && python -m pytest -q   # ✅ exists (166 tests)
+cd backend  && python -m pytest -q   # ✅ exists (173 tests)
 ```
