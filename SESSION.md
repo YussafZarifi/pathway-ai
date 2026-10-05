@@ -26,7 +26,7 @@
 
 ### Open questions (for the owner)
 1. Gemini's free tier (20 requests/day) will limit Milestones 3–4 testing: enable billing during development, or stay within the quota?
-2. Upgrade the vulnerable npm packages (TD-64) as a separate commit during Version 2?
+2. ~~Upgrade the vulnerable npm packages (TD-64)~~ — done 2026-10-04 (0 vulnerabilities).
 3. Leaked-password protection (Supabase Auth advisor warning, pre-existing): enable it if the plan allows.
 4. Push `main` (66 commits ahead) to the private GitHub repo as a backup, without deploying?
 
