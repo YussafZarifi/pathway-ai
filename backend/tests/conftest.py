@@ -96,6 +96,29 @@ class FakeModels:
         )
 
 
+class _NoNetworkModels:
+    """The default client in tests: records calls instead of reaching Gemini."""
+
+    def __init__(self):
+        self.calls = 0
+
+    def generate_content(self, model, contents, config=None):
+        self.calls += 1
+        raise RuntimeError("test tried to call the real Gemini API")
+
+
+@pytest.fixture(autouse=True)
+def no_real_gemini(monkeypatch):
+    """No test may call the real Gemini API (it would spend quota and send
+    test data to Google). Tests install replies with `fake_gemini`."""
+    import llm
+
+    guard = _NoNetworkModels()
+    monkeypatch.setattr(llm, "client", SimpleNamespace(models=guard))
+    yield
+    assert guard.calls == 0, "a test reached Gemini without installing fake_gemini"
+
+
 @pytest.fixture
 def fake_gemini(monkeypatch):
     """Install a scripted Gemini client; returns a setter for the script."""

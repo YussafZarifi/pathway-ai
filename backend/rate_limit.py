@@ -22,6 +22,7 @@ from fastapi import HTTPException, Request
 import config
 
 MINUTE = 60
+HOUR = 60 * 60
 DAY = 24 * 60 * 60
 
 MESSAGES = {
@@ -60,9 +61,15 @@ class SlidingWindow:
 
 
 class RateLimiter:
-    def __init__(self, per_minute: int, per_day: int, global_per_day: int):
+    """Per-key limits (a short window and a day) plus a global daily cap.
+    The key is a client IP, or a user id for per-user limits. The short
+    window is a minute unless `short_scope` names another ("hour")."""
+
+    def __init__(self, per_minute: int, per_day: int, global_per_day: int, *,
+                 short_scope: str = "minute", short_period: int = MINUTE):
+        self._short_scope = short_scope
         self._per_ip = {
-            "minute": SlidingWindow(per_minute, MINUTE),
+            short_scope: SlidingWindow(per_minute, short_period),
             "day": SlidingWindow(per_day, DAY),
         }
         self._global = SlidingWindow(global_per_day, DAY)
@@ -72,7 +79,7 @@ class RateLimiter:
         """Record a hit if allowed.
 
         Returns (0, "") when allowed, else (seconds to wait, the limit hit:
-        "global", "minute" or "day").
+        "global", "day" or the short scope, e.g. "minute").
         """
         now = time.monotonic()
         with self._lock:
@@ -80,7 +87,7 @@ class RateLimiter:
             if wait:
                 return wait, "global"
             # Day first: when both are full, "try tomorrow" is the true answer.
-            for scope in ("day", "minute"):
+            for scope in ("day", self._short_scope):
                 wait = self._per_ip[scope].retry_after(ip, now)
                 if wait:
                     return wait, scope
@@ -107,6 +114,22 @@ IMPORT_MESSAGES = {
 }
 
 
+# Résumé analyses (ADR-020): limited per signed-in user, not per IP.
+resume_limiter = RateLimiter(
+    config.RESUME_LIMIT_PER_HOUR,
+    config.RESUME_LIMIT_PER_DAY,
+    config.RESUME_GLOBAL_LIMIT_PER_DAY,
+    short_scope="hour",
+    short_period=HOUR,
+)
+
+RESUME_MESSAGES = {
+    "hour": "You've analyzed several résumés in the last hour. Please try again later.",
+    "day": "You've reached today's limit for résumé analyses. Please try again tomorrow.",
+    "global": "PathwayAI has reached its daily limit for résumé analyses. Please try again tomorrow.",
+}
+
+
 def _enforce(active: RateLimiter, request: Request, messages: dict, label: str) -> None:
     """Raise 429 when the caller is over a limit.
 
@@ -114,7 +137,11 @@ def _enforce(active: RateLimiter, request: Request, messages: dict, label: str) 
     X-Forwarded-For when started with --proxy-headers (see render.yaml).
     """
     ip = request.client.host if request.client else "unknown"
-    wait, scope = active.check(ip)
+    _raise_if_limited(active.check(ip), messages, label)
+
+
+def _raise_if_limited(result: tuple[int, str], messages: dict, label: str) -> None:
+    wait, scope = result
     if not wait:
         return
 
@@ -130,3 +157,9 @@ def limit_ai_requests(request: Request) -> None:
 def limit_import_requests(request: Request) -> None:
     """FastAPI dependency for POST /api/roadmaps/import."""
     _enforce(import_limiter, request, IMPORT_MESSAGES, "import")
+
+
+def limit_resume_requests(user_id: str) -> None:
+    """Per-user limit for POST /api/resume-analyses (called with the verified
+    user's id; the id itself is never logged)."""
+    _raise_if_limited(resume_limiter.check(f"user:{user_id}"), RESUME_MESSAGES, "resume")

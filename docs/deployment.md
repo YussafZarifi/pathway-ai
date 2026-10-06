@@ -66,6 +66,8 @@ Both have `buildFilter` paths, so a frontend-only change doesn't redeploy the AP
 | `SUPABASE_URL` | api | `sync: false` | Optional (ADR-018): `https://pczczkmkavmxibxureck.supabase.co`. Issuer + JWKS for token checks; not a secret. Unset → `/api/me` 503, AI routes unchanged |
 | `DATABASE_URL` | api | `sync: false` | Optional **secret** (ADR-019, Milestone 2): `postgresql://pathwayai_api.<project-ref>:<password>@<pooler-host>:6543/postgres?sslmode=require` — Supabase transaction pooler, least-privilege `pathwayai_api` role (never `postgres`/service_role). Unset → `/api/roadmaps*` 503 (signed-in users can't save roadmaps); guests unchanged |
 | `DB_POOL_MAX` | api | optional, Dashboard | Max pooled connections per instance (default 5) |
+| `RESUME_ANALYSIS_ENABLED` | api | `"false"` in the Blueprint | Résumé analysis (ADR-020, Milestone 3). Set `true` **only** with a `GEMINI_API_KEY` from a paid (billing-enabled) Google project: the unpaid tier's terms forbid personal information. `false` → `POST /api/resume-analyses` returns 503 before reading the upload. Needs `SUPABASE_URL` and `DATABASE_URL`. Invalid values stop startup |
+| `RESUME_LIMIT_PER_HOUR` / `RESUME_LIMIT_PER_DAY` / `RESUME_GLOBAL_LIMIT_PER_DAY` | api | optional, Dashboard | Résumé analyses per signed-in user per hour (default 3) and day (10), and for everyone per day (100). In process memory, like the other limits |
 | `VITE_SUPABASE_URL` | web | `sync: false` | Optional, build time: same project URL. Unset → no account UI (guest-only build) |
 | `VITE_SUPABASE_PUBLISHABLE_KEY` | web | `sync: false` | Optional, build time: the `sb_publishable_…` key (public by design). **Never** the secret / service_role key |
 

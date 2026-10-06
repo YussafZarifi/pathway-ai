@@ -20,6 +20,17 @@ def _int(name: str, default: int) -> int:
         raise RuntimeError(f"{name} must be an integer") from None
 
 
+def _bool(name: str, default: bool) -> bool:
+    raw = os.getenv(name, "").strip().lower()
+    if not raw:
+        return default
+    if raw in ("1", "true", "yes", "on"):
+        return True
+    if raw in ("0", "false", "no", "off"):
+        return False
+    raise RuntimeError(f"{name} must be true or false")
+
+
 def _origins(raw: str) -> list[str]:
     # Browsers send origins without a trailing slash; tolerate one in config.
     return [o.strip().rstrip("/") for o in raw.split(",") if o.strip()]
@@ -49,5 +60,16 @@ SUPABASE_URL = os.getenv("SUPABASE_URL", "").strip().rstrip("/")
 # work, and the saved-roadmap routes (/api/roadmaps*) return 503.
 DATABASE_URL = os.getenv("DATABASE_URL", "").strip()
 DB_POOL_MAX = _int("DB_POOL_MAX", 5)
+
+# Résumé analysis (ADR-020). Off unless explicitly enabled: turn it on only
+# with a Gemini key on a paid (billing-enabled) project, because Google's
+# unpaid-tier terms forbid sending personal information. While off,
+# POST /api/resume-analyses returns 503 before reading any upload.
+RESUME_ANALYSIS_ENABLED = _bool("RESUME_ANALYSIS_ENABLED", False)
+# Per signed-in user, plus a global daily cap (each analysis is a Gemini
+# call with a whole PDF).
+RESUME_LIMIT_PER_HOUR = _int("RESUME_LIMIT_PER_HOUR", 3)
+RESUME_LIMIT_PER_DAY = _int("RESUME_LIMIT_PER_DAY", 10)
+RESUME_GLOBAL_LIMIT_PER_DAY = _int("RESUME_GLOBAL_LIMIT_PER_DAY", 100)
 
 LOG_LEVEL =os.getenv("LOG_LEVEL", "").strip().upper() or "INFO"

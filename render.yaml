@@ -37,6 +37,10 @@ services:
       # Unset -> /api/roadmaps* return 503; guests are unaffected.
       - key: DATABASE_URL
         sync: false
+      # Résumé analysis (ADR-020): "true" only with a Gemini key on a paid
+      # project (the unpaid tier's terms forbid personal information).
+      - key: RESUME_ANALYSIS_ENABLED
+        value: "false"
 
   # Frontend: Vite build served as a static site.
   - type: web

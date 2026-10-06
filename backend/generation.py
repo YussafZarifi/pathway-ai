@@ -17,20 +17,25 @@ AI_BUSY = "PathwayAI's AI service is busy right now. Please wait a minute and tr
 AI_FAILED = "We couldn't generate results right now. Please try again."
 
 
+def ai_http_error(error: llm.AIServiceError, failed_detail: str = AI_FAILED) -> HTTPException:
+    """The user-safe HTTP error for a failed generation."""
+    if error.kind == "unavailable":
+        return HTTPException(status_code=503, detail=AI_UNAVAILABLE)
+    if error.kind == "quota":
+        return HTTPException(status_code=503, detail=AI_QUOTA)
+    if error.kind == "busy":
+        return HTTPException(
+            status_code=503, detail=AI_BUSY, headers={"Retry-After": str(error.retry_after or 60)}
+        )
+    return HTTPException(status_code=502, detail=failed_detail)
+
+
 def generate(prompt: str, label: str, schema, parse) -> dict:
     """Run llm.generate and turn its failures into user-safe HTTP errors."""
     try:
         return llm.generate(prompt, label, schema, parse)
     except llm.AIServiceError as e:
-        if e.kind == "unavailable":
-            raise HTTPException(status_code=503, detail=AI_UNAVAILABLE) from None
-        if e.kind == "quota":
-            raise HTTPException(status_code=503, detail=AI_QUOTA) from None
-        if e.kind == "busy":
-            raise HTTPException(
-                status_code=503, detail=AI_BUSY, headers={"Retry-After": str(e.retry_after or 60)}
-            ) from None
-        raise HTTPException(status_code=502, detail=AI_FAILED) from None
+        raise ai_http_error(e) from None
 
 
 def prompt_version(answers) -> str:

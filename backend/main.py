@@ -10,11 +10,13 @@ import config
 import db
 from body_limit import BodySizeLimitMiddleware
 import request_log
+import resume_ai
 from ai_output import CareerSchema, parse_careers
 from auth import AuthUser, current_user
 from generation import AI_FAILED, generate, generate_roadmap
 from prompts import build_career_prompt
 from rate_limit import limit_ai_requests
+from routers import resume_analyses as resume_router
 from routers import roadmaps as roadmaps_router
 from schemas import CareerRequest, RoadmapRequest
 
@@ -24,8 +26,11 @@ logger = logging.getLogger("pathwayai")
 # Answers are a handful of short strings; anything bigger is not a quiz.
 MAX_BODY_BYTES = 16 * 1024
 # Except an imported browser roadmap: up to 5 steps with tasks, resources
-# and video metadata (ADR-019).
-MAX_BODY_BYTES_BY_PATH = {"/api/roadmaps/import": 64 * 1024}
+# and video metadata (ADR-019), and a résumé PDF (ADR-020).
+MAX_BODY_BYTES_BY_PATH = {
+    "/api/roadmaps/import": 64 * 1024,
+    "/api/resume-analyses": resume_ai.MAX_PDF_BYTES,
+}
 
 INVALID_ANSWERS = "Some quiz answers are missing or too long. Please retake the quiz and try again."
 
@@ -46,6 +51,10 @@ if not config.SUPABASE_URL:
     logger.info("SUPABASE_URL is not set: account routes will return 503")
 if not config.DATABASE_URL:
     logger.info("DATABASE_URL is not set: saved-roadmap routes will return 503")
+if config.RESUME_ANALYSIS_ENABLED:
+    logger.warning("RESUME_ANALYSIS_ENABLED is on: use it only with a paid Gemini key (ADR-020)")
+else:
+    logger.info("RESUME_ANALYSIS_ENABLED is off: résumé analysis returns 503")
 
 # Body limits are enforced while the body is read (chunked bodies included;
 # see body_limit.py). Registered first so it is the innermost middleware:
@@ -123,3 +132,5 @@ def roadmap_ai(payload: RoadmapRequest):
 
 # Signed-in users: generate and save roadmaps (ADR-019).
 app.include_router(roadmaps_router.router)
+# Signed-in users: analyze a résumé against the current roadmap (ADR-020).
+app.include_router(resume_router.router)

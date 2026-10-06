@@ -4,14 +4,17 @@ A small FastAPI app in `backend/`. Run locally with `uvicorn main:app --reload -
 
 | File | Role |
 |---|---|
-| `main.py` | App, middleware, error handlers, guest endpoints, includes `routers/roadmaps.py` |
-| `body_limit.py` | `BodySizeLimitMiddleware` (ASGI, innermost): 16 KB per request, 64 KB for `/api/roadmaps/import`; rejects a declared `Content-Length` over the limit at once and **counts the bytes actually read**, so chunked bodies without a length are limited too (since 2026-10-04, audit finding; before that only `Content-Length` was checked) |
+| `main.py` | App, middleware, error handlers, guest endpoints, includes `routers/roadmaps.py` and `routers/resume_analyses.py` |
+| `body_limit.py` | `BodySizeLimitMiddleware` (ASGI, innermost): 16 KB per request, 64 KB for `/api/roadmaps/import`, 2 MB for `/api/resume-analyses`; rejects a declared `Content-Length` over the limit at once and **counts the bytes actually read**, so chunked bodies without a length are limited too (since 2026-10-04, audit finding; before that only `Content-Length` was checked) |
 | `generation.py` | Shared by guest and saved-roadmap routes: `generate()` (maps LLM errors to HTTP errors), `generate_roadmap()`, `add_videos()`, `prompt_version()` (moved out of `main.py` 2026-10-03) |
 | `routers/roadmaps.py` | Saved roadmaps (ADR-019): `POST /api/roadmaps`, `POST /api/roadmaps/{id}/regenerate`, `POST /api/roadmaps/import` (M2-7); `get_repository` dependency (503 without `DATABASE_URL`) (added 2026-10-03, M2-6) |
-| `config.py` | Settings read once from environment variables (added 2026-09-27) |
+| `routers/resume_analyses.py` | `POST /api/resume-analyses` (ADR-020, M3-4, 2026-10-05): dependency chain token → database → feature switch → Content-Type → per-user limit → active roadmap, all before the body is read; `read_pdf` reads at most 2 MB; maps résumé/AI/database errors to honest statuses |
+| `resume_ai.py` | Résumé analysis (M3-3): PDF checks, strict reply validation (reject, never repair), `analyze_resume` |
+| `repositories/resume_analyses.py` | `active_target` (active roadmap's career, skills, ordered step titles) and `create` (one insert), Postgres + in-memory |
+| `config.py` | Settings read once from environment variables (added 2026-09-27); `RESUME_ANALYSIS_ENABLED` (strict true/false, default false) and `RESUME_LIMIT_*` since 2026-10-05 |
 | `schemas.py` | Pydantic request models: `QuizAnswersV2` (5-question quiz) and `QuizAnswersV1` (8-question quiz, temporary) behind one discriminated `QuizAnswers` (added 2026-09-27; v2 2026-09-28) |
 | `prompts.py` | Prompt builders: v2 prompts for the 5-question quiz, v1 prompts unchanged (added 2026-09-28, ADR-016) |
-| `rate_limit.py` | In-memory rate limiters used as FastAPI dependencies: `limit_ai_requests` (added 2026-09-27) and `limit_import_requests` (10/min, 100/day per IP, 5,000/day global; 2026-10-03) |
+| `rate_limit.py` | In-memory rate limiters used as FastAPI dependencies: `limit_ai_requests` (added 2026-09-27) and `limit_import_requests` (10/min, 100/day per IP, 5,000/day global; 2026-10-03); `limit_resume_requests` per **user** (3/hour, 10/day, 100/day global; 2026-10-05) |
 | `youtube.py` | YouTube Data API lookups for roadmap step videos (ADR-012) |
 | `llm.py` | Gemini client, JSON mode + response schema, retry policy, per-attempt diagnostics (added 2026-09-27, ADR-015) |
 | `ai_output.py` | Generation schemas, output models, JSON extraction and per-item validation (added 2026-09-27) |
@@ -50,6 +53,7 @@ A small FastAPI app in `backend/`. Run locally with `uvicorn main:app --reload -
 | POST | `/api/roadmaps` | `create_roadmap` | Signed-in: generate + save; 201 with step ids (since 2026-10-03) |
 | POST | `/api/roadmaps/{id}/regenerate` | `regenerate_roadmap` | Signed-in: new roadmap from saved answers; 404 not yours, 409 no answers |
 | POST | `/api/roadmaps/import` | `import_roadmap` | Signed-in: import the browser-saved roadmap once; 201 new / 200 existing; 64 KB body limit; own rate limit |
+| POST | `/api/resume-analyses` | `create_analysis` | Signed-in, feature switch on: raw PDF (≤ 2 MB) → strict AI review against the active roadmap → saved; 201 (since 2026-10-05) |
 
 Full contracts: `docs/api.md`.
 

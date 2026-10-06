@@ -30,7 +30,7 @@ Signed-in users' roadmaps live in Postgres; guests keep browser storage (below).
 - **Guest import:** a signed-in user can save the browser's `pathwayai_roadmap` (with its completed steps) to the account once (`POST /api/roadmaps/import`, idempotent per `local_id`); afterwards `pathwayai_roadmap` and that roadmap's `roadmap_step_<id>_*` progress keys are removed from the browser (events stay).
 - **Checks:** `supabase/tests/m2_2_roadmaps_rls.sql` (31), `m2_3_step_progress_rls.sql` (22), `m2_4_api_role_connection.py` (18, through the pooler).
 
-## Resume analyses (✅ table since 2026-10-05, Milestone 3, ADR-020; not used by code until M3-4/M3-5)
+## Resume analyses (✅ since 2026-10-05, Milestone 3, ADR-020; written by `POST /api/resume-analyses` since M3-4, read by the browser from M3-5)
 
 Migration `20261006030329_create_resume_analyses`. Only the structured AI review is stored — never the PDF, its text, file name or a hash of it.
 

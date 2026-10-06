@@ -1,6 +1,6 @@
 # API Reference
 
-Base URL: `VITE_API_URL` in the frontend (local dev: `http://127.0.0.1:8000`). No versioning. The AI routes need no authentication (guests); `/api/me` and `/api/roadmaps*` need a Supabase access token (ADR-018/019). Content type: `application/json`. Request bodies over 16 KB (64 KB for `/api/roadmaps/import`) → 413, whether or not the client sends `Content-Length` (chunked bodies are counted as they are read, since 2026-10-04).
+Base URL: `VITE_API_URL` in the frontend (local dev: `http://127.0.0.1:8000`). No versioning. The AI routes need no authentication (guests); `/api/me`, `/api/roadmaps*` and `/api/resume-analyses` need a Supabase access token (ADR-018/019/020). Content type: `application/json`. Request bodies over 16 KB (64 KB for `/api/roadmaps/import`, 2 MB for `/api/resume-analyses`) → 413, whether or not the client sends `Content-Length` (chunked bodies are counted as they are read, since 2026-10-04).
 
 Since 2026-09-27 (ADR-014) both AI endpoints validate requests with Pydantic (`backend/schemas.py`), are rate limited, and return only user-friendly `detail` messages, never exception text. Since ADR-015 their **responses are validated too** (`backend/ai_output.py`): the shapes below are guaranteed, with defaults for missing optional fields. Every response carries an `X-Request-ID` header that matches the backend log lines.
 
@@ -215,6 +215,44 @@ A new roadmap for the same career from the **saved** quiz answers (no body). The
 | 503 | database unreachable while loading ("We couldn't reach your saved roadmaps right now…"), or saving failed after generation |
 
 Saved roadmaps are **read** by the browser directly through Supabase (RLS), so there is no GET route.
+
+---
+
+## ✅ `POST /api/resume-analyses` (since 2026-10-05, M3-4, ADR-020)
+Analyze a résumé PDF against the signed-in user's **current roadmap** (its career, the career card's skills and the step titles) and save the structured result. **Off by default** (`RESUME_ANALYSIS_ENABLED=false`: only with a paid Gemini key).
+
+- **Request:** `Authorization: Bearer <access token>`, `Content-Type: application/pdf`, body = the raw PDF (not multipart), 1 KB–2 MB.
+- **Check order** (all before any of the body is read; an upload declared over 2 MB is refused even earlier, by the body-limit middleware): token → database configured → feature switch → Content-Type → per-user rate limit → active roadmap. Then the body is read (counted while it arrives), checked (`%PDF-` signature, `%%EOF` at the end), sent to Gemini inline and the strictly validated analysis is saved in one insert.
+- **Privacy:** the PDF exists only in the request's memory. Neither the file, its text, its file name (a `Content-Disposition` header is ignored) nor a hash of it is stored or logged; logs record outcome, size and time.
+
+**201:**
+```json
+{
+  "id": "uuid", "roadmap_id": "uuid", "career": "Data Analyst",
+  "analysis": {
+    "summary": "…",
+    "matched_skills": ["SQL"], "missing_skills": ["Tableau"],
+    "strengths": ["…"],
+    "gaps": [{"skill": "Tableau", "why": "…", "how_to_close": "…", "related_step": 3}],
+    "suggestions": [{"section": "projects", "text": "…"}]
+  },
+  "prompt_version": "r1", "model": "gemini-2.5-flash-lite", "created_at": "2026-10-05T23:35:20Z"
+}
+```
+`related_step` is the 1-based step number in the roadmap (`roadmap_steps.position + 1`) or null; `section` is one of summary, experience, projects, skills, education, formatting, other. No score of any kind. The browser lists and deletes analyses directly through Supabase (RLS); there is no GET or DELETE route.
+
+| Status | When |
+|---|---|
+| 401 | missing or invalid token |
+| 503 | accounts off (`SUPABASE_URL`), database not configured, **feature off** ("Résumé analysis isn't available yet."), database unreachable while loading the roadmap, Gemini key missing, quota used up or Gemini busy (`Retry-After`), or the analysis couldn't be saved ("Your résumé was analyzed but the result couldn't be saved…") |
+| 415 | `Content-Type` isn't `application/pdf` ("Please upload your résumé as a PDF file.") |
+| 429 | per-user limit: 3/hour, 10/day; global 100/day (`RESUME_LIMIT_*`); `Retry-After` |
+| 409 | no active roadmap ("Create a roadmap first…") |
+| 413 | body over 2 MB (declared or counted while streaming) |
+| 422 | under 1 KB, not a valid PDF, or Gemini says it isn't a readable résumé |
+| 502 | Gemini failed or its reply failed strict validation twice ("We couldn't analyze your résumé right now…") |
+
+Every rejected request saves nothing.
 
 ---
 
