@@ -18,7 +18,7 @@
 - Throwaway users created for the audit and the fixes were deleted at the end.
 
 ### Next Session (exact order)
-0. **Milestone 3 in progress:** M3-1 done (ADR-020 accepted). **M3-2 done 2026-10-05:** migration `20261006030329_create_resume_analyses` (table `resume_analyses`: composite FK to the user's roadmap with `on delete set null (roadmap_id)`, analysis jsonb object ≤ 16 KB, RLS with the shared `private.request_user_id()` policies, grants `authenticated` select + delete, `pathwayai_api` select + insert, `anon` none; indexes `(user_id, created_at desc)` and `(roadmap_id, user_id)`). Validated in a rolled-back transaction before applying; live: new suite 28/28, M2 suites 31 + 22 + 18 pooled; advisors: only the pre-existing leaked-password warning and INFO unused-index notes. ADR-020 unchanged. Next **M3-3** (AI layer) after the owner reviews M3-2.
+0. **Milestone 3 in progress:** M3-1 done (ADR-020 accepted). **M3-2 done 2026-10-05:** migration `20261006030329_create_resume_analyses` (table `resume_analyses`: composite FK to the user's roadmap with `on delete set null (roadmap_id)`, analysis jsonb object ≤ 16 KB, RLS with the shared `private.request_user_id()` policies, grants `authenticated` select + delete, `pathwayai_api` select + insert, `anon` none; indexes `(user_id, created_at desc)` and `(roadmap_id, user_id)`). Validated in a rolled-back transaction before applying; live: new suite 28/28, M2 suites 31 + 22 + 18 pooled; advisors: only the pre-existing leaked-password warning and INFO unused-index notes. ADR-020 unchanged. **M3-3 done 2026-10-05:** `backend/resume_ai.py` (PDF checks before Gemini, strict reply models — reject, never repair — personal-data guard, `analyze_resume`), résumé prompt in `prompts.py`, `llm.generate` with multimodal contents, system instruction, temperature 0 and max tokens; unexpected client errors logged by type only. 99 new tests (272 total), lint 12, build. One live run with a synthetic résumé (fictional person): valid on the first attempt, no contact details echoed. Implementation notes in ADR-020 (no design change). Next **M3-4** (endpoint) after the owner reviews M3-3.
 1. **Owner:** restart the backend (it still has the old packages loaded) and `npm run dev`; then the manual Milestone 2 QA checklist from Step 0 (paused).
 2. Tag Milestone 2 as complete once the manual QA passes.
 3. **Milestone 3 (F-13) planning:** Resume Analyzer — ADR + M3-x steps, owner approval before code.
@@ -29,7 +29,7 @@
 1. Gemini's free tier (20 requests/day) will limit Milestones 3–4 testing: enable billing during development, or stay within the quota?
 2. ~~Upgrade the vulnerable npm packages (TD-64)~~ — done 2026-10-04 (0 vulnerabilities).
 3. Leaked-password protection (Supabase Auth advisor warning, pre-existing): enable it if the plan allows.
-4. Push `main` (73 commits ahead) to the private GitHub repo as a backup, without deploying?
+4. Push `main` (74 commits ahead) to the private GitHub repo as a backup, without deploying?
 
 ---
 

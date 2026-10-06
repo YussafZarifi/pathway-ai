@@ -79,10 +79,12 @@ class FakeModels:
         self.script = list(script)
         self.calls = 0
         self.prompts = []
+        self.configs = []
 
     def generate_content(self, model, contents, config=None):
         self.calls += 1
         self.prompts.append(contents)
+        self.configs.append(config)
         item = self.script.pop(0)
         if isinstance(item, BaseException):
             raise item

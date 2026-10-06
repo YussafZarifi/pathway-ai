@@ -12,7 +12,8 @@ frontend's 90 s timeout):
 Logs record, per attempt: outcome, duration, finish reason, token counts,
 reply length, how the JSON was found, dropped items (field paths and error
 types) and a short hash of the reply for correlation. Never the reply
-itself, the prompt or the user's answers.
+itself, the prompt, the user's answers or an attached file (a résumé PDF,
+ADR-020): unexpected client errors are logged by type name only.
 """
 
 import hashlib
@@ -87,14 +88,29 @@ def _reply_meta(resp) -> dict:
     }
 
 
-def generate(prompt: str, label: str, schema, parse: Callable[[str], tuple[dict, dict]]) -> dict:
-    """Generate and validate one JSON reply. Raises AIServiceError."""
+def generate(
+    contents,
+    label: str,
+    schema,
+    parse: Callable[[str], tuple[dict, dict]],
+    *,
+    system_instruction: str | None = None,
+    temperature: float | None = None,
+    max_output_tokens: int | None = None,
+) -> dict:
+    """Generate and validate one JSON reply. Raises AIServiceError.
+
+    `contents` is a prompt string or a list of parts (e.g. a PDF part and a
+    text prompt for the résumé analysis)."""
     if client is None:
         raise AIServiceError("unavailable")
 
     request_config = genai_types.GenerateContentConfig(
         response_mime_type="application/json",
         response_schema=schema,
+        system_instruction=system_instruction,
+        temperature=temperature,
+        max_output_tokens=max_output_tokens,
     )
 
     for attempt in range(1, MAX_ATTEMPTS + 1):
@@ -103,7 +119,7 @@ def generate(prompt: str, label: str, schema, parse: Callable[[str], tuple[dict,
 
         try:
             resp = client.models.generate_content(
-                model=config.GEMINI_MODEL, contents=prompt, config=request_config
+                model=config.GEMINI_MODEL, contents=contents, config=request_config
             )
         except genai_errors.APIError as e:
             elapsed = time.perf_counter() - started
@@ -130,6 +146,10 @@ def generate(prompt: str, label: str, schema, parse: Callable[[str], tuple[dict,
             if not last:
                 time.sleep(1)
                 continue
+            raise AIServiceError("failed") from None
+        except Exception as e:  # noqa: BLE001 - an SDK error's message could quote the request
+            logger.error("%s attempt %d: unexpected %s after %.1fs", label, attempt, type(e).__name__,
+                         time.perf_counter() - started)
             raise AIServiceError("failed") from None
 
         elapsed = time.perf_counter() - started
