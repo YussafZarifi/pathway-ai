@@ -18,11 +18,14 @@
 - Throwaway users created for the audit and the fixes were deleted at the end.
 
 ### Next Session (exact order)
+0. **Milestone 3 started:** M3-1 done (ADR-020 accepted, ROADMAP 📄 Milestone 3); next **M3-2** (`resume_analyses` migration) after the owner reviews M3-1.
 1. **Owner:** restart the backend (it still has the old packages loaded) and `npm run dev`; then the manual Milestone 2 QA checklist from Step 0 (paused).
 2. Tag Milestone 2 as complete once the manual QA passes.
 3. **Milestone 3 (F-13) planning:** Resume Analyzer — ADR + M3-x steps, owner approval before code.
 
 ### Open questions (for the owner)
+**Milestone 3 decisions:** A–E approved by the owner on 2026-10-05 as recommended (ADR-020 accepted: feature off by default until Gemini billing, synthetic résumés only, signed-in only, no score, history with delete, active roadmap as target).
+
 1. Gemini's free tier (20 requests/day) will limit Milestones 3–4 testing: enable billing during development, or stay within the quota?
 2. ~~Upgrade the vulnerable npm packages (TD-64)~~ — done 2026-10-04 (0 vulnerabilities).
 3. Leaked-password protection (Supabase Auth advisor warning, pre-existing): enable it if the plan allows.

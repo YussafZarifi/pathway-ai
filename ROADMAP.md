@@ -1,6 +1,6 @@
 # ROADMAP.md — Living roadmap
 
-> Sections: ✅ Completed · 🎯 Version 2 (current focus) · 🔐 Milestone 1 · 🗄️ Milestone 2 · ⏸️ Deployment (postponed) · 🌱 Post-Launch Improvements · 🔮 Future Features · 📦 Backlog · 🌟 Stretch. Update at the end of every coding session. Move items between sections, set dates when completed.
+> Sections: ✅ Completed · 🎯 Version 2 (current focus) · 🔐 Milestone 1 · 🗄️ Milestone 2 · 📄 Milestone 3 · ⏸️ Deployment (postponed) · 🌱 Post-Launch Improvements · 🔮 Future Features · 📦 Backlog · 🌟 Stretch. Update at the end of every coding session. Move items between sections, set dates when completed.
 > **Current focus (owner, 2026-10-01): Version 2 = Milestones 1–4.** Deployment is postponed until Version 2 is complete; every commit must still keep the project deployable (CLAUDE.md §11).
 > **Priority:** P0 = blocker/critical · P1 = high · P2 = medium · P3 = nice-to-have
 > **Effort:** XS < 1h · S 1–2h · M ~half day · L 1–3 days · XL multiple days
@@ -51,7 +51,7 @@ Version 2 = Milestones 1–4, built and verified locally **before** any deployme
 |---|---|---|
 | **M1** Accounts + profiles (F-7, ADR-018) | Supabase email + password, `profiles` with RLS, token check in FastAPI | ✅ Complete 2026-10-01 (verified with a real account, M1-8) |
 | **M2** Roadmaps in PostgreSQL (F-8, ADR-019) | FastAPI writes AI content (`quiz_submissions`, `roadmaps`, `roadmap_steps`) as the `pathwayai_api` role; the browser reads its own rows and writes `step_progress` through RLS; guest import with a confirmation banner; guests keep localStorage | ✅ **Complete 2026-10-03** (M2-1 → M2-11, ADR-019); owner's real-account cross-device check pending Steps: 🗄️ Milestone 2 below |
-| **M3** Resume Analyzer (F-13) | PDF upload → Gemini → structured critique against the target career; real output only | **Next** — plan (ADR + M3-x steps) with the owner, then build |
+| **M3** Resume Analyzer (F-13) | PDF upload → Gemini → structured critique against the target career; real output only | **In progress** — ADR-020 accepted (M3-1, 2026-10-05); next M3-2. Steps: 📄 Milestone 3 |
 | **M4** AI Coach (F-18) | Chat with memory and tool calling (read/update the roadmap, find resources) | After M3 |
 
 Rules for every Version 2 commit (keep it deployable): backend tests pass; lint at or below baseline; `npm run build` passes; guest flow works with Supabase variables unset and set; new env vars land in `.env.example`, `render.yaml` and `docs/deployment.md` in the same commit; schema changes are migrations in `supabase/migrations/` with advisors clean. Each milestone gets its own step table (like Milestone 1 below) written and approved before coding starts.
@@ -136,6 +136,24 @@ Owner-approved design: ADR-019. Rules: one small commit per step; after every co
 Deferred from Milestone 2 (ADR-019): a browser-written activity events table; a roadmap list/switch UI (the schema already supports it); step editing (M4).
 
 Next: Milestone 3 (F-13) — see 🎯 Version 2 above.
+
+## 📄 Milestone 3 — Resume Analyzer (F-13) — in progress (ADR-020 accepted 2026-10-05)
+
+Design: ADR-020 (accepted 2026-10-05). Same rules as Milestone 2: one small commit per step; after every commit backend tests, lint baseline, build and the guest flow (accounts off and on) pass; new env vars go into the `.env.example` files, `render.yaml` and `docs/deployment.md` in the same commit; schema changes are migrations with RLS checks and advisors; docs updated per step; stop for review after every step. **No real résumé is sent to Gemini while the key is on the free tier** — synthetic test résumés only.
+
+| # | Step | Acceptance criteria | Status |
+|---|---|---|---|
+| M3-1 | ADR-020 + this table | Owner reviews and decides the open questions; docs only | ✅ 2026-10-05: A–E approved as recommended |
+| M3-2 | Migration: `resume_analyses` (RLS, shared policies, grants: browser select + delete, API select + insert), SQL checks in `supabase/tests/` | A sees none of B's analyses; browser can't insert or update; browser deletes only its own; `anon` nothing; API role scoped by claims; `roadmap_id` can't point at another user's roadmap; deleting the roadmap keeps the analysis (`set null`); account deletion cascades; advisors clean; M2 suites still pass | |
+| M3-3 | Backend AI layer: `llm.generate` accepts multimodal contents (PDF part + text); resume prompt (résumé as data, target = career + skills + steps); generation schema + output models with per-item validation (no score; `related_step` within range) | Unit tests with the fake Gemini: shape, defaults, dropped invalid items, length caps, out-of-range `related_step` dropped, no résumé bytes or text in logs/errors; existing 173 tests unchanged | |
+| M3-4 | Backend endpoint: `POST /api/resume-analyses` (raw PDF), `RESUME_ANALYSIS_ENABLED` gate, per-user rate limiter, 2 MB path limit, repository (Protocol, Postgres, in-memory) | 401/503 (accounts, database, feature off) before the body is read; 409 without an active roadmap; 415 wrong type; 422 not a PDF / too small; 413 over 2 MB (also chunked); 429 per user; 201 saved analysis; honest 503 when generation succeeds but saving fails; nothing about the file logged; live check with a synthetic PDF (paid key or free tier per the owner's decision) | |
+| M3-5 | Frontend: `api.js` upload call, `lib/resume/` (list + delete via Supabase, analyze via API), `/resume` page (privacy note, upload with type/size checks, analyzing state, result, history, delete), entry points (Dashboard quick action, Home card) | Guest → sign-in prompt; accounts off → honest unavailable state; feature off → honest message; no roadmap → link to the quiz; upload → result rendered from the saved row; delete works; keyboard + 360 px; lint baseline; build | |
+| M3-6 | QA + docs | Browser suites (guest, account, résumé) + live synthetic résumé run; IDOR/size/type/rate-limit checks over HTTP; logs contain no résumé data; database suites; advisors; CLAUDE, ROADMAP, SESSION, ADR-020 status, database/api/backend/frontend docs | |
+
+Deferred (ADR-020): free-text target careers, feeding gaps into roadmap generation (F-14), DOCX files, re-analysis of a stored file (files are never stored).
+
+Next: Milestone 4 (F-18) — see 🎯 Version 2 above.
+
 
 ## 🔮 Future Features
 
