@@ -30,6 +30,19 @@ Signed-in users' roadmaps live in Postgres; guests keep browser storage (below).
 - **Guest import:** a signed-in user can save the browser's `pathwayai_roadmap` (with its completed steps) to the account once (`POST /api/roadmaps/import`, idempotent per `local_id`); afterwards `pathwayai_roadmap` and that roadmap's `roadmap_step_<id>_*` progress keys are removed from the browser (events stay).
 - **Checks:** `supabase/tests/m2_2_roadmaps_rls.sql` (31), `m2_3_step_progress_rls.sql` (22), `m2_4_api_role_connection.py` (18, through the pooler).
 
+## Resume analyses (✅ table since 2026-10-05, Milestone 3, ADR-020; not used by code until M3-4/M3-5)
+
+Migration `20261006030329_create_resume_analyses`. Only the structured AI review is stored — never the PDF, its text, file name or a hash of it.
+
+| Table | Key columns | Written by | Browser (`authenticated`) |
+|---|---|---|---|
+| `resume_analyses` | `id`, `user_id` → `auth.users` cascade, `roadmap_id` (composite FK `(roadmap_id, user_id)` → `roadmaps`, `on delete set null (roadmap_id)`), `career` (1–100 chars), `analysis jsonb` (object, ≤ 16 KB), `prompt_version`, `model`, `created_at` | FastAPI (`pathwayai_api`: select + insert) | select own, **delete own** (history with user-controlled deletion) |
+
+- **RLS:** the same shared per-operation policies as Milestone 2 (`user_id = (select private.request_user_id())`); no update for anyone; `anon` has no grants.
+- **Ownership:** the composite key stops an analysis from pointing at another user's roadmap; deleting a roadmap keeps its analyses (only `roadmap_id` is cleared, `user_id` stays); deleting the account removes them.
+- **Indexes:** `(user_id, created_at desc)` for the newest-first history, `(roadmap_id, user_id)` for the foreign key.
+- **Checks:** `supabase/tests/m3_2_resume_analyses_rls.sql` (28).
+
 ## Browser storage (✅): the guest flow
 
 For guests (and builds without accounts) all roadmap persistence is **client-side**, in two `localStorage` keys: `pathwayai_roadmap` (the current roadmap, since 2026-09-26, ADR-013) and `pathwayai_tracking` (events, metrics, progress).
