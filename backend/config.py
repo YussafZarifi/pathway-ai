@@ -72,4 +72,14 @@ RESUME_LIMIT_PER_HOUR = _int("RESUME_LIMIT_PER_HOUR", 3)
 RESUME_LIMIT_PER_DAY = _int("RESUME_LIMIT_PER_DAY", 10)
 RESUME_GLOBAL_LIMIT_PER_DAY = _int("RESUME_GLOBAL_LIMIT_PER_DAY", 100)
 
+# AI Coach (ADR-021): signed-in chat about the user's roadmap. On by
+# default (messages are the user's own career questions, like the quiz's
+# free text); the page asks users not to share personal details, and
+# messages with an email address or phone number are refused. Set false to
+# switch the coach off (e.g. to save Gemini quota).
+COACH_ENABLED = _bool("COACH_ENABLED", True)
+COACH_LIMIT_PER_HOUR = _int("COACH_LIMIT_PER_HOUR", 20)
+COACH_LIMIT_PER_DAY = _int("COACH_LIMIT_PER_DAY", 60)
+COACH_GLOBAL_LIMIT_PER_DAY = _int("COACH_GLOBAL_LIMIT_PER_DAY", 300)
+
 LOG_LEVEL =os.getenv("LOG_LEVEL", "").strip().upper() or "INFO"

@@ -268,6 +268,41 @@ Every rejected request saves nothing.
 
 ---
 
+## ✅ `GET /api/coach/availability` (since 2026-10-07, M4-2, ADR-021)
+`{"available": true, "reason": null}` or `{"available": false, "reason": "feature_disabled" | "unavailable"}` (`COACH_ENABLED` off / no database). Needs a token (401); nothing else is exposed.
+
+---
+
+## ✅ `POST /api/coach/messages` (since 2026-10-07, M4-2, ADR-021)
+One AI Coach reply. Body (JSON, unknown fields → 422): `{"thread_id": "uuid" (optional; omit to start a conversation), "message": "1–1,000 characters"}`. Control characters except newlines are replaced; a message with an email address or phone number is refused (422) before anything is sent to Gemini.
+
+Check order: token → database → `COACH_ENABLED` → per-user limit (20/hour, 60/day, 300/day global) → body → thread is the user's (404) and has room (≤ 200 messages, else 409) → Gemini → both messages saved in one transaction.
+
+**201:**
+```json
+{
+  "thread_id": "uuid", "title": "I just finished the SQL step…",
+  "messages": [
+    {"id": "uuid", "role": "user", "content": "…", "actions": [], "created_at": "…Z"},
+    {"id": "uuid", "role": "assistant", "content": "…", "actions": [{"type": "open_step", "step": 2}], "created_at": "…Z"}
+  ]
+}
+```
+`actions` (≤ 3) are suggestions the page shows as buttons: `open_step(step)`, `mark_step_done(step)` (only for a step not yet done), `open_resume`, `take_quiz` (`step` null). The server checks every action against the user's current roadmap and rejects the whole reply otherwise. The coach never changes data itself.
+
+| Status | When |
+|---|---|
+| 401 / 503 | token missing or invalid / accounts off, no database, coach switched off, Gemini quota or busy, database unreachable, or the reply couldn't be saved |
+| 404 | the thread doesn't exist or isn't yours (same answer) |
+| 409 | the thread is full: start a new one |
+| 422 | invalid body, or the message contains an email address or phone number |
+| 429 | per-user or global coach limit (`Retry-After`) |
+| 502 | Gemini failed or its reply failed strict validation twice |
+
+Nothing is saved on any failure. The browser lists threads and messages and deletes threads through Supabase (RLS).
+
+---
+
 ## CORS
 Origins come from `ALLOWED_ORIGINS` (comma-separated, no default). Methods GET/POST, header `Content-Type`, no credentials. Error responses (413/429) carry CORS headers too, so the frontend can read their messages.
 

@@ -130,6 +130,22 @@ RESUME_MESSAGES = {
 }
 
 
+# AI Coach messages (ADR-021): per signed-in user, like résumé analyses.
+coach_limiter = RateLimiter(
+    config.COACH_LIMIT_PER_HOUR,
+    config.COACH_LIMIT_PER_DAY,
+    config.COACH_GLOBAL_LIMIT_PER_DAY,
+    short_scope="hour",
+    short_period=HOUR,
+)
+
+COACH_MESSAGES = {
+    "hour": "You've sent a lot of messages in the last hour. Please take a break and try again later.",
+    "day": "You've reached today's limit for coach messages. Please try again tomorrow.",
+    "global": "The AI Coach has reached its daily limit. Please try again tomorrow.",
+}
+
+
 def _enforce(active: RateLimiter, request: Request, messages: dict, label: str) -> None:
     """Raise 429 when the caller is over a limit.
 
@@ -163,3 +179,8 @@ def limit_resume_requests(user_id: str) -> None:
     """Per-user limit for POST /api/resume-analyses (called with the verified
     user's id; the id itself is never logged)."""
     _raise_if_limited(resume_limiter.check(f"user:{user_id}"), RESUME_MESSAGES, "resume")
+
+
+def limit_coach_requests(user_id: str) -> None:
+    """Per-user limit for POST /api/coach/messages."""
+    _raise_if_limited(coach_limiter.check(f"user:{user_id}"), COACH_MESSAGES, "coach")

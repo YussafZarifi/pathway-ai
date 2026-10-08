@@ -14,6 +14,7 @@ Unknown keys are ignored and never reach the prompt.
 
 import json
 import re
+import uuid
 from typing import Annotated, Literal, Optional, Union
 
 from pydantic import BaseModel, ConfigDict, Discriminator, Field, Tag, ValidationError, field_validator
@@ -220,3 +221,24 @@ class ImportRoadmapRequest(BaseModel):
     completed: list[CompletedStep] = Field(default=[], max_length=MAX_COMPLETED)
 
     _strip = field_validator("career", mode="before")(_clean)
+
+
+# --- AI Coach (ADR-021) -------------------------------------------------------
+
+_COACH_CONTROL_CHARS = re.compile(r"[\x00-\x09\x0b-\x1f\x7f]")  # newlines are kept
+
+
+class CoachMessageRequest(BaseModel):
+    """POST /api/coach/messages: a new message, in a new or existing thread."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    thread_id: Optional[uuid.UUID] = None
+    message: str = Field(min_length=1, max_length=1000)
+
+    @field_validator("message", mode="before")
+    @classmethod
+    def _message(cls, value):
+        if isinstance(value, str):
+            return _COACH_CONTROL_CHARS.sub(" ", value).strip()
+        return value

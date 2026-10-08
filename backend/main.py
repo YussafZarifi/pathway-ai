@@ -16,6 +16,7 @@ from auth import AuthUser, current_user
 from generation import AI_FAILED, generate, generate_roadmap
 from prompts import build_career_prompt
 from rate_limit import limit_ai_requests
+from routers import coach as coach_router
 from routers import resume_analyses as resume_router
 from routers import roadmaps as roadmaps_router
 from schemas import CareerRequest, RoadmapRequest
@@ -55,6 +56,8 @@ if config.RESUME_ANALYSIS_ENABLED:
     logger.warning("RESUME_ANALYSIS_ENABLED is on: use it only with a paid Gemini key (ADR-020)")
 else:
     logger.info("RESUME_ANALYSIS_ENABLED is off: résumé analysis returns 503")
+if not config.COACH_ENABLED:
+    logger.info("COACH_ENABLED is off: the AI Coach returns 503")
 
 # Body limits are enforced while the body is read (chunked bodies included;
 # see body_limit.py). Registered first so it is the innermost middleware:
@@ -134,3 +137,5 @@ def roadmap_ai(payload: RoadmapRequest):
 app.include_router(roadmaps_router.router)
 # Signed-in users: analyze a résumé against the current roadmap (ADR-020).
 app.include_router(resume_router.router)
+# Signed-in users: AI Coach chat (ADR-021).
+app.include_router(coach_router.router)

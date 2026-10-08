@@ -15,17 +15,17 @@ rejected reply is retried once by llm.generate, then reported as failed.
 """
 
 import json
-import re
-import unicodedata
-from typing import Annotated, Literal
+from typing import Literal
 
 from google.genai import types as genai_types
-from pydantic import AfterValidator, BaseModel, ConfigDict, Field, StringConstraints, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 import config
 import llm
 from ai_output import AIOutputError
 from prompts import RESUME_SYSTEM_INSTRUCTION, build_resume_prompt
+from strict_ai import contains_contact_details, error_summary, load_strict_json
+from strict_ai import text as _text
 
 PROMPT_VERSION = "r1"
 
@@ -88,20 +88,6 @@ class ResumeAnalysisSchema(BaseModel):
 
 # --- Reply model (strict) -----------------------------------------------------
 
-def _no_control_chars(value: str) -> str:
-    if any(unicodedata.category(ch) == "Cc" and ch != "\n" for ch in value):
-        raise ValueError("control characters")
-    return value
-
-
-def _text(max_length: int):
-    return Annotated[
-        str,
-        StringConstraints(strip_whitespace=True, min_length=1, max_length=max_length),
-        AfterValidator(_no_control_chars),
-    ]
-
-
 Skill = _text(60)
 Sentence = _text(300)
 
@@ -136,28 +122,6 @@ class ResumeReply(_Strict):
 # unexpected key the model invented) is shown as "?".
 _KNOWN_FIELDS = set(ResumeReply.model_fields) | set(Gap.model_fields) | set(Suggestion.model_fields)
 
-_EMAIL = re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+")
-_PHONE = re.compile(r"(?<!\w)(?:\+\d{1,3}[\s.-]?)?\(?\d{3}\)?[\s.-]?\d{3}[\s.-]\d{4}(?!\w)")
-
-
-def _safe_path(loc) -> str:
-    return ".".join(str(p) if isinstance(p, int) or p in _KNOWN_FIELDS else "?" for p in loc) or "(root)"
-
-
-def _error_summary(error: ValidationError) -> str:
-    parts = [
-        f"{_safe_path(e['loc'])}:{e['type']}"
-        for e in error.errors(include_input=False, include_url=False, include_context=False)
-    ]
-    return ",".join(parts[:5])
-
-
-def _reject_duplicate_keys(pairs):
-    keys = [k for k, _ in pairs]
-    if len(keys) != len(set(keys)):
-        raise AIOutputError("invalid_json", "duplicate keys")
-    return dict(pairs)
-
 
 def _texts(reply: ResumeReply):
     """(path, text) for every text field, for the personal-data check."""
@@ -177,28 +141,18 @@ def parse_resume_reply(text: str, step_count: int) -> tuple[dict, dict]:
 
     `step_count` is how many roadmap steps the prompt listed; a gap's
     related_step must be null or 1..step_count."""
-    if not isinstance(text, str) or not text.strip():
-        raise AIOutputError("empty")
-    if len(text) > MAX_REPLY_CHARS:
-        raise AIOutputError("too_large", f"{len(text)} chars")
-    try:
-        data = json.loads(text, object_pairs_hook=_reject_duplicate_keys)
-    except json.JSONDecodeError as e:
-        raise AIOutputError("invalid_json", f"{e.msg} at char {e.pos} of {len(text)}") from None
-    if not isinstance(data, dict):
-        raise AIOutputError("not_object", type(data).__name__)
-
+    data = load_strict_json(text, MAX_REPLY_CHARS)
     try:
         reply = ResumeReply.model_validate(data)
     except ValidationError as e:
-        raise AIOutputError("schema", _error_summary(e)) from None
+        raise AIOutputError("schema", error_summary(e, _KNOWN_FIELDS)) from None
 
     for i, gap in enumerate(reply.gaps):
         if gap.related_step is not None and not 1 <= gap.related_step <= step_count:
             raise AIOutputError("schema", f"gaps.{i}.related_step:out_of_range")
 
     for path, value in _texts(reply):
-        if _EMAIL.search(value) or _PHONE.search(value):
+        if contains_contact_details(value):
             raise AIOutputError("personal_data", path)
 
     result = reply.model_dump()

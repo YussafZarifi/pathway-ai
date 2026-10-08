@@ -2,7 +2,7 @@
 
 > Permanent project memory. Read this first in every session. Then read `SESSION.md` (latest state) and `ROADMAP.md` (what's next).
 > Last updated: 2026-10-07 (Milestone 3 complete: Resume Analyzer, M3-1 → M3-6, ADR-020; owner's direction 2026-10-07: build on autonomously to a production-ready Version 1, local commits only).
-> **State at a glance:** **Milestone 2 complete (2026-10-03, ADR-019):** signed-in users' roadmaps and progress live in Supabase Postgres (FastAPI writes AI content as the least-privilege `pathwayai_api` role; the browser reads its own rows and writes step progress through RLS; guest roadmaps can be imported once, never silently). **Milestone 1 complete (2026-10-01):** optional email + password accounts (ADR-018). Guest flow unchanged; builds without Supabase hide accounts. · **not deployed, not pushed** (`main` is 79 commits ahead of `origin/main`) · Render Blueprint ready (optional `SUPABASE_URL` / `DATABASE_URL` / `VITE_SUPABASE_*`) · 347/347 backend tests, 64 frontend tests (Vitest), 118 SQL RLS checks (31 + 22 + 28 + 37) + 18 pooled-connection checks, 0 known dependency vulnerabilities (2026-10-04 audit), build passes, lint at 0 errors.
+> **State at a glance:** **Milestone 2 complete (2026-10-03, ADR-019):** signed-in users' roadmaps and progress live in Supabase Postgres (FastAPI writes AI content as the least-privilege `pathwayai_api` role; the browser reads its own rows and writes step progress through RLS; guest roadmaps can be imported once, never silently). **Milestone 1 complete (2026-10-01):** optional email + password accounts (ADR-018). Guest flow unchanged; builds without Supabase hide accounts. · **not deployed, not pushed** (`main` is 80 commits ahead of `origin/main`) · Render Blueprint ready (optional `SUPABASE_URL` / `DATABASE_URL` / `VITE_SUPABASE_*`) · 422/422 backend tests, 64 frontend tests (Vitest), 118 SQL RLS checks (31 + 22 + 28 + 37) + 18 pooled-connection checks, 0 known dependency vulnerabilities (2026-10-04 audit), build passes, lint at 0 errors.
 > **Deployment is postponed until Version 2 is complete** (owner decision, 2026-10-01). **Version 2 = Milestones 1–4:** accounts (done in code) → **Milestone 2: roadmaps in PostgreSQL (F-8)** → **Milestone 3: Resume Analyzer (F-13)** → **Milestone 4: AI Coach (F-18)**. Keep the project deployable after every commit (§11 "Deployable at every commit"), but **do not recommend deploying** (push-to-deploy, Render, production verification) until Version 2 is finished, unless the owner explicitly asks.
 > **Milestone 2 in one line:** tables `quiz_submissions` (server only), `roadmaps` (one active per user), `roadmap_steps`, `step_progress`; one shared RLS policy per operation on `private.request_user_id()` (same logic as `auth.uid()`, which `pathwayai_api` can't call); endpoints `POST /api/roadmaps`, `/{id}/regenerate`, `/import`; frontend `lib/roadmaps/` (`repositoryFor` → local or account repository, `useCurrentRoadmap`, `useLocalImport`) + `ImportRoadmapBanner`. Details: ADR-019 (with amendment and implementation notes), ROADMAP *🗄️ Milestone 2*.
 > **Next session order:** owner checks for Milestone 2 (ROADMAP M2-11 "owner" items: real-account cross-device check) → **Milestone 3: Resume Analyzer (F-13)**, planned and approved before code → Milestone 4 (§11). A recruiter-style review (2026-09-29) found mostly presentation/trust gaps → ROADMAP *Post-Launch Improvements* P-1–P-11 (fit between milestones only when the owner asks).
@@ -37,7 +37,7 @@ Naming: the product brand is **PathwayAI** (tab title, favicon and metadata sinc
 | Deployment readiness | **Implemented 2026-09-27** (ADR-014): no hard-coded URLs (`VITE_API_URL`, `ALLOWED_ORIGINS`; `vite build` fails without `VITE_API_URL`), `.env.example` in `backend/` and `frontend/`, `GET /health`, Pydantic request models, 16 KB body limit (counted while reading, chunked bodies included, since 2026-10-04), in-memory rate limits (per IP 8/min + 50/day, global 500/day), generic error messages, no answers/prompts/AI output in logs, `render.yaml` Blueprint (validated against Render's schema). **Ready, not deployed.** Deployment is **postponed until Version 2 is complete** (owner, 2026-10-01); the launch steps are parked in ROADMAP → *Deployment (postponed)*, D-1–D-6. Every commit must keep the project deployable (§11) |
 | AI output reliability | **Implemented 2026-09-27** (ADR-015): Gemini JSON mode + `response_schema`; `ai_output.py` validates per item (defaults for missing fields, invalid items dropped); `llm.py` retries once (unusable reply, 5xx, timeout, short per-minute 429); 503 quota/busy messages; per-attempt logs with request IDs and no content. **Gemini key is on the free tier: 20 requests/day** for flash-lite (ROADMAP D-6, was N-16) |
 | Quiz (redesigned 2026-09-28) | **Implemented** (ADR-016): 5 owner-approved questions, v2 labelled-profile prompts; API also accepts the old 8-answer format (v1) so saved roadmaps still regenerate. Verified live on `gemini-2.5-flash-lite` (v1 + v2) and by a manual desktop / 360 px / keyboard pass on 2026-09-28 |
-| Tests | **Backend: 347 pytest tests** (`backend/tests`, `requirements-dev.txt`, `python -m pytest -q`, no network; repository, endpoints, import since 2026-10-03). **Database:** `supabase/tests/` (31 + 22 + 28 RLS checks in rolled-back transactions, 18 pooled-connection checks). **Frontend: 64 Vitest tests** (`npm test`, jsdom, no network; since 2026-10-07). Browser checks with Playwright scripts (not committed) |
+| Tests | **Backend: 422 pytest tests** (`backend/tests`, `requirements-dev.txt`, `python -m pytest -q`, no network; repository, endpoints, import since 2026-10-03). **Database:** `supabase/tests/` (31 + 22 + 28 RLS checks in rolled-back transactions, 18 pooled-connection checks). **Frontend: 64 Vitest tests** (`npm test`, jsdom, no network; since 2026-10-07). Browser checks with Playwright scripts (not committed) |
 | CI, Docker, live deployment | **None** (deployment postponed until Version 2; the Blueprint stays current) |
 | Recruiter review | **Done 2026-09-29** (no code changes): core loop strong; gaps are presentation/trust — no built-by/About, thin Landing, too much "Coming soon", unsorted matches, unlabeled AI estimates, 3/13 broken AI links, video placeholders without the YouTube key. Ranked list: `docs/recruiter-notes.md`; tasks: ROADMAP P-1–P-11 |
 
@@ -61,6 +61,8 @@ FastAPI (backend/: main.py + config.py + schemas.py + rate_limit.py + llm.py + a
   ├─ POST /api/roadmaps/import  Bearer + browser roadmap → 201 imported / 200 already imported (64 KB, own rate limit)
   ├─ GET  /api/resume-analyses/availability  Bearer → {available, reason, career, roadmap_id} (feature switch first; nothing else exposed)
   ├─ POST /api/resume-analyses  Bearer + raw PDF ≤ 2 MB → 201 saved analysis (ADR-020; 503 unless RESUME_ANALYSIS_ENABLED; per-user limit; checks before reading the body)
+  ├─ GET  /api/coach/availability  Bearer → {available, reason} (ADR-021)
+  ├─ POST /api/coach/messages  Bearer + {thread_id?, message} → 201 reply with suggested actions; both messages saved in one transaction (per-user limit; personal-data guard)
   ├─ GET  /                                           → status
   └─ GET  /health                                     → liveness (Render health check)
         │
@@ -87,20 +89,22 @@ roadmap-ai/
 ├── backend/
 │   ├── main.py                app, middleware, error handlers, guest endpoints; includes routers/
 │   ├── generation.py          shared AI generation: generate(), generate_roadmap(), add_videos()
-│   ├── routers/               roadmaps.py: /api/roadmaps* (signed-in, saved roadmaps); resume_analyses.py: POST /api/resume-analyses (ADR-020)
+│   ├── routers/               roadmaps.py: /api/roadmaps*; resume_analyses.py: /api/resume-analyses* (ADR-020); coach.py: /api/coach/* (ADR-021)
 │   ├── config.py              settings from environment variables
 │   ├── schemas.py             Pydantic request models: quiz answers v2 + v1 (discriminated), career
 │   ├── rate_limit.py          in-memory per-IP + global rate limiter
 │   ├── llm.py                 Gemini client, JSON mode + schema, retry policy, safe per-attempt logs
 │   ├── ai_output.py           generation schemas, output models, JSON extraction, per-item validation
 │   ├── resume_ai.py           résumé analysis (ADR-020): PDF checks, strict reply validation, analyze_resume
+│   ├── coach_ai.py            AI Coach (ADR-021): learner context, strict {reply, actions} validated against the roadmap
+│   ├── strict_ai.py           shared strict-reply helpers + contact-details guard
 │   ├── request_log.py         logging with a request ID (X-Request-ID)
 │   ├── prompts.py             prompt builders: v2 (5-question quiz) + v1 (original, unchanged)
 │   ├── auth.py                Supabase access-token verification (JWKS, PyJWT) → current_user dependency
 │   ├── body_limit.py          request body limits counted while reading (chunked bodies too), 16 KB / 64 KB import
 │   ├── db.py                  Postgres pool as pathwayai_api (transaction pooler), transaction(user_id) sets RLS claims (ADR-019)
-│   ├── repositories/          roadmaps.py: RoadmapRepository Protocol, Postgres + in-memory implementations; resume_analyses.py (active target, insert)
-│   ├── tests/                 347 pytest tests (fake Gemini, local EC keys, in-memory repository); requirements-dev.txt adds pytest
+│   ├── repositories/          roadmaps.py: RoadmapRepository Protocol, Postgres + in-memory implementations; resume_analyses.py (active target, insert); coach.py (context load, one-transaction save)
+│   ├── tests/                 422 pytest tests (fake Gemini, local EC keys, in-memory repository); requirements-dev.txt adds pytest
 │   ├── youtube.py             YouTube Data API lookup for roadmap step videos
 │   ├── .env.example           template: GEMINI_API_KEY, YOUTUBE_API_KEY, ALLOWED_ORIGINS, SUPABASE_URL, limits…
 │   ├── requirements.txt
@@ -170,7 +174,7 @@ Output comes from Gemini JSON mode and is validated in `backend/ai_output.py`. R
 7. AI endpoints are unauthenticated on purpose (guests; rate-limited and validated since 2026-09-27); saved-roadmap routes need a token. Milestone 2 limits: only the current roadmap is shown (archived ones are kept but there's no list/switch UI); steps can't be edited; signed-in generation needs both the frontend Supabase variables and the API's `DATABASE_URL` (otherwise an honest 503); `private.request_user_id()` copies `auth.uid()`'s logic (TD-67); rate limits per IP, not per user. The free-plan Supabase email sender is rate-limited (TD-65); npm and Python dependencies at 0 known vulnerabilities since 2026-10-04 (TD-64, TD-73 resolved).
 8. ~~Fake data and dead buttons~~ — fixed 2026-09-25; the engagement-based Employability/Momentum code was deleted 2026-10-07 (TD-29).
 9. ~~Compare checkbox inside the card button changed the selected career; no scroll reset; outdated copy; blank page for unknown URLs; "roadmap-ai" tab title~~ — all fixed 2026-09-29 (C-27, ADR-017). Remaining before a *public* launch: Gemini billing (D-6) and `YOUTUBE_API_KEY` (D-5). Quality backlog: N-21 (focus management, Landing card keyboard, quiet aborted requests, Esc on Compare/Share modals, reduced motion).
-10. Tests: 347 backend, 64 frontend (Vitest); no CI yet; ESLint 0 errors (since 2026-10-07).
+10. Tests: 422 backend, 64 frontend (Vitest); no CI yet; ESLint 0 errors (since 2026-10-07).
 11. Presentation/trust gaps from the recruiter review (2026-09-29): no built-by/About, thin Landing, repeated "Coming soon", unsorted matches, salaries/growth not labelled as AI estimates, some broken AI resource links (TD-21, TD-59–TD-63; ROADMAP P-1–P-11).
 
 ## 11. Current priorities — Next Session (exact order)
@@ -179,7 +183,7 @@ Output comes from Gemini JSON mode and is validated in `backend/ai_output.py`. R
 
 1. ~~**Milestone 2: roadmaps in PostgreSQL (F-8, ADR-019)**~~ — **complete 2026-10-03** (M2-1 → M2-11, one commit each). Remaining owner check: sign in with the real account on two devices and confirm the same roadmap and progress (ROADMAP M2-11).
 2. ~~**Milestone 3: Resume Analyzer (F-13)**~~ — **complete 2026-10-07.** ADR-020 accepted 2026-10-05 (M3-1); M3-2 (`resume_analyses` table, RLS, 28 SQL checks) done 2026-10-05; M3-3 (AI layer `resume_ai.py`, strict validation, 99 tests) and M3-4 (`POST /api/resume-analyses`, 64 tests, live-checked with a synthetic résumé) done 2026-10-05; M3-5 (`/resume` page + `GET /availability`, Playwright 51/51) and M3-6 (live access-control checks 18/18, step links) done 2026-10-07 in ROADMAP *📄 Milestone 3*. Real résumés only after Gemini billing (`RESUME_ANALYSIS_ENABLED=false` by default; synthetic résumés in development). Scope: PDF upload → Gemini → structured critique against the user's target career; real output only (no simulated scores). By ADR-019's rule, analyses are written by FastAPI and read by the browser through RLS.
-3. **Milestone 4: AI Coach (F-18) — in progress (ADR-021, 2026-10-07).** Signed-in chat grounded in the roadmap, progress and résumé gaps; history in `coach_threads`/`coach_messages` (M4-1 done); suggested actions the user confirms, no tool writes. Steps in ROADMAP *🤖 Milestone 4*.
+3. **Milestone 4: AI Coach (F-18) — in progress (ADR-021, 2026-10-07).** Signed-in chat grounded in the roadmap, progress and résumé gaps; history in `coach_threads`/`coach_messages` (M4-1 done); backend `POST /api/coach/messages` (M4-2 done); suggested actions the user confirms, no tool writes. Steps in ROADMAP *🤖 Milestone 4*.
 
 Version 2 is complete when Milestones 1–4 are done and verified locally. Only then return to the parked deployment steps (ROADMAP D-1–D-6) and the presentation fixes (P-1–P-11). Pick P-/N- items between milestones only when the owner asks.
 
