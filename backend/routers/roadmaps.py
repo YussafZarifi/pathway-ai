@@ -10,6 +10,9 @@ Imports (POST /api/roadmaps/import) are user data coming back from the
 browser: steps are validated like AI output, dates are clamped, and the
 source column records them as "imported".
 
+POST /api/roadmaps/{id}/activate makes an archived roadmap current again
+(roadmap history, 2026-10-07).
+
 Errors: 401 bad/missing token · 404 a roadmap that doesn't exist or isn't
 yours (same answer) · 409 a roadmap without saved answers can't be
 regenerated · 422 invalid body · 429 rate limit · 503 accounts or database
@@ -208,3 +211,23 @@ def regenerate_roadmap(
         "regenerate", repo.add_regenerated, user.id,
         source=source, prompt_version=prompt_version(answers), steps=result["roadmap"],
     )
+
+
+@router.post("/{roadmap_id}/activate")
+def activate_roadmap(
+    roadmap_id: uuid.UUID,
+    user: AuthUser = Depends(current_user),
+    repo: RoadmapRepository = Depends(get_repository),
+    _limit: None = Depends(limit_import_requests),
+):
+    """Make an archived roadmap the current one again (roadmap history);
+    the previous current one is archived. No AI call, so it uses the
+    import limiter (a small database write)."""
+    try:
+        roadmap = repo.activate(user.id, str(roadmap_id))
+    except (db.DatabaseUnavailable, psycopg.Error) as e:
+        logger.error("Activating roadmap failed: %s", type(e).__name__)
+        raise HTTPException(status_code=503, detail=DB_UNAVAILABLE) from None
+    if roadmap is None:
+        raise HTTPException(status_code=404, detail=NOT_FOUND)
+    return roadmap

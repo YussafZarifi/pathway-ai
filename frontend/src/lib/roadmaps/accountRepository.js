@@ -14,6 +14,7 @@
 
 import {
   ApiError,
+  activateSavedRoadmap,
   createSavedRoadmap,
   normalizeSteps,
   regenerateSavedRoadmap,
@@ -128,6 +129,35 @@ export const accountRepository = {
     const rows = await fetchRows();
     const current = rows.find((r) => r.status === "active");
     return current ? toRecord(current, rows) : null;
+  },
+
+  /**
+   * Every saved roadmap (newest 20), current and archived, for the history
+   * page: a summary plus the full record for read-only viewing.
+   */
+  async history() {
+    const rows = await fetchRows();
+    return rows.map((row) => {
+      const record = toRecord(row, rows);
+      const done = record.statuses.filter((s) => s.done).length;
+      return {
+        id: row.id,
+        career: row.career,
+        status: row.status,
+        source: row.source,
+        createdAt: Date.parse(row.created_at) || null,
+        done,
+        total: record.roadmap.length,
+        record,
+      };
+    });
+  },
+
+  /** Make an archived roadmap current again (FastAPI; one active at a time). */
+  async activate(roadmapId) {
+    const session = await currentSession();
+    await activateSavedRoadmap(session.access_token, roadmapId);
+    return this.load();
   },
 
   /** Generate with FastAPI (it saves the roadmap), then read it back. */

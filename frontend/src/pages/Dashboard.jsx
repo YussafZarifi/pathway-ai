@@ -353,6 +353,7 @@ export default function Dashboard() {
               onRetakeQuiz={() => navigate("/quiz")}
               onOpenResume={() => navigate("/resume")}
               onOpenCoach={() => navigate("/coach")}
+              onOpenHistory={mode === "account" ? () => navigate("/roadmaps") : null}
             />
           </aside>
         </div>

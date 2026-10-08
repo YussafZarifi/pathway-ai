@@ -44,6 +44,10 @@ class RoadmapRepository(Protocol):
         """Save a new active roadmap from `source`'s submission; archive the
         previous active one."""
 
+    def activate(self, user_id: str, roadmap_id: str) -> dict | None:
+        """Make one of the user's roadmaps the current one (archiving the
+        previous current one); None when it doesn't exist or isn't theirs."""
+
     def import_local(self, user_id: str, *, local_id: str, career: str, career_data: dict | None,
                      answers: dict | None, answers_version: int | None, created_at: datetime,
                      steps: list[dict], completed: list[tuple[int, datetime]]) -> tuple[dict, bool]:
@@ -146,6 +150,24 @@ class PostgresRoadmapRepository:
                 prompt_version=prompt_version,
             )
             return roadmap_out(row, self._insert_steps(conn, user_id, row["id"], steps))
+
+    def activate(self, user_id, roadmap_id):
+        with db.transaction(user_id) as conn:
+            _lock_user(conn, user_id)
+            row = conn.execute(
+                "select id, status from public.roadmaps where id = %s and user_id = %s",
+                (roadmap_id, user_id),
+            ).fetchone()
+            if row is None:
+                return None
+            if row["status"] != "active":
+                # Archive first: the partial unique index allows one active roadmap.
+                self._archive_active(conn, user_id)
+                conn.execute(
+                    "update public.roadmaps set status = 'active' where id = %s and user_id = %s",
+                    (roadmap_id, user_id),
+                )
+            return self._load(conn, user_id, roadmap_id)
 
     def import_local(self, user_id, *, local_id, career, career_data, answers, answers_version,
                      created_at, steps, completed):
@@ -315,6 +337,16 @@ class InMemoryRoadmapRepository:
             "answers": s["answers"] if s else None,
             "answers_version": s["answers_version"] if s else None,
         }
+
+    def activate(self, user_id, roadmap_id):
+        self._maybe_fail()
+        r = self.roadmaps.get(str(roadmap_id))
+        if not r or r["user_id"] != user_id:
+            return None
+        if r["status"] != "active":
+            self._archive_active(user_id)
+            r["status"] = "active"
+        return self._out(r["id"])
 
     def add_regenerated(self, user_id, *, source, prompt_version, steps):
         self._maybe_fail()

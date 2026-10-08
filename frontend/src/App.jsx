@@ -12,6 +12,7 @@ import Login from "./pages/Login";
 import Resume from "./pages/Resume";
 import Coach from "./pages/Coach";
 import Settings from "./pages/Settings";
+import Roadmaps from "./pages/Roadmaps";
 import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
 
@@ -37,6 +38,7 @@ export default function App() {
 
             {/* Dashboard (Noir) */}
             <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/roadmaps" element={<Roadmaps />} />
 
             {/* Resume Analyzer (signed-in; ADR-020) */}
             <Route path="/resume" element={<Resume />} />

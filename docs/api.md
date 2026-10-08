@@ -214,6 +214,9 @@ A new roadmap for the same career from the **saved** quiz answers (no body). The
 | 422 | the id isn't a UUID |
 | 503 | database unreachable while loading ("We couldn't reach your saved roadmaps right now…"), or saving failed after generation |
 
+## ✅ `POST /api/roadmaps/{id}/activate` (since 2026-10-07, roadmap history)
+Make one of the user's roadmaps the current one again; the previous current one is archived (one transaction under the per-user lock, so there is never more than one active roadmap). No body, no AI call. **200** with the roadmap (same shape as above); 404 for an id that doesn't exist or isn't yours; 422 for a non-UUID; 429 (the import limiter: 10/min, 100/day per IP); 503 database. The browser can't change `status` itself (no update grant).
+
 Saved roadmaps are **read** by the browser directly through Supabase (RLS), so there is no GET route.
 
 ---

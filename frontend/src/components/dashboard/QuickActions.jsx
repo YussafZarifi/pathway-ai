@@ -1,4 +1,4 @@
-import { RefreshCw, RotateCcw, FileText, MessageSquare } from "lucide-react";
+import { RefreshCw, RotateCcw, FileText, MessageSquare, History } from "lucide-react";
 
 function ActionButton({ icon, label, hint, onClick, disabled, tone }) {
   return (
@@ -29,6 +29,7 @@ export default function QuickActions({
   onRetakeQuiz,
   onOpenResume,
   onOpenCoach,
+  onOpenHistory,
 }) {
   return (
     <section className="dashCard dashRailCard" aria-labelledby="dashActionsTitle">
@@ -52,6 +53,14 @@ export default function QuickActions({
           hint="Explore other careers"
           onClick={onRetakeQuiz}
         />
+        {onOpenHistory && (
+          <ActionButton
+            icon={<History size={17} />}
+            label="Past roadmaps"
+            hint="Switch back to an earlier roadmap"
+            onClick={onOpenHistory}
+          />
+        )}
         <ActionButton
           icon={<FileText size={17} />}
           label="Resume Analyzer"

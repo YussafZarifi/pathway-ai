@@ -203,3 +203,63 @@ def test_guest_roadmap_route_is_unchanged(client, repo, fake_gemini):
     fake_gemini(roadmap_reply())
     r = client.post("/api/ai/roadmap", json={"answers": ANSWERS, "career": "DevOps Engineer"})
     assert r.status_code == 200 and "id" not in r.json() and not repo.roadmaps
+
+
+# --- POST /api/roadmaps/{id}/activate (roadmap history, 2026-10-07) -------------------
+
+@pytest.fixture
+def two_roadmaps(client, repo, fake_gemini):
+    fake_gemini(roadmap_reply(), roadmap_reply())
+    first = client.post("/api/roadmaps", json=body()).json()
+    second = client.post("/api/roadmaps", json=body(career="Web Developer")).json()
+    return first, second
+
+
+def test_activate_makes_an_archived_roadmap_current(client, repo, two_roadmaps, monkeypatch):
+    monkeypatch.setattr(rate_limit, "import_limiter", rate_limit.RateLimiter(1000, 1000, 1000))
+    first, second = two_roadmaps
+    r = client.post(f"/api/roadmaps/{first['id']}/activate")
+    assert r.status_code == 200
+    assert r.json()["id"] == first["id"] and r.json()["status"] == "active"
+    assert repo.roadmaps[second["id"]]["status"] == "archived"
+    assert [x["id"] for x in repo.roadmaps.values() if x["status"] == "active"] == [first["id"]]
+
+
+def test_activating_the_current_roadmap_changes_nothing(client, repo, two_roadmaps, monkeypatch):
+    monkeypatch.setattr(rate_limit, "import_limiter", rate_limit.RateLimiter(1000, 1000, 1000))
+    _, second = two_roadmaps
+    r = client.post(f"/api/roadmaps/{second['id']}/activate")
+    assert r.status_code == 200 and r.json()["status"] == "active"
+    assert sum(1 for x in repo.roadmaps.values() if x["status"] == "active") == 1
+
+
+def test_activate_someone_elses_or_unknown_roadmap_is_404(client, repo, two_roadmaps, monkeypatch):
+    monkeypatch.setattr(rate_limit, "import_limiter", rate_limit.RateLimiter(1000, 1000, 1000))
+    first, second = two_roadmaps
+    repo.roadmaps[first["id"]]["user_id"] = OTHER
+    assert client.post(f"/api/roadmaps/{first['id']}/activate").status_code == 404
+    assert client.post(f"/api/roadmaps/{uuid.uuid4()}/activate").status_code == 404
+    assert client.post("/api/roadmaps/not-a-uuid/activate").status_code == 422
+    assert repo.roadmaps[second["id"]]["status"] == "active"
+
+
+def test_activate_failure_is_503(client, repo, two_roadmaps, monkeypatch):
+    monkeypatch.setattr(rate_limit, "import_limiter", rate_limit.RateLimiter(1000, 1000, 1000))
+    first, _ = two_roadmaps
+    repo.fail_next = db.DatabaseUnavailable("down")
+    r = client.post(f"/api/roadmaps/{first['id']}/activate")
+    assert (r.status_code, r.json()["detail"]) == (503, roadmaps_router.DB_UNAVAILABLE)
+
+
+def test_activate_is_rate_limited(client, two_roadmaps, monkeypatch):
+    monkeypatch.setattr(rate_limit, "import_limiter", rate_limit.RateLimiter(1, 100, 100))
+    first, second = two_roadmaps
+    assert client.post(f"/api/roadmaps/{first['id']}/activate").status_code == 200
+    assert client.post(f"/api/roadmaps/{second['id']}/activate").status_code == 429
+
+
+def test_activate_needs_a_token(client, two_roadmaps, monkeypatch):
+    del main.app.dependency_overrides[current_user]
+    monkeypatch.setattr(config, "SUPABASE_URL", "https://example.supabase.co")
+    first, _ = two_roadmaps
+    assert client.post(f"/api/roadmaps/{first['id']}/activate").status_code == 401

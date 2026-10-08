@@ -142,6 +142,11 @@ export function regenerateSavedRoadmap(token, roadmapId, { signal } = {}) {
   return request(`/api/roadmaps/${encodeURIComponent(roadmapId)}/regenerate`, {}, { signal, token });
 }
 
+/** Make an archived roadmap the current one again (roadmap history). */
+export function activateSavedRoadmap(token, roadmapId, { signal } = {}) {
+  return request(`/api/roadmaps/${encodeURIComponent(roadmapId)}/activate`, {}, { signal, token });
+}
+
 /**
  * Save the browser's roadmap to the account once (201 new, 200 already saved).
  * @param {object} payload { local_id, career, career_data, answers, generated_at, steps, completed }

@@ -58,6 +58,7 @@ A small FastAPI app in `backend/`. Run locally with `uvicorn main:app --reload -
 | POST | `/api/ai/roadmap` | `roadmap_ai` | ≤5-step roadmap with videos (rate limited); guests, nothing saved |
 | POST | `/api/roadmaps` | `create_roadmap` | Signed-in: generate + save; 201 with step ids (since 2026-10-03) |
 | POST | `/api/roadmaps/{id}/regenerate` | `regenerate_roadmap` | Signed-in: new roadmap from saved answers; 404 not yours, 409 no answers |
+| POST | `/api/roadmaps/{id}/activate` | `activate_roadmap` | Signed-in: make an archived roadmap current again (roadmap history; since 2026-10-07) |
 | POST | `/api/roadmaps/import` | `import_roadmap` | Signed-in: import the browser-saved roadmap once; 201 new / 200 existing; 64 KB body limit; own rate limit |
 | GET | `/api/me/export` | `export_data` | Signed-in: JSON file with all the user's data (since 2026-10-07) |
 | DELETE | `/api/me` | `delete_account` | Signed-in, password confirmed within 5 minutes, `{"confirm":"DELETE"}`: deletes the account; 204 (since 2026-10-07) |

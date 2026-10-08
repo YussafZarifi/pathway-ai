@@ -80,9 +80,16 @@ export default function Home() {
                   ? "Your roadmap and progress are saved to your account, so they're here on any device where you sign in. Generating a new one makes it your current roadmap."
                   : `Your roadmap and progress are saved in this browser. PathwayAI keeps one roadmap at a time, so generating a new one replaces it.${accountsEnabled ? " Sign in to save it to your account and use it on any device." : ""}`}
               </p>
-              <button type="button" className="ghostBtn" onClick={() => navigate("/dashboard")}>
-                Open your dashboard
-              </button>
+              <div className="homeRoadmapActions">
+                <button type="button" className="ghostBtn" onClick={() => navigate("/dashboard")}>
+                  Open your dashboard
+                </button>
+                {inAccount && (
+                  <button type="button" className="ghostBtn" onClick={() => navigate("/roadmaps")}>
+                    All your roadmaps
+                  </button>
+                )}
+              </div>
             </div>
           ) : (
             <div className="homeEmpty">
