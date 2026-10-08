@@ -245,7 +245,7 @@ def test_coach_limit_is_separate_from_the_ip_limit(client, monkeypatch, fake_gem
 
 @pytest.mark.parametrize("script, status", [
     (["nope", "still nope"], 502),
-    ([reply(actions=[{"type": "mark_step_done", "step": 1}])] * 2, 502),  # step 1 is already done
+    ([reply(actions=[{"type": "mark_step_done", "step": 7}])] * 2, 502),  # no step 7
     ([reply(reply="mail x@example.com")] * 2, 502),
 ])
 def test_bad_replies_save_nothing(client, repo, fake_gemini, script, status):
@@ -294,3 +294,12 @@ def test_response_is_json_safe(client, fake_gemini):
     r = send(client)
     assert json.loads(r.text)["messages"][1]["content"] == "<script>alert(1)</script> use step 2"
     assert r.headers["content-type"].startswith("application/json")
+
+
+def test_a_stale_mark_done_suggestion_still_delivers_the_reply(client, repo, fake_gemini):
+    # Regression (live QA 2026-10-07): step 1 is already done; the reply
+    # must still arrive (the page disables that button).
+    fake_gemini(reply(actions=[{"type": "mark_step_done", "step": 1}]))
+    r = send(client, "I finished the SQL step!")
+    assert r.status_code == 201
+    assert r.json()["messages"][1]["actions"] == [{"type": "mark_step_done", "step": 1}]

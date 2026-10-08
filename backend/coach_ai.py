@@ -7,8 +7,11 @@ the conversation so far. That context is rebuilt for every message (see
 repositories/coach.py) and passed as a labelled data part, never as
 instructions. The reply is strict JSON {reply, actions}; actions are
 suggestions the user confirms in the page, validated here against the same
-context: a reply whose action points at a step that doesn't exist, or asks
-to mark an already finished step as done, is rejected as a whole.
+context: a reply whose action has an unknown type, points at a step that
+doesn't exist or repeats another action is rejected as a whole. A
+"mark_step_done" for a step that is already done is accepted as it is
+(not malformed, just stale: the user may be telling the coach about it);
+the page shows that button disabled ("Step N is done").
 
 Nothing here logs message text, context or replies; errors carry only a
 kind and field paths (strict_ai).
@@ -46,7 +49,7 @@ Rules (always apply):
 
 Actions (optional, at most 3), shown to the learner as buttons they may click:
 - open_step (step = a step number from the context): when you talk about a specific step.
-- mark_step_done (step = number of a step that is NOT done): whenever the learner says they finished a step that the context still shows as not done, so they can record it with one click. Never for a step that is already done.
+- mark_step_done (step = number of a step that is NOT done): whenever the learner says they finished a step that the context still shows as not done, so they can record it with one click. Don't suggest it for steps already marked done.
 - open_resume (step = null): when a résumé review would help.
 - take_quiz (step = null): when they have no roadmap or want to explore other careers.
 Use an empty list when no action fits."""
@@ -139,8 +142,6 @@ def parse_coach_reply(reply: str, context: dict | None) -> tuple[dict, dict]:
         if action.type in STEP_ACTIONS:
             if action.step not in steps:
                 raise AIOutputError("schema", f"actions.{i}.step:out_of_range")
-            if action.type == "mark_step_done" and steps[action.step]["done"]:
-                raise AIOutputError("schema", f"actions.{i}.step:already_done")
         elif action.step is not None:
             raise AIOutputError("schema", f"actions.{i}.step:unexpected")
 

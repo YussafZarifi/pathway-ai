@@ -143,16 +143,22 @@ export default function Home() {
               </div>
             </button>
 
-            <div className="homeFeatureCard homeFeatureCard--planned homeFeatureCard--coach">
+            <button
+              type="button"
+              className="homeFeatureCard homeFeatureCard--coach"
+              onClick={() => navigate("/coach")}
+            >
               <div className="homeFeatureIcon homeFeatureIcon--coach">
                 <MessageSquare size={22} aria-hidden="true" />
               </div>
               <div className="homeFeatureText">
                 <h3 className="homeFeatureTitle">AI Coach</h3>
-                <p className="homeFeatureSub">Ask questions about your roadmap as you go</p>
-                <span className="homeBadge">Planned</span>
+                <p className="homeFeatureSub">Personal guidance grounded in your roadmap and progress</p>
+                <span className="homeFeatureLink">
+                  Open <ArrowRight size={14} aria-hidden="true" />
+                </span>
               </div>
-            </div>
+            </button>
           </div>
         </section>
       </main>

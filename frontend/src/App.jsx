@@ -10,6 +10,7 @@ import Results from "./pages/Results";
 import Dashboard from "./pages/Dashboard";
 import Login from "./pages/Login";
 import Resume from "./pages/Resume";
+import Coach from "./pages/Coach";
 import NotFound from "./pages/NotFound";
 
 export default function App() {
@@ -35,6 +36,9 @@ export default function App() {
 
             {/* Resume Analyzer (signed-in; ADR-020) */}
             <Route path="/resume" element={<Resume />} />
+
+            {/* AI Coach (signed-in; ADR-021) */}
+            <Route path="/coach" element={<Coach />} />
 
             {/* Anything else: branded 404 instead of a blank page */}
             <Route path="*" element={<NotFound />} />

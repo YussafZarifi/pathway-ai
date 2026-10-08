@@ -288,7 +288,7 @@ Check order: token → database → `COACH_ENABLED` → per-user limit (20/hour,
   ]
 }
 ```
-`actions` (≤ 3) are suggestions the page shows as buttons: `open_step(step)`, `mark_step_done(step)` (only for a step not yet done), `open_resume`, `take_quiz` (`step` null). The server checks every action against the user's current roadmap and rejects the whole reply otherwise. The coach never changes data itself.
+`actions` (≤ 3) are suggestions the page shows as buttons: `open_step(step)`, `mark_step_done(step)` (a step already done is allowed — the page disables that button), `open_resume`, `take_quiz` (`step` null). The server checks every action against the user's current roadmap and rejects the whole reply otherwise. The coach never changes data itself.
 
 | Status | When |
 |---|---|

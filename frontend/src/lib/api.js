@@ -173,3 +173,22 @@ export function analyzeResume(token, file, { signal } = {}) {
     contentType: "application/pdf",
   });
 }
+
+// --- Signed-in users: AI Coach (ADR-021) --------------------------------------
+
+/** @returns {Promise<{available: boolean, reason: string|null}>} */
+export function getCoachAvailability(token, { signal } = {}) {
+  return request("/api/coach/availability", null, { signal, token, method: "GET" });
+}
+
+/**
+ * Send a message to the coach (a new conversation when threadId is null).
+ * @returns {Promise<{thread_id: string, title: string, messages: Array}>}
+ */
+export function postCoachMessage(token, { threadId, message }, { signal } = {}) {
+  return request(
+    "/api/coach/messages",
+    threadId ? { thread_id: threadId, message } : { message },
+    { signal, token }
+  );
+}

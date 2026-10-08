@@ -25,13 +25,6 @@ import {
   getInsights,
 } from "../lib/dashboardData";
 
-const PLANNED = {
-  coach: {
-    title: "AI Coach is coming soon",
-    body: "You'll be able to ask questions about your roadmap as you go. It isn't built yet.",
-  },
-};
-
 function prefersReducedMotion() {
   return window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 }
@@ -56,7 +49,6 @@ export default function Dashboard() {
   const [regenerating, setRegenerating] = useState(false);
   const [regenError, setRegenError] = useState("");
   const [confirmRegenerate, setConfirmRegenerate] = useState(false);
-  const [plannedFeature, setPlannedFeature] = useState(null);
   const [scrollTarget, setScrollTarget] = useState(null);
   const openedFromHash = useRef(false);
 
@@ -360,7 +352,7 @@ export default function Dashboard() {
               onRegenerate={() => setConfirmRegenerate(true)}
               onRetakeQuiz={() => navigate("/quiz")}
               onOpenResume={() => navigate("/resume")}
-              onPlanned={setPlannedFeature}
+              onOpenCoach={() => navigate("/coach")}
             />
           </aside>
         </div>
@@ -387,18 +379,6 @@ export default function Dashboard() {
         </p>
       </Dialog>
 
-      <Dialog
-        isOpen={Boolean(plannedFeature)}
-        onClose={() => setPlannedFeature(null)}
-        title={plannedFeature ? PLANNED[plannedFeature].title : ""}
-        actions={
-          <button type="button" className="dashBtn" onClick={() => setPlannedFeature(null)}>
-            Close
-          </button>
-        }
-      >
-        <p>{plannedFeature ? PLANNED[plannedFeature].body : ""}</p>
-      </Dialog>
     </div>
   );
 }

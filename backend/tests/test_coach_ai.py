@@ -140,7 +140,6 @@ def test_schema_failures_are_rejected(data):
     ([{"type": "open_step", "step": 9}], "actions.0.step:out_of_range"),
     ([{"type": "open_step", "step": 0}], "actions.0.step:out_of_range"),
     ([{"type": "open_step", "step": None}], "actions.0.step:out_of_range"),
-    ([{"type": "mark_step_done", "step": 1}], "actions.0.step:already_done"),
     ([{"type": "take_quiz", "step": 2}], "actions.0.step:unexpected"),
     ([{"type": "open_step", "step": 2}, {"type": "open_step", "step": 2}], "actions.1:duplicate"),
 ])
@@ -148,6 +147,14 @@ def test_actions_are_checked_against_the_roadmap(actions, detail):
     with pytest.raises(AIOutputError) as err:
         parse(reply(actions=actions))
     assert err.value.detail == detail
+
+
+def test_marking_an_already_done_step_is_accepted_as_stale_not_malformed():
+    # Regression (live QA 2026-10-07): the learner said they finished a step
+    # the context already showed as done; rejecting the reply turned a
+    # harmless suggestion into a failed message. The page disables it.
+    result, _ = parse(reply(actions=[{"type": "mark_step_done", "step": 1}]))
+    assert result["actions"] == [{"type": "mark_step_done", "step": 1}]
 
 
 def test_step_actions_need_a_roadmap():

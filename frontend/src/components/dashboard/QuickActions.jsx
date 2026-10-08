@@ -1,6 +1,6 @@
 import { RefreshCw, RotateCcw, FileText, MessageSquare } from "lucide-react";
 
-function ActionButton({ icon, label, hint, onClick, disabled, soon, tone }) {
+function ActionButton({ icon, label, hint, onClick, disabled, tone }) {
   return (
     <button
       type="button"
@@ -14,7 +14,6 @@ function ActionButton({ icon, label, hint, onClick, disabled, soon, tone }) {
       <span className="quickActionText">
         <span className="quickActionLabel">
           {label}
-          {soon && <span className="homeBadge">Soon</span>}
         </span>
         {hint && <span className="quickActionHint">{hint}</span>}
       </span>
@@ -29,7 +28,7 @@ export default function QuickActions({
   onRegenerate,
   onRetakeQuiz,
   onOpenResume,
-  onPlanned,
+  onOpenCoach,
 }) {
   return (
     <section className="dashCard dashRailCard" aria-labelledby="dashActionsTitle">
@@ -63,8 +62,8 @@ export default function QuickActions({
         <ActionButton
           icon={<MessageSquare size={17} />}
           label="AI Coach"
-          onClick={() => onPlanned("coach")}
-          soon
+          hint="Ask about your roadmap"
+          onClick={onOpenCoach}
           tone="coach"
         />
       </div>
