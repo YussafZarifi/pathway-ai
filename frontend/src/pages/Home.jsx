@@ -126,16 +126,22 @@ export default function Home() {
               </div>
             </button>
 
-            <div className="homeFeatureCard homeFeatureCard--planned homeFeatureCard--resume">
+            <button
+              type="button"
+              className="homeFeatureCard homeFeatureCard--resume"
+              onClick={() => navigate("/resume")}
+            >
               <div className="homeFeatureIcon homeFeatureIcon--resume">
                 <FileText size={22} aria-hidden="true" />
               </div>
               <div className="homeFeatureText">
                 <h3 className="homeFeatureTitle">Resume Analyzer</h3>
-                <p className="homeFeatureSub">Feedback on your resume for a target career</p>
-                <span className="homeBadge">Planned</span>
+                <p className="homeFeatureSub">AI feedback on your resume for your roadmap&apos;s career</p>
+                <span className="homeFeatureLink">
+                  Open <ArrowRight size={14} aria-hidden="true" />
+                </span>
               </div>
-            </div>
+            </button>
 
             <div className="homeFeatureCard homeFeatureCard--planned homeFeatureCard--coach">
               <div className="homeFeatureIcon homeFeatureIcon--coach">

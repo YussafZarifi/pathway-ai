@@ -4722,3 +4722,409 @@ body.theme-landing .trustRow {
     grid-column: 1 / -1;
   }
 }
+
+/* Resume Analyzer (Resume.jsx, AnalysisView.jsx; ADR-020) */
+.resumeIntro {
+  margin-bottom: 22px;
+}
+
+.resumeTitle {
+  margin: 0 0 6px;
+  font-size: 30px;
+  font-weight: 800;
+  color: #ffffff;
+}
+
+.resumeIntro .dashMuted {
+  margin: 0;
+  max-width: 640px;
+  line-height: 1.6;
+}
+
+.resumeTop {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.resumeState.dashEmpty {
+  margin: 0;
+  max-width: none;
+}
+
+.resumeState .dashEmptyText p {
+  margin: 0 0 6px;
+}
+
+.resumeUpload {
+  display: grid;
+  gap: 14px;
+}
+
+.resumeTarget {
+  margin: -6px 0 0;
+  font-size: 14px;
+}
+
+.resumeTarget strong {
+  color: #ffffff;
+}
+
+.resumeDrop {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  padding: 28px 16px;
+  border: 1.5px dashed var(--dash-line-2);
+  border-radius: 14px;
+  background: var(--dash-surface);
+  color: rgba(255, 255, 255, 0.85);
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.resumeDrop:hover,
+.resumeDrop:focus-within {
+  border-color: var(--dash-accent);
+  background: var(--dash-surface-2);
+}
+
+.resumeDrop:focus-within {
+  outline: 2px solid var(--dash-accent);
+  outline-offset: 3px;
+}
+
+.resumeDrop--busy {
+  cursor: progress;
+  opacity: 0.7;
+}
+
+.resumeDropTitle {
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.resumeDropHint {
+  font-size: 13px;
+}
+
+/* The native input covers the drop zone: click, keyboard and drag-and-drop
+   all reach it, and it keeps its own accessible name from the label. */
+.resumeFileInput {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: inherit;
+}
+
+.resumeSubmit {
+  justify-self: start;
+}
+
+.resumeUpload .dashError:empty {
+  display: none;
+}
+
+.resumePrivacy .dashRailTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.resumePrivacyList {
+  margin: 12px 0 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 8px;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--dash-muted);
+}
+
+.resumeHistory {
+  margin-top: 32px;
+}
+
+.resumeHistoryList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.resumeHistoryItem {
+  padding: 0;
+  overflow: hidden;
+}
+
+.resumeHistoryHead {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+}
+
+.resumeHistoryToggle {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 4px 12px;
+  padding: 4px;
+  border: 0;
+  border-radius: 10px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.resumeHistoryToggle:focus-visible,
+.resumeDelete:focus-visible {
+  outline: 2px solid var(--dash-accent);
+  outline-offset: 3px;
+}
+
+.resumeHistoryMeta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+  font-size: 13px;
+}
+
+.resumeHistoryCareer {
+  font-size: 15px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.resumeHistorySummary {
+  grid-column: 1;
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.resumeChevron {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  color: var(--dash-muted);
+  transition: transform 0.2s var(--dash-ease);
+}
+
+.resumeChevron--open {
+  transform: rotate(180deg);
+}
+
+.resumeDelete {
+  flex: none;
+  padding: 8px 12px;
+  font-size: 13px;
+}
+
+.resumeHistoryEmpty {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin: 0;
+}
+
+.resumeHistoryEmpty .dashError {
+  margin: 0;
+}
+
+.resumeAnalysis {
+  display: grid;
+  gap: 20px;
+  padding: 4px 20px 22px;
+  border-top: 1px solid var(--dash-line);
+  padding-top: 18px;
+}
+
+.resumeSummary {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.65;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.resumeAiTag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-right: 8px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: rgba(168, 85, 247, 0.16);
+  color: #d8b4fe;
+  font-size: 12px;
+  font-weight: 700;
+  vertical-align: 1px;
+}
+
+.resumeSkills {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.resumeSubhead {
+  margin: 0 0 10px;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--dash-muted);
+}
+
+.resumeChips {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.resumeChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.resumeChip--matched {
+  background: rgba(34, 197, 94, 0.12);
+  color: #86efac;
+}
+
+.resumeChip--missing {
+  border: 1px dashed var(--dash-line-2);
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.resumeNone {
+  margin: 0;
+  font-size: 13px;
+}
+
+.resumeBlock {
+  display: grid;
+}
+
+.resumeList,
+.resumeGaps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.resumeList li {
+  display: flex;
+  gap: 10px;
+  font-size: 14px;
+  line-height: 1.55;
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.resumeListIcon {
+  flex: none;
+  margin-top: 3px;
+  color: #d8b4fe;
+}
+
+.resumeListIcon--good {
+  color: var(--dash-done);
+}
+
+.resumeSection {
+  margin-right: 4px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.resumeGap {
+  padding: 14px;
+  border: 1px solid var(--dash-line);
+  border-radius: 12px;
+  background: var(--dash-surface);
+}
+
+.resumeGapHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  color: #d8b4fe;
+}
+
+.resumeGapHead .stepChip {
+  font-size: 12px;
+}
+
+.resumeGapSkill {
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.resumeGapText {
+  margin: 8px 0 0;
+  font-size: 14px;
+  line-height: 1.55;
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.resumeGapText strong {
+  color: #ffffff;
+}
+
+@media (max-width: 860px) {
+  .resumeTop {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 560px) {
+  .resumeTitle {
+    font-size: 24px;
+  }
+
+  .resumeSkills {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .resumeHistoryHead {
+    flex-wrap: wrap;
+  }
+
+  .resumeAnalysis {
+    padding: 16px 14px 18px;
+  }
+
+  .resumeSubmit {
+    justify-self: stretch;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .resumeChevron,
+  .resumeDrop {
+    transition: none;
+  }
+}

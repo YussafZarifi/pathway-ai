@@ -28,6 +28,7 @@ export default function QuickActions({
   error,
   onRegenerate,
   onRetakeQuiz,
+  onOpenResume,
   onPlanned,
 }) {
   return (
@@ -55,8 +56,8 @@ export default function QuickActions({
         <ActionButton
           icon={<FileText size={17} />}
           label="Resume Analyzer"
-          onClick={() => onPlanned("resume")}
-          soon
+          hint="AI feedback for this career"
+          onClick={onOpenResume}
           tone="resume"
         />
         <ActionButton

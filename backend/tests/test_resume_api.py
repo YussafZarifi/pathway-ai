@@ -92,6 +92,7 @@ def client(monkeypatch, repo, user_box):
         1000, 1000, 1000, short_scope="hour", short_period=rate_limit.HOUR))
     main.app.dependency_overrides[current_user] = lambda: user_box["user"]
     main.app.dependency_overrides[resume_router.get_repository] = lambda: repo
+    main.app.dependency_overrides[resume_router.optional_repository] = lambda: repo
     yield TestClient(main.app)
     main.app.dependency_overrides.clear()
 
@@ -496,3 +497,81 @@ def test_cors_preflight_allows_a_pdf_upload(client):
         "Access-Control-Request-Headers": "authorization,content-type",
     })
     assert r.status_code == 200
+
+
+# --- GET /api/resume-analyses/availability (M3-5) ------------------------------------------------
+
+AVAILABILITY = URL + "/availability"
+
+
+def test_availability_when_enabled_with_a_roadmap(client):
+    r = client.get(AVAILABILITY)
+    assert r.status_code == 200
+    assert r.json() == {"available": True, "reason": None, "career": "Data Analyst"}
+
+
+def test_availability_when_the_feature_is_off(client, repo, monkeypatch):
+    monkeypatch.setattr(config, "RESUME_ANALYSIS_ENABLED", False)
+    repo.fail_lookup = AssertionError("the database must not be touched")
+    r = client.get(AVAILABILITY)
+    assert r.json() == {"available": False, "reason": "feature_disabled", "career": None}
+    assert repo.fail_lookup is not None  # never consulted
+
+
+def test_availability_without_an_active_roadmap(client, repo):
+    repo.targets.clear()
+    assert client.get(AVAILABILITY).json() == {"available": False, "reason": "no_active_roadmap",
+                                               "career": None}
+
+
+def test_availability_is_per_user(client, repo, user_box):
+    repo.targets[OTHER.id] = dict(TARGET, career="Web Developer")
+    user_box["user"] = OTHER
+    assert client.get(AVAILABILITY).json()["career"] == "Web Developer"
+
+
+def test_availability_without_a_database(client, monkeypatch):
+    del main.app.dependency_overrides[resume_router.optional_repository]
+    monkeypatch.setattr(config, "DATABASE_URL", "")
+    assert client.get(AVAILABILITY).json() == {"available": False, "reason": "unavailable", "career": None}
+
+
+@pytest.mark.parametrize("error", [db.DatabaseUnavailable("down"), psycopg.OperationalError(SECRET)])
+def test_availability_lookup_failure_is_503(client, repo, caplog, error):
+    repo.fail_lookup = error
+    r = client.get(AVAILABILITY)
+    assert (r.status_code, r.json()["detail"]) == (503, resume_router.DB_UNAVAILABLE)
+    assert SECRET not in caplog.text
+
+
+def test_availability_needs_a_token(client, monkeypatch):
+    del main.app.dependency_overrides[current_user]
+    monkeypatch.setattr(config, "SUPABASE_URL", "https://example.supabase.co")
+    assert client.get(AVAILABILITY).status_code == 401
+    assert client.get(AVAILABILITY, headers={"Authorization": "Bearer nope"}).status_code == 401
+    monkeypatch.setattr(config, "SUPABASE_URL", "")
+    assert client.get(AVAILABILITY).status_code == 503
+
+
+def test_availability_exposes_nothing_else(client, monkeypatch):
+    for enabled in (True, False):
+        monkeypatch.setattr(config, "RESUME_ANALYSIS_ENABLED", enabled)
+        body = client.get(AVAILABILITY).json()
+        assert set(body) == {"available", "reason", "career"}
+        text = json.dumps(body).lower()
+        for leak in ("limit", "quota", "gemini", "key", "model", "database", "url"):
+            assert leak not in text, leak
+        assert not any(ch.isdigit() for ch in text)  # no limits or counts
+
+
+def test_availability_does_not_count_against_the_upload_limit(client, monkeypatch, fake_gemini):
+    limiter = rate_limit.RateLimiter(1, 100, 100, short_scope="hour", short_period=rate_limit.HOUR)
+    monkeypatch.setattr(rate_limit, "resume_limiter", limiter)
+    for _ in range(5):
+        assert client.get(AVAILABILITY).status_code == 200
+    fake_gemini(reply())
+    assert post(client).status_code == 201
+
+
+def test_availability_spends_no_ai_quota(client):
+    client.get(AVAILABILITY)  # the autouse guard fails the test if Gemini is reached

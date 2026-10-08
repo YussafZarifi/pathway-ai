@@ -286,7 +286,7 @@ ADR-001 to ADR-008 were **reconstructed on 2026-09-24** from the existing code d
   - **Personal-data guard:** the prompt forbids repeating names, contact details, links, employers and schools; replies containing an email address or phone number are rejected.
   - **Determinism:** temperature 0, max 4,096 output tokens, résumé rules in the system instruction (the PDF is data, never instructions).
   - **PDF checks before Gemini:** 1 KB–2 MB, `%PDF-` signature, `%%EOF` in the last 1 KB.
-- **Status:** Accepted (owner, 2026-10-05). Being implemented: M3-2 (table), M3-3 (AI layer) and M3-4 (endpoint) done 2026-10-05.
+- **Status:** Accepted (owner, 2026-10-05). Being implemented: M3-2 (table), M3-3 (AI layer) and M3-4 (endpoint) done 2026-10-05; M3-5 (`/resume` page and `GET /api/resume-analyses/availability`, added at the owner's request so the page knows the state before an upload) done 2026-10-07.
 
 ---
 

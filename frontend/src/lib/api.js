@@ -35,7 +35,12 @@ export function errorMessage(error, fallback) {
   return specific && error.message ? error.message : fallback;
 }
 
-async function request(path, body, { signal, token } = {}) {
+/**
+ * One backend call. JSON by default; `raw` sends a Blob/File as the body
+ * unchanged with its own Content-Type (the résumé PDF, ADR-020), and
+ * `method: "GET"` sends no body.
+ */
+async function request(path, body, { signal, token, method = "POST", raw = null, contentType } = {}) {
   if (!API_URL) {
     console.error("VITE_API_URL is not set; see frontend/.env.example");
     throw new ApiError("PathwayAI isn't configured correctly. Please try again later.", 500);
@@ -50,14 +55,15 @@ async function request(path, body, { signal, token } = {}) {
 
   let res;
   try {
+    const hasBody = method !== "GET";
     res = await fetch(`${API_URL}${path}`, {
-      method: "POST",
+      method,
       headers: {
-        "Content-Type": "application/json",
+        ...(hasBody ? { "Content-Type": raw ? contentType : "application/json" } : {}),
         // Supabase access token for account routes (ADR-018/019); guests send none.
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
-      body: JSON.stringify(body),
+      body: hasBody ? (raw ?? JSON.stringify(body)) : undefined,
       signal: controller.signal,
     });
   } catch (e) {
@@ -142,4 +148,28 @@ export function regenerateSavedRoadmap(token, roadmapId, { signal } = {}) {
  */
 export function importLocalRoadmap(token, payload, { signal } = {}) {
   return request("/api/roadmaps/import", payload, { signal, token });
+}
+
+// --- Signed-in users: résumé analysis (ADR-020) ------------------------------
+
+/**
+ * Whether this user can analyze a résumé now.
+ * @returns {Promise<{available: boolean, reason: string|null, career: string|null}>}
+ */
+export function getResumeAvailability(token, { signal } = {}) {
+  return request("/api/resume-analyses/availability", null, { signal, token, method: "GET" });
+}
+
+/**
+ * Upload a résumé PDF for analysis. The file's bytes are the whole body:
+ * no file name, form fields or other metadata are sent.
+ * @returns {Promise<object>} the saved analysis row
+ */
+export function analyzeResume(token, file, { signal } = {}) {
+  return request("/api/resume-analyses", null, {
+    signal,
+    token,
+    raw: file,
+    contentType: "application/pdf",
+  });
 }

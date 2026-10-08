@@ -9,6 +9,7 @@ import Quiz from "./pages/Quiz";
 import Results from "./pages/Results";
 import Dashboard from "./pages/Dashboard";
 import Login from "./pages/Login";
+import Resume from "./pages/Resume";
 import NotFound from "./pages/NotFound";
 
 export default function App() {
@@ -31,6 +32,9 @@ export default function App() {
 
             {/* Dashboard (Noir) */}
             <Route path="/dashboard" element={<Dashboard />} />
+
+            {/* Resume Analyzer (signed-in; ADR-020) */}
+            <Route path="/resume" element={<Resume />} />
 
             {/* Anything else: branded 404 instead of a blank page */}
             <Route path="*" element={<NotFound />} />

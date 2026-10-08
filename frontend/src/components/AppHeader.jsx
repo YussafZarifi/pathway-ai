@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { NavLink } from "react-router-dom";
-import { House, LayoutDashboard, LogIn, LogOut, Map } from "lucide-react";
+import { FileText, House, LayoutDashboard, LogIn, LogOut, Map } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/authContext";
 
@@ -12,6 +12,7 @@ const NAV_ITEMS = [
     icon: <LayoutDashboard size={18} aria-hidden="true" />,
   },
   { to: "/quiz", label: "Quiz", icon: <Map size={18} aria-hidden="true" /> },
+  { to: "/resume", label: "Resume", icon: <FileText size={18} aria-hidden="true" /> },
 ];
 
 // Sign in link or signed-in email + sign out. Hidden when accounts are off
@@ -62,7 +63,7 @@ function AccountControl() {
   );
 }
 
-// Sticky header shared by the post-landing pages (/home, /dashboard, /login, 404).
+// Sticky header shared by the post-landing pages (/home, /dashboard, /resume, /login, 404).
 export default function AppHeader() {
   const navClass = ({ isActive }) => `homeNavItem ${isActive ? "active" : ""}`;
 

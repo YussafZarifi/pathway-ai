@@ -218,6 +218,18 @@ Saved roadmaps are **read** by the browser directly through Supabase (RLS), so t
 
 ---
 
+## ✅ `GET /api/resume-analyses/availability` (since 2026-10-07, M3-5, ADR-020)
+Whether the signed-in user can analyze a résumé right now; the `/resume` page calls it on load and after an upload fails with 401/409/503.
+
+**200:** `{"available": true, "reason": null, "career": "Data Analyst"}` or `{"available": false, "reason": "feature_disabled" | "no_active_roadmap" | "unavailable", "career": null}`. `career` is the active roadmap's career the résumé would be reviewed against; `unavailable` means the accounts' database isn't configured. The feature switch is checked first (a disabled feature never touches the database). Nothing else is exposed: no limits, quotas, model or configuration. Not rate limited (no AI call, one small read).
+
+| Status | When |
+|---|---|
+| 401 | missing or invalid token |
+| 503 | accounts off (`SUPABASE_URL`), or the roadmap can't be read right now |
+
+---
+
 ## ✅ `POST /api/resume-analyses` (since 2026-10-05, M3-4, ADR-020)
 Analyze a résumé PDF against the signed-in user's **current roadmap** (its career, the career card's skills and the step titles) and save the structured result. **Off by default** (`RESUME_ANALYSIS_ENABLED=false`: only with a paid Gemini key).
 

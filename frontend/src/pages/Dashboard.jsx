@@ -26,10 +26,6 @@ import {
 } from "../lib/dashboardData";
 
 const PLANNED = {
-  resume: {
-    title: "Resume Analyzer is coming soon",
-    body: "You'll be able to upload your resume and get feedback against your target career. It isn't built yet, so nothing is analyzed today.",
-  },
   coach: {
     title: "AI Coach is coming soon",
     body: "You'll be able to ask questions about your roadmap as you go. It isn't built yet.",
@@ -349,6 +345,7 @@ export default function Dashboard() {
               error={regenError}
               onRegenerate={() => setConfirmRegenerate(true)}
               onRetakeQuiz={() => navigate("/quiz")}
+              onOpenResume={() => navigate("/resume")}
               onPlanned={setPlannedFeature}
             />
           </aside>

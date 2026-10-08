@@ -1,5 +1,15 @@
-"""POST /api/resume-analyses: analyze a résumé PDF against the signed-in
-user's current roadmap and save the structured result (ADR-020).
+"""Résumé analysis routes for signed-in users (ADR-020).
+
+GET /api/resume-analyses/availability tells the /resume page whether it may
+offer an upload: {available, reason, career}. `reason` is one of
+"feature_disabled", "no_active_roadmap" or "unavailable" (accounts'
+database not configured) and null when available; `career` is the active
+roadmap's career the résumé would be reviewed against. Nothing else (no
+limits, quotas or configuration) is exposed. 401 without a valid token, 503
+when the user's roadmap can't be read right now.
+
+POST /api/resume-analyses: analyze a résumé PDF against the signed-in
+user's current roadmap and save the structured result.
 
 The body is the raw PDF (`Content-Type: application/pdf`), not multipart.
 Dependencies run in this order, and all of them before any of the body is
@@ -100,6 +110,34 @@ async def read_pdf(request: Request) -> bytes:
             raise HTTPException(status_code=413, detail=TOO_LARGE)
         chunks.append(chunk)
     return b"".join(chunks)
+
+
+def optional_repository() -> ResumeAnalysisRepository | None:
+    """Like get_repository, but None instead of 503 when there's no database
+    (the availability check reports that as a reason). Tests override it."""
+    return PostgresResumeAnalysisRepository() if db.configured() else None
+
+
+@router.get("/availability")
+def availability(
+    user: AuthUser = Depends(current_user),
+    repo: ResumeAnalysisRepository | None = Depends(optional_repository),
+):
+    """Whether the signed-in user can analyze a résumé right now. The
+    feature switch comes first, so a disabled feature never touches the
+    database."""
+    if not config.RESUME_ANALYSIS_ENABLED:
+        return {"available": False, "reason": "feature_disabled", "career": None}
+    if repo is None:
+        return {"available": False, "reason": "unavailable", "career": None}
+    try:
+        target = repo.active_target(user.id)
+    except (db.DatabaseUnavailable, psycopg.Error) as e:
+        logger.error("Loading the résumé target failed: %s", type(e).__name__)
+        raise HTTPException(status_code=503, detail=DB_UNAVAILABLE) from None
+    if target is None:
+        return {"available": False, "reason": "no_active_roadmap", "career": None}
+    return {"available": True, "reason": None, "career": target["career"]}
 
 
 # Parameter order is the check order (FastAPI resolves dependencies in
