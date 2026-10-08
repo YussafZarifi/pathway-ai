@@ -359,6 +359,10 @@ export default function Results() {
         {!showLoader && !error && aiResult && (
           <>
             <p className="resultsSummary">{aiResult.explanation}</p>
+            <p className="resultsEstimateNote">
+              Sorted by match. Match %, salaries (US dollars, full-time) and growth are AI estimates to help you
+              compare, not measurements or offers.
+            </p>
 
             {!aiResult.careers || aiResult.careers.length === 0 ? (
               <div className="resultsEmpty">

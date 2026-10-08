@@ -155,3 +155,11 @@ def test_no_valid_careers_is_a_schema_error():
         parse_careers(json.dumps({"careers": [{"reason": SECRET}]}))
     assert err.value.kind == "schema"
     assert SECRET not in str(err.value)
+
+
+def test_careers_are_sorted_by_match_score():
+    reply = {"careers": [
+        {"title": "B", "match_score": 85}, {"title": "A", "match_score": 90}, {"title": "C", "match_score": 88},
+    ], "explanation": "x"}
+    result, _ = parse_careers(json.dumps(reply))
+    assert [c["title"] for c in result["careers"]] == ["A", "C", "B"]

@@ -266,6 +266,8 @@ def parse_careers(text: str) -> tuple[dict, dict]:
     careers, dropped = _validate_items(data["careers"], Career, MAX_CAREERS)
     if not careers:
         raise AIOutputError("schema", "no valid careers; " + "; ".join(dropped[:3]))
+    # Best match first (P-4: the model doesn't always order them).
+    careers.sort(key=lambda c: c["match_score"], reverse=True)
     result = {"careers": careers, "explanation": _optional_text(data.get("explanation"), 1500)}
     return result, {"strategy": strategy, "items": len(careers), "dropped": dropped}
 

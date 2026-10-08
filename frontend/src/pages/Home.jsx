@@ -170,9 +170,6 @@ export default function Home() {
         </section>
       </main>
 
-      <footer className="homeFooter">
-        <span className="homeFooterCopyright">© {new Date().getFullYear()} PathwayAI</span>
-      </footer>
     </div>
   );
 }

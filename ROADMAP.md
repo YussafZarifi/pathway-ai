@@ -76,12 +76,12 @@ Rules for every Version 2 commit (keep it deployable): backend tests pass; lint 
 ### High priority — presentation & trust (from the 2026-09-29 recruiter review)
 | ID | Task | Effort | Impact |
 |---|---|---|---|
-| P-1 | "Built by <owner>" footer with GitHub, LinkedIn and portfolio links on every page | XS | ★★★ |
-| P-2 | About section: what PathwayAI is, why it exists, the tech stack and architecture, link to the repo | S | ★★★ |
-| P-3 | Landing: "How PathwayAI works" (3 steps) and a dashboard preview screenshot; render the hero without waiting for JS (B-13) | M | ★★★ |
-| P-4 | Sort career matches by match % (observed 90 / 85 / 88) | XS | ★★ |
-| P-5 | Label salaries, growth and match % as AI estimates (salaries are US$, full-time); a short "how matches work" note (TD-21) | S | ★★★ |
-| P-6 | Reduce / consolidate "Coming soon": header Log in / Sign up, 2 of 3 Landing cards, `/home` and dashboard "Soon" items (one honest "What's next" spot instead) | S | ★★★ |
+| ~~P-1~~ | ✅ 2026-10-08: shared footer on every page — "Built by Yussaf Zarifi", GitHub, About (LinkedIn/portfolio links can be added when the owner has them) | XS | ★★★ |
+| ~~P-2~~ | ✅ 2026-10-08: About section on Landing (`/#about`): what it is, why, the stack and architecture, honesty and privacy principles (repo link once it's public, F-17) | S | ★★★ |
+| ~~P-3~~ | ✅ 2026-10-08: "How PathwayAI works" (3 steps); the hero renders without waiting for its animation (B-13). A dashboard screenshot is left for when the live site exists (N-22) | M | ★★★ |
+| ~~P-4~~ | ✅ 2026-10-08: career matches sorted by match % on the server (`parse_careers`) | XS | ★★ |
+| ~~P-5~~ | ✅ 2026-10-08: Results says matches are sorted and that match %, salaries (US dollars, full-time) and growth are AI estimates, not measurements | S | ★★★ |
+| ~~P-6~~ | ✅ 2026-10-08: no "Coming soon" left — the Resume Analyzer and AI Coach are real; Landing's cards are real buttons ("With a free account" / "Needs an account" when accounts are off) | S | ★★★ |
 | P-7 | Check AI resource links before showing them (3 of 13 broken in one review roadmap, incl. an invented YouTube video): server-side HEAD check or drop unverifiable links (TD-21, B-3). Added from the review evidence | M | ★★★ |
 
 ### Medium / low priority
@@ -94,7 +94,7 @@ Rules for every Version 2 commit (keep it deployable): backend tests pass; lint 
 | P-11 | Remaining UI polish from the review (TD-62): naming (Resume Feedback vs Resume Analyzer, Share icon opens download/print), error message placement/wording, hint on the disabled "Generate roadmap", reveal "+1" skills, no check marks on undone tasks, first-visit dashboard stats/achievements/insights, compare "Work environment: N/A" (TD-56), mobile Results fold (TD-57), dashboard footer, Landing icon alignment | P2 | M |
 | N-22 | `og:image` link-preview card (1200×630) + `og:url` once the live URL exists | P2 | XS |
 | ~~N-13~~ | ✅ 2026-10-07: ESLint at 0 errors (real unused vars fixed; `motion` allowed by name) | P2 | S |
-| F-12 | React error boundary (the 404 route shipped in C-27) | P1 | XS |
+| ~~F-12~~ | ✅ 2026-10-08: React error boundary around the routes (reset on navigation; logs only the error's name) | P1 | XS |
 | N-10 | Single theme mechanism (`ThemeGate` vs page effects) | P2 | S |
 | N-14 | Prune dead CSS in `index.css` | P3 | S |
 | N-19 | Remove v1 (8-question) answer support once no saved roadmap needs it (ADR-016) | P3 | XS |
@@ -205,7 +205,7 @@ F-8, F-13 and F-18 are Version 2 Milestones 2–4 (see 🎯 Version 2); the rest
 | B-10 | Product analytics (PostHog) replacing the custom event log for funnel metrics | P2 | M |
 | B-11 | Location question + CAD/USD salaries | P2 | S |
 | B-12 | Route-level code splitting (`React.lazy`) | P3 | S |
-| B-13 | Render Landing hero without waiting for JS animation (LCP) | P2 | XS |
+| ~~B-13~~ | ✅ 2026-10-08: the Landing hero is visible on the first paint (only a small settle is animated) | P2 | XS |
 | ~~B-14~~ | ✅ 2026-10-07: `scoringEngine.js` deleted (imported nowhere; measured engagement) | P2 | M |
 | B-15 | Light theme + `prefers-color-scheme` | P3 | M |
 | B-16 | Weekly digest / reminder emails (background job). In-app reminders from target dates exist since 2026-10-07; emails need an SMTP provider and a scheduler (owner) | P3 | L |
