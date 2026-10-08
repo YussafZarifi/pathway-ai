@@ -12,5 +12,18 @@ export default defineConfig(({ command, mode }) => {
 
   return {
     plugins: [react()],
+    // Vitest (npm test): jsdom, no network. Accounts are off unless a test
+    // mocks lib/supabase; the API URL is a placeholder (fetch is mocked).
+    test: {
+      environment: 'jsdom',
+      include: ['src/**/*.test.{js,jsx}'],
+      setupFiles: ['src/test/setup.js'],
+      env: {
+        VITE_API_URL: 'http://api.test',
+        VITE_SUPABASE_URL: '',
+        VITE_SUPABASE_PUBLISHABLE_KEY: '',
+      },
+      restoreMocks: true,
+    },
   }
 })

@@ -31,7 +31,6 @@ import { CAREER_DETAILS } from "../data/careerDetails";
 import {
   trackEvent,
   trackMetric,
-  endSession,
   EVENT_TYPES,
   METRIC_NAMES,
 } from "../lib/trackingEngine";

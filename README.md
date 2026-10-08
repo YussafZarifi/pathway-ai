@@ -185,7 +185,7 @@ roadmap-ai/
 │   └── src/
 │       ├── pages/           # Landing, Home, Quiz, Results, Dashboard, Login
 │       ├── components/      # AppHeader, AuthProvider, Dialog, VideoCard, CareerCompareModal, ShareModal, dashboard/*
-│       ├── lib/             # api (backend client), supabase + authContext, roadmapStore, dashboardData, trackingEngine, scoringEngine
+│       ├── lib/             # api (backend client), supabase + authContext, roadmapStore, dashboardData, trackingEngine, roadmaps/, resume/
 │       ├── data/            # quiz questions, tracking schema, career details
 │       └── index.css        # global styles
 ├── supabase/migrations/     # database migrations (Supabase CLI format)

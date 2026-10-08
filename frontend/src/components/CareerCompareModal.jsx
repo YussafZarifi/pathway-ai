@@ -69,7 +69,7 @@ export default function CareerCompareModal({ isOpen, onClose, selectedCareers, c
 
         <div className="compareModalBody">
           <div className="compareGrid">
-            {careersToCompare.map((career, idx) => (
+            {careersToCompare.map((career) => (
               <div key={career.title} className="compareColumn">
                 <h3 className="compareCareerTitle">{career.title}</h3>
                 <p className="compareCareerReason">{career.reason}</p>

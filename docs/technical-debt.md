@@ -46,12 +46,12 @@ Found in the 2026-09-24 audit. When an item is resolved, strike it through and n
 |---|---|---|---|
 | ~~TD-22~~ | Dead code | ~~Unrouted/unused pages, components, helpers, data, `dashboard.css`, images, root `.vite/`~~ — **resolved 2026-09-25** (`2375759`, `e0c40f1`, `aaa8c6e`; untracked root `.vite/` deleted). Dead CSS rules for removed components may remain inside `index.css` (e.g. `.roadmapStats`) — see TD-34 | — |
 | ~~TD-23~~ | Duplication | ~~Near-identical fetch blocks~~ — **resolved 2026-09-27** (`de7a1d2`: every request goes through `lib/api.js`) | — |
-| TD-24 | Duplication | Roadmap % logic in two places (`dashboardData.js` is the displayed one; `scoringEngine.js` keeps the old count). Headers unified for `/home` + `/dashboard` via `AppHeader` (2026-09-26); Landing still has its own | `scoringEngine.js`, `Landing.jsx` |
+| TD-24 | Duplication | ~~Roadmap % logic in two places~~ (resolved 2026-10-07: `scoringEngine.js` deleted; `dashboardData.js` is the only one). Headers unified for `/home` + `/dashboard` via `AppHeader` (2026-09-26); Landing still has its own | `scoringEngine.js`, `Landing.jsx` |
 | TD-25 | Architecture | Two competing theme mechanisms (was three; `DashboardLayout` deleted 2026-09-25); `ThemeGate` removes the page's `theme-landing` class | `ThemeGate.jsx`, `Landing.jsx`, `Home.jsx`, `Dashboard.jsx` |
 | ~~TD-26~~ | Bug | ~~Tracking side effect inside `setAnswers` updater; one event per keystroke on text input~~ — **resolved 2026-09-28** (`9b97b5b`: tracking outside the updater, free text not tracked per keystroke) | — |
 | TD-27 | Performance | `getTrackingData()` writes on every read; each track call parses and rewrites the whole blob; unbounded `events[]` | `trackingEngine.js:77-93,129-154` |
-| TD-28 | Bug | `resumeQuality` (0–40) compared to `< 60` → unreachable | `scoringEngine.js:327-339` |
-| TD-29 | Product | "Employability" and "Momentum" measure app engagement, not employability. **Mitigated 2026-09-26:** no longer shown on the dashboard; code remains (B-14) | `scoringEngine.js` |
+| ~~TD-28~~ | Bug | ~~`resumeQuality` (0–40) compared to `< 60` → unreachable~~ **Resolved 2026-10-07:** `scoringEngine.js` deleted (unused) | — |
+| ~~TD-29~~ | Product | ~~"Employability" and "Momentum" measure app engagement, not employability~~ **Resolved 2026-10-07:** hidden since 2026-09-26, and `scoringEngine.js` (imported nowhere) was deleted (B-14) | — |
 | TD-30 | Bug | `CAREER_DETAILS` looked up by exact AI title → overview rarely shows | `Results.jsx:440` |
 | TD-31 | Data | Pre-pivot non-tech careers (Nurse, Plumber, Police…) in data and icon mapping (`careers.js` deleted 2026-09-25) | `careerDetails.js`, `Results.jsx:63-146` |
 | TD-32 | Performance/SEO | Landing hero starts `opacity: 0` and relies on JS animation (LCP, no-JS) | `Landing.jsx` |
@@ -92,7 +92,7 @@ Found in the 2026-09-24 audit. When an item is resolved, strike it through and n
 | ~~TD-42~~ | Branding | ~~`<title>` "roadmap-ai"; Vite favicon~~ — **resolved 2026-09-29** (`1c9a3a4`: "PathwayAI" title, description, OG/Twitter tags, `favicon.svg`). Still no `og:image` (needs a live URL) | — |
 | TD-43 | Docs | `frontend/README.md` is the default Vite template | `frontend/README.md` |
 | TD-44 | Deps | `openai` in requirements but unused; two Python virtualenvs | `backend/requirements.txt`, `.venv`, `backend/.venv` |
-| TD-45 | Quality | Unused vars (as of 2026-09-28: `endSession` in Results, `idx` in CareerCompareModal, `quizStartedEvents`/`key`/`progress` in scoringEngine, `e` in trackingEngine) | various |
+| ~~TD-45~~ | Quality | ~~Unused vars~~ **Resolved 2026-10-07:** lint at 0 errors (real unused variables removed; `motion` allowed by name because the core rule can't see `<motion.div>`) | — |
 | TD-46 | UX | `CareerCompareModal` returns `null` → exit animations never run | `CareerCompareModal.jsx:5` |
 | TD-47 | Metrics | `totalScreensViewed` incremented on every event | `trackingEngine.js:145` |
 | TD-48 | Perf | No route-level code splitting (main chunk 427 KB, 137 KB gzip, 2026-09-28) | `App.jsx` |

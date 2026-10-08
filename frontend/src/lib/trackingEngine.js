@@ -18,7 +18,7 @@ export { EVENT_TYPES, METRIC_NAMES };
 function safeParseJson(raw, fallback) {
   try {
     return raw ? JSON.parse(raw) : fallback;
-  } catch (e) {
+  } catch {
     return fallback;
   }
 }

@@ -93,7 +93,7 @@ Rules for every Version 2 commit (keep it deployable): backend tests pass; lint 
 | P-10 | Animation polish: the quiz card no longer jumps between questions (Continue moves); no card overlap while Results cards animate (TD-61) | P2 | S |
 | P-11 | Remaining UI polish from the review (TD-62): naming (Resume Feedback vs Resume Analyzer, Share icon opens download/print), error message placement/wording, hint on the disabled "Generate roadmap", reveal "+1" skills, no check marks on undone tasks, first-visit dashboard stats/achievements/insights, compare "Work environment: N/A" (TD-56), mobile Results fold (TD-57), dashboard footer, Landing icon alignment | P2 | M |
 | N-22 | `og:image` link-preview card (1200×630) + `og:url` once the live URL exists | P2 | XS |
-| N-13 | ESLint: add jsx-uses-vars and fix real errors → 0 (12 left: 6 `motion` false positives, 6 real unused vars) | P2 | S |
+| ~~N-13~~ | ✅ 2026-10-07: ESLint at 0 errors (real unused vars fixed; `motion` allowed by name) | P2 | S |
 | F-12 | React error boundary (the 404 route shipped in C-27) | P1 | XS |
 | N-10 | Single theme mechanism (`ThemeGate` vs page effects) | P2 | S |
 | N-14 | Prune dead CSS in `index.css` | P3 | S |
@@ -165,7 +165,7 @@ F-8, F-13 and F-18 are Version 2 Milestones 2–4 (see 🎯 Version 2); the rest
 | F-8 | ✅ **Milestone 2 — PostgreSQL** (done 2026-10-03, C-30; Supabase Postgres, ADR-019): `quiz_submissions`, `roadmaps`, `roadmap_steps`, `step_progress` + migrations; import the browser-saved roadmap after sign-in (confirmation banner). Steps: 🗄️ Milestone 2 | P1 | L | ★★★ |
 | F-13 | **Milestone 3 — Resume Analyzer**: PDF upload → Gemini multimodal → structured critique vs target career | P1 | L | ★★★ |
 | F-18 | **Milestone 4 — AI Coach**: chat with memory and tool calling (read/update roadmap, find resources); was S-1 | P1 | XL | ★★★ |
-| F-2 | Tests: Vitest (`api.js`, `roadmapStore.js`, `dashboardData.js`, tracking engine, Quiz). Backend pytest has 100 tests | P1 | L | ★★★ |
+| ~~F-2~~ | ✅ 2026-10-07: Vitest + Testing Library, 64 tests (`api.js`, `roadmapStore.js`, `dashboardData.js`, `lib/resume`, `AnalysisView`, `/resume`); `npm test` | P1 | L | ★★★ |
 | F-3 | Playwright E2E: quiz → results → dashboard with mocked API | P1 | M | ★★★ |
 | F-4 | GitHub Actions CI: lint, test, build (+ E2E) | P1 | S | ★★★ |
 | F-17 | Make the GitHub repo public (owner decision) | P1 | XS | ★★★ |
@@ -195,7 +195,7 @@ F-8, F-13 and F-18 are Version 2 Milestones 2–4 (see 🎯 Version 2); the rest
 | B-11 | Location question + CAD/USD salaries | P2 | S |
 | B-12 | Route-level code splitting (`React.lazy`) | P3 | S |
 | B-13 | Render Landing hero without waiting for JS animation (LCP) | P2 | XS |
-| B-14 | Rethink Employability/Momentum scores (measure engagement; hidden from the dashboard since 2026-09-26): delete or redesign `scoringEngine.js` | P2 | M |
+| ~~B-14~~ | ✅ 2026-10-07: `scoringEngine.js` deleted (imported nowhere; measured engagement) | P2 | M |
 | B-15 | Light theme + `prefers-color-scheme` | P3 | M |
 | B-16 | Weekly digest / inactivity nudge emails (background job) | P3 | L |
 | B-17 | Streaks + activity heatmap | P3 | M |

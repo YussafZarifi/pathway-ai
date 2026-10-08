@@ -19,7 +19,15 @@
 - **Database (Milestone 2):** `supabase/tests/m2_2_roadmaps_rls.sql` (31) and `m2_3_step_progress_rls.sql` (22) run as `postgres` in a rolled-back transaction (e.g. MCP `execute_sql`), impersonating two users, `anon` and `pathwayai_api`; `m2_4_api_role_connection.py` (18) connects through the pooler as `pathwayai_api` with two fixture users (SQL to create/delete them in its header).
 - **Live checks done for Milestone 2 (not committed):** the Postgres repository against the real database with throwaway users (concurrent saves/imports), and Playwright scripts driving the dev server in isolated Chrome profiles (guest flow, account mode with throwaway confirmed users signing in through real Supabase Auth, import banner, 360 px, keyboard, accounts-off build).
 - **Résumé page (M3-5, 2026-10-07; Playwright script, not committed):** 51/51 against real Supabase Auth and local backends (feature on, feature off, accounts off) with throwaway users: signed-out prompt and return after sign-in, accounts-off, feature-off and no-roadmap states, browser-side checks (non-PDF, over 2 MB, tiny) send nothing, one real synthetic-résumé analysis, history from the account after reload, expand/collapse, delete with confirmation (persists), 413/415/422/429/502/401/503/409 after page load (injected), entry points, 360 px, keyboard; privacy: only the file's bytes are sent (no name, no `Content-Disposition`), nothing in browser storage or the console, server logs free of résumé data. Guest flow 11/11 with accounts on and off.
-- **Frontend: no automated tests in the repo.** `npm run lint` (ESLint 9): 12 errors, 0 warnings as of 2026-09-28. 6 are `motion` false positives from the missing `jsx-uses-vars` rule, 6 are real unused variables (ROADMAP N-13).
+- **Frontend: 64 Vitest tests** (since 2026-10-07, F-2) in `src/**/*.test.{js,jsx}`, run with `cd frontend && npm test` (jsdom, no network: `fetch`, Supabase and the API modules are mocked; accounts off unless a test mocks them; `src/test/setup.js` cleans up renders and polyfills `<dialog>`):
+  - `lib/__tests__/dashboardData.test.js` (19): progress against the roadmap's real length (TD-07 regression), per-roadmap progress keys (TD-08), duration parsing, remaining time, activity and streak, Today's focus.
+  - `lib/__tests__/api.test.js` (10): JSON requests to `VITE_API_URL`, `ApiError` with the server's message, network failures, the résumé GET and the raw-PDF upload (only the file's bytes, no name), `errorMessage`, `normalizeSteps`.
+  - `lib/__tests__/roadmapStore.test.js` (4): save/load/clear, corrupt or foreign data, per-roadmap keys.
+  - `lib/resume/__tests__/resume.test.js` (13): `fileProblem` (type, size bounds), `normalizeAnalysis` (shape, malformed fields), history query (newest 20) and delete, load errors without the database's message.
+  - `components/resume/AnalysisView.test.jsx` (4): "AI review" label and no score, step links only for the current roadmap, model text rendered as text (XSS).
+  - `pages/__tests__/Resume.test.jsx` (14): accounts off, signed out, feature off, no roadmap, availability error + retry, upload success, browser-side rejections, 413/415/422/429/502 messages, 503/409 re-check, file name never shown/stored/logged, history error + retry, delete with confirmation and failure.
+- `npm run lint`: **0 errors** since 2026-10-07 (was 12; N-13).
+- **Older note (superseded):** `npm run lint` (ESLint 9) had 12 errors on 2026-09-28. 6 are `motion` false positives from the missing `jsx-uses-vars` rule, 6 are real unused variables (ROADMAP N-13).
 - No CI yet (F-4).
 - `npm run build`: passes.
 - Manual testing in the browser (latest full pass: see `SESSION.md`).
@@ -31,7 +39,7 @@ Priority targets (pure logic first, since they're cheap and high value):
 | Target | Cases |
 |---|---|
 | `lib/trackingEngine.js` | init on empty or corrupt storage; `trackEvent` rejects unknown types and missing fields; `trackMetric` stats (current/avg/min/max); `trackProgress` status transitions incl. `incomplete`; import/export round-trip |
-| `lib/scoringEngine.js` | each score component in isolation; caps at 100; **regression: 1 of 5 steps done ≠ 100%** (TD-07); recommendation thresholds (TD-28) |
+| ~~`lib/scoringEngine.js`~~ (deleted 2026-10-07) | each score component in isolation; caps at 100; **regression: 1 of 5 steps done ≠ 100%** (TD-07); recommendation thresholds (TD-28) |
 | `lib/roadmapStore.js` | save/load round-trip; corrupt or wrong-version record → null; **regression: progress for roadmap A doesn't appear on roadmap B** (TD-08) |
 | `Quiz` | Continue disabled until answered; multi-select stops at 3 and re-enables on deselect; weekly-hours buttons; optional career field sent only when non-empty; last step navigates with answers |
 | `Results` | loading → success render; error state; empty state; compare needs ≥2; "None of these" swaps CTA |
