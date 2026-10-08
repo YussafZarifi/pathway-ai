@@ -24,7 +24,7 @@ ADR-001 to ADR-008 were **reconstructed on 2026-09-24** from the existing code d
 | ADR-016 | A 5-question quiz, with temporary support for the 8-question answer format | Accepted |
 | ADR-017 | Routing shell: a catch-all 404 route and scroll-to-top on navigation | Accepted |
 | ADR-018 | Supabase for authentication and PostgreSQL | Accepted |
-| ADR-020 | Resume Analyzer: signed-in only, no file storage, structured critique against the current roadmap | Accepted 2026-10-05 (not yet implemented) |
+| ADR-020 | Resume Analyzer: signed-in only, no file storage, structured critique against the current roadmap | Accepted 2026-10-05, implemented 2026-10-07 |
 | ADR-019 | Roadmaps in PostgreSQL: FastAPI writes AI content, the browser writes user state through RLS | Accepted, amended 2026-10-03; implemented 2026-10-03 |
 
 ---
@@ -286,7 +286,7 @@ ADR-001 to ADR-008 were **reconstructed on 2026-09-24** from the existing code d
   - **Personal-data guard:** the prompt forbids repeating names, contact details, links, employers and schools; replies containing an email address or phone number are rejected.
   - **Determinism:** temperature 0, max 4,096 output tokens, résumé rules in the system instruction (the PDF is data, never instructions).
   - **PDF checks before Gemini:** 1 KB–2 MB, `%PDF-` signature, `%%EOF` in the last 1 KB.
-- **Status:** Accepted (owner, 2026-10-05). Being implemented: M3-2 (table), M3-3 (AI layer) and M3-4 (endpoint) done 2026-10-05; M3-5 (`/resume` page and `GET /api/resume-analyses/availability`, added at the owner's request so the page knows the state before an upload) done 2026-10-07.
+- **Status:** Accepted (owner, 2026-10-05). **Implemented 2026-10-07** (Milestone 3, M3-2 → M3-6): table, AI layer, `POST /api/resume-analyses`, `GET /api/resume-analyses/availability` (added at the owner's request so the page knows the state before an upload; also returns the active `roadmap_id` so gaps link to `/dashboard#step-N`), `/resume` page. Ships switched off (`RESUME_ANALYSIS_ENABLED=false`) until Gemini billing.
 
 ---
 

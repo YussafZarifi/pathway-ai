@@ -507,21 +507,21 @@ AVAILABILITY = URL + "/availability"
 def test_availability_when_enabled_with_a_roadmap(client):
     r = client.get(AVAILABILITY)
     assert r.status_code == 200
-    assert r.json() == {"available": True, "reason": None, "career": "Data Analyst"}
+    assert r.json() == {"available": True, "reason": None, "career": "Data Analyst", "roadmap_id": ROADMAP_ID}
 
 
 def test_availability_when_the_feature_is_off(client, repo, monkeypatch):
     monkeypatch.setattr(config, "RESUME_ANALYSIS_ENABLED", False)
     repo.fail_lookup = AssertionError("the database must not be touched")
     r = client.get(AVAILABILITY)
-    assert r.json() == {"available": False, "reason": "feature_disabled", "career": None}
+    assert r.json() == {"available": False, "reason": "feature_disabled", "career": None, "roadmap_id": None}
     assert repo.fail_lookup is not None  # never consulted
 
 
 def test_availability_without_an_active_roadmap(client, repo):
     repo.targets.clear()
     assert client.get(AVAILABILITY).json() == {"available": False, "reason": "no_active_roadmap",
-                                               "career": None}
+                                               "career": None, "roadmap_id": None}
 
 
 def test_availability_is_per_user(client, repo, user_box):
@@ -533,7 +533,7 @@ def test_availability_is_per_user(client, repo, user_box):
 def test_availability_without_a_database(client, monkeypatch):
     del main.app.dependency_overrides[resume_router.optional_repository]
     monkeypatch.setattr(config, "DATABASE_URL", "")
-    assert client.get(AVAILABILITY).json() == {"available": False, "reason": "unavailable", "career": None}
+    assert client.get(AVAILABILITY).json() == {"available": False, "reason": "unavailable", "career": None, "roadmap_id": None}
 
 
 @pytest.mark.parametrize("error", [db.DatabaseUnavailable("down"), psycopg.OperationalError(SECRET)])
@@ -557,10 +557,11 @@ def test_availability_exposes_nothing_else(client, monkeypatch):
     for enabled in (True, False):
         monkeypatch.setattr(config, "RESUME_ANALYSIS_ENABLED", enabled)
         body = client.get(AVAILABILITY).json()
-        assert set(body) == {"available", "reason", "career"}
+        assert set(body) == {"available", "reason", "career", "roadmap_id"}
         text = json.dumps(body).lower()
         for leak in ("limit", "quota", "gemini", "key", "model", "database", "url"):
             assert leak not in text, leak
+        text = text.replace(ROADMAP_ID, "")
         assert not any(ch.isdigit() for ch in text)  # no limits or counts
 
 

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { CheckCircle2, PlayCircle, Flame, Activity, Map } from "lucide-react";
 import AppHeader from "../components/AppHeader";
@@ -58,6 +58,7 @@ export default function Dashboard() {
   const [confirmRegenerate, setConfirmRegenerate] = useState(false);
   const [plannedFeature, setPlannedFeature] = useState(null);
   const [scrollTarget, setScrollTarget] = useState(null);
+  const openedFromHash = useRef(false);
 
   useEffect(() => {
     document.body.classList.add("theme-landing");
@@ -124,6 +125,19 @@ export default function Dashboard() {
     setExpanded((prev) => new Set(prev).add(index));
     setScrollTarget(index);
   }
+
+  // A link like /dashboard#step-3 (e.g. from a résumé review's gap) opens
+  // that step once the roadmap has loaded.
+  useEffect(() => {
+    if (!record || openedFromHash.current) return;
+    const match = /^#step-(\d+)$/.exec(location.hash);
+    const index = match ? Number(match[1]) - 1 : -1;
+    if (index >= 0 && index < record.roadmap.length) {
+      openedFromHash.current = true;
+      setExpanded((prev) => new Set(prev).add(index));
+      setScrollTarget(index);
+    }
+  }, [record, location.hash]);
 
   // After the step has rendered expanded, bring it into view and move
   // keyboard focus to its header.

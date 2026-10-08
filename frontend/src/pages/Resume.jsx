@@ -134,7 +134,7 @@ function UploadCard({ career, analyzing, error, onAnalyze }) {
   );
 }
 
-function HistoryItem({ item, open, onToggle, onDelete, deleting }) {
+function HistoryItem({ item, open, onToggle, onDelete, deleting, currentRoadmapId }) {
   const panelId = `resume-review-${item.id}`;
   return (
     <li className="dashCard resumeHistoryItem">
@@ -166,7 +166,7 @@ function HistoryItem({ item, open, onToggle, onDelete, deleting }) {
       </div>
       {open && (
         <div id={panelId}>
-          <AnalysisView analysis={item} />
+          <AnalysisView analysis={item} currentRoadmapId={currentRoadmapId} />
         </div>
       )}
     </li>
@@ -416,6 +416,7 @@ export default function Resume() {
                   onToggle={() => setOpenId(openId === item.id ? null : item.id)}
                   onDelete={() => setConfirmDelete(item)}
                   deleting={deletingId === item.id}
+                  currentRoadmapId={availability.data?.roadmap_id || null}
                 />
               ))}
             </ul>

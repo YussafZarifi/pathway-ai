@@ -1,10 +1,12 @@
 """Résumé analysis routes for signed-in users (ADR-020).
 
 GET /api/resume-analyses/availability tells the /resume page whether it may
-offer an upload: {available, reason, career}. `reason` is one of
+offer an upload: {available, reason, career, roadmap_id}. `reason` is one of
 "feature_disabled", "no_active_roadmap" or "unavailable" (accounts'
 database not configured) and null when available; `career` is the active
-roadmap's career the résumé would be reviewed against. Nothing else (no
+roadmap's career the résumé would be reviewed against and `roadmap_id`
+its id (so the page can link a review's gaps to that roadmap's steps).
+Nothing else (no
 limits, quotas or configuration) is exposed. 401 without a valid token, 503
 when the user's roadmap can't be read right now.
 
@@ -127,17 +129,18 @@ def availability(
     feature switch comes first, so a disabled feature never touches the
     database."""
     if not config.RESUME_ANALYSIS_ENABLED:
-        return {"available": False, "reason": "feature_disabled", "career": None}
+        return {"available": False, "reason": "feature_disabled", "career": None, "roadmap_id": None}
     if repo is None:
-        return {"available": False, "reason": "unavailable", "career": None}
+        return {"available": False, "reason": "unavailable", "career": None, "roadmap_id": None}
     try:
         target = repo.active_target(user.id)
     except (db.DatabaseUnavailable, psycopg.Error) as e:
         logger.error("Loading the résumé target failed: %s", type(e).__name__)
         raise HTTPException(status_code=503, detail=DB_UNAVAILABLE) from None
     if target is None:
-        return {"available": False, "reason": "no_active_roadmap", "career": None}
-    return {"available": True, "reason": None, "career": target["career"]}
+        return {"available": False, "reason": "no_active_roadmap", "career": None, "roadmap_id": None}
+    return {"available": True, "reason": None, "career": target["career"],
+            "roadmap_id": target["roadmap_id"]}
 
 
 # Parameter order is the check order (FastAPI resolves dependencies in

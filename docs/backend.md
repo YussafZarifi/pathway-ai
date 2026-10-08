@@ -53,7 +53,7 @@ A small FastAPI app in `backend/`. Run locally with `uvicorn main:app --reload -
 | POST | `/api/roadmaps` | `create_roadmap` | Signed-in: generate + save; 201 with step ids (since 2026-10-03) |
 | POST | `/api/roadmaps/{id}/regenerate` | `regenerate_roadmap` | Signed-in: new roadmap from saved answers; 404 not yours, 409 no answers |
 | POST | `/api/roadmaps/import` | `import_roadmap` | Signed-in: import the browser-saved roadmap once; 201 new / 200 existing; 64 KB body limit; own rate limit |
-| GET | `/api/resume-analyses/availability` | `availability` | Signed-in: `{available, reason, career}` for the `/resume` page; feature switch first, then the active roadmap (since 2026-10-07) |
+| GET | `/api/resume-analyses/availability` | `availability` | Signed-in: `{available, reason, career, roadmap_id}` for the `/resume` page; feature switch first, then the active roadmap (since 2026-10-07) |
 | POST | `/api/resume-analyses` | `create_analysis` | Signed-in, feature switch on: raw PDF (≤ 2 MB) → strict AI review against the active roadmap → saved; 201 (since 2026-10-05) |
 
 Full contracts: `docs/api.md`.
