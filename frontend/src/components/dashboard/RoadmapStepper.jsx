@@ -9,6 +9,8 @@ import {
   ListChecks,
 } from "lucide-react";
 import VideoCard from "../VideoCard";
+import StepNotes from "./StepNotes";
+import { parseTargetDate } from "../../lib/dashboardData";
 
 const dateFormat = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" });
 
@@ -24,7 +26,21 @@ function StepStatus({ status, isCurrent }) {
   return <span className="srOnly">Not started</span>;
 }
 
-function StepDetails({ step }) {
+function DueChip({ targetDate, done }) {
+  const due = parseTargetDate(targetDate);
+  if (due === null || done) return null;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const overdue = due < today.getTime();
+  return (
+    <span className={`stepChip stepDue ${overdue ? "stepDue--overdue" : ""}`}>
+      {overdue ? "Overdue · " : "Due "}
+      {dateFormat.format(due)}
+    </span>
+  );
+}
+
+function StepDetails({ step, index, note, onSaveNote }) {
   const videos = step.videos || [];
   const resources = step.resources || [];
   const tasks = step.tasks || [];
@@ -79,6 +95,8 @@ function StepDetails({ step }) {
           </div>
         </div>
       )}
+
+      {onSaveNote && <StepNotes index={index} value={note} onSave={onSaveNote} />}
     </div>
   );
 }
@@ -93,6 +111,8 @@ export default function RoadmapStepper({
   expanded,
   onToggleExpand,
   onToggleDone,
+  notes,
+  onSaveNote,
 }) {
   return (
     <ol className="stepper">
@@ -144,6 +164,7 @@ export default function RoadmapStepper({
                   </span>
                 </span>
                 <span className="stepMetaRow">
+                  <DueChip targetDate={notes?.[index]?.targetDate} done={status.done} />
                   {step.time && step.time !== "Varies" && (
                     <span className="stepChip">
                       <Clock size={13} aria-hidden="true" />
@@ -162,7 +183,7 @@ export default function RoadmapStepper({
 
               {isOpen && (
                 <div id={detailsId}>
-                  <StepDetails step={step} />
+                  <StepDetails step={step} index={index} note={notes?.[index]} onSaveNote={onSaveNote} />
                 </div>
               )}
             </div>

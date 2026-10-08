@@ -297,3 +297,30 @@ export function getInsights({
 
   return insights.slice(0, 3);
 }
+
+/** "YYYY-MM-DD" → local midnight (ms), or null for anything else. */
+export function parseTargetDate(text) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(text || "");
+  if (!match) return null;
+  const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  return Number.isNaN(date.getTime()) || date.getDate() !== Number(match[3]) ? null : date.getTime();
+}
+
+/**
+ * In-app reminders from the user's own target dates: unfinished steps that
+ * are overdue or due within `withinDays` days, soonest first.
+ * @returns {Array<{index:number, title:string, targetDate:string, daysLeft:number, overdue:boolean}>}
+ */
+export function getReminders(roadmap, statuses, notes, { now = Date.now(), withinDays = 3 } = {}) {
+  const today = startOfDay(now);
+  return (roadmap || [])
+    .map((step, index) => {
+      const due = parseTargetDate(notes?.[index]?.targetDate);
+      if (due === null || statuses?.[index]?.done) return null;
+      const daysLeft = Math.round((due - today) / DAY_MS);
+      if (daysLeft > withinDays) return null;
+      return { index, title: step.title, targetDate: notes[index].targetDate, daysLeft, overdue: daysLeft < 0 };
+    })
+    .filter(Boolean)
+    .sort((a, b) => a.daysLeft - b.daysLeft);
+}

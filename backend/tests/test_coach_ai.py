@@ -211,3 +211,14 @@ def test_logs_never_contain_messages_context_or_replies(fake_gemini, caplog):
     coach_reply(f"my secret {SECRET}", [{"role": "user", "content": SECRET}], dict(CONTEXT, career=SECRET))
     assert "kind=personal_data" in caplog.text
     assert SECRET not in caplog.text and "example.com" not in caplog.text
+
+
+def test_context_shows_target_dates_for_unfinished_steps_and_today():
+    ctx = dict(CONTEXT, steps=[
+        {"number": 1, "title": "SQL foundations", "done": True, "target_date": "2026-10-01"},
+        {"number": 2, "title": "Python for data", "done": False, "target_date": "2026-10-20"},
+    ])
+    text = context_text(ctx)
+    assert "2. Python for data [next] (target date 2026-10-20)" in text
+    assert "1. SQL foundations [done]" in text and "2026-10-01" not in text
+    assert "Today's date: " in text

@@ -56,6 +56,10 @@ Migration `20261008030949_create_coach_threads_and_messages`.
 - **Ownership:** composite keys stop a message from joining another user's thread and a thread from pointing at another user's roadmap; deleting a roadmap keeps its threads; deleting a thread removes its messages; deleting the account removes everything.
 - **Checks:** `supabase/tests/m4_1_coach_rls.sql` (37).
 
+## Step notes and target dates (✅ since 2026-10-07)
+
+Migration `20261008035233_create_step_notes`: `step_notes (step_id + user_id → roadmap_steps (id, user_id) cascade, note ≤ 2,000 chars, target_date 2020–2100, updated_at by trigger)`, primary key `(step_id, user_id)`; a row exists only while it has a note or a date. User-owned state like `step_progress` (ADR-019): the browser selects, inserts (`step_id, user_id, note, target_date`), updates (`note, target_date` only) and deletes its own rows through RLS; `pathwayai_api` may only read (data export, coach context with target dates); `anon` nothing. Guests keep the same data in localStorage (`pathwayai_step_notes`, current roadmap only). Checks: `supabase/tests/v1_step_notes_rls.sql` (18).
+
 ## Account deletion (✅ since 2026-10-07, ADR-022)
 
 Migration `20261008033106_create_delete_current_user`: `private.delete_current_user()` — `security definer`, `search_path = ''`, executable only by `pathwayai_api` (revoked from `public`, `anon`, `authenticated`), deletes the `auth.users` row of `private.request_user_id()` (the claims FastAPI sets from a verified token) and returns whether a row was deleted. Every PathwayAI table cascades from `auth.users`. Checks: `supabase/tests/v1_delete_current_user.sql` (8: browser and anon can't call it; no claims → nothing deleted; deletes exactly the claimed user and all their rows; others untouched; second call is a no-op; the API role still can't read `auth.users`).

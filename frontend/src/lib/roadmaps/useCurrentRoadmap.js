@@ -18,7 +18,7 @@ function initialState(repo, authLoading, fallbackState) {
  * @param {{ fallbackState?: object }} options router state with a roadmap
  *   that couldn't be saved locally (ADR-013)
  * @returns {{ mode, status: "loading"|"ready"|"error", record, error,
- *   reload, setStepDone, regenerate, setRecord }}
+ *   reload, setStepDone, setStepNote, regenerate, setRecord }}
  */
 export function useCurrentRoadmap({ fallbackState } = {}) {
   const { loading: authLoading, session } = useAuth();
@@ -73,6 +73,16 @@ export function useCurrentRoadmap({ fallbackState } = {}) {
     [repo, state.record]
   );
 
+  /** Save a step's note and target date; the record updates when saved. */
+  const setStepNote = useCallback(
+    async (index, value) => {
+      if (!state.record) return;
+      const next = await repo.setStepNote(state.record, index, value);
+      setState((prev) => ({ ...prev, record: next }));
+    },
+    [repo, state.record]
+  );
+
   const regenerate = useCallback(async () => {
     if (!state.record) return null;
     const next = await repo.regenerate(state.record);
@@ -87,6 +97,7 @@ export function useCurrentRoadmap({ fallbackState } = {}) {
     error: state.error,
     reload,
     setStepDone,
+    setStepNote,
     regenerate,
     setRecord,
   };

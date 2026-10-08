@@ -9,6 +9,26 @@ import { getStepStatuses } from "../dashboardData";
 import { loadCurrentRoadmap, saveCurrentRoadmap, stepProgressKey } from "../roadmapStore";
 import { getAllProgress, getEvents, trackProgress } from "../trackingEngine";
 
+// Guests' step notes and target dates: { [roadmapId]: { [index]: {note, targetDate} } }.
+const NOTES_KEY = "pathwayai_step_notes";
+
+function readNotes() {
+  try {
+    const all = JSON.parse(localStorage.getItem(NOTES_KEY));
+    return all && typeof all === "object" ? all : {};
+  } catch {
+    return {};
+  }
+}
+
+function notesFor(roadmapId, length) {
+  const mine = readNotes()[roadmapId] || {};
+  return Array.from({ length }, (_, i) => ({
+    note: typeof mine[i]?.note === "string" ? mine[i].note : "",
+    targetDate: typeof mine[i]?.targetDate === "string" ? mine[i].targetDate : "",
+  }));
+}
+
 /**
  * Attach this browser's progress and event log to a stored roadmap.
  * @returns {object} a roadmap record (see useCurrentRoadmap.js)
@@ -23,6 +43,7 @@ function toRecord(stored) {
     roadmap: stored.roadmap,
     generatedAt: stored.generatedAt || null,
     statuses: getStepStatuses(stored.roadmap, getAllProgress(), stored.id),
+    notes: notesFor(stored.id, stored.roadmap.length),
     canRegenerate: Boolean(stored.answers),
     // Activity here counts days with any tracked event (visits included).
     events: getEvents(),
@@ -70,6 +91,24 @@ export const localRepository = {
         roadmap: steps,
       })
     );
+  },
+
+  /** Save a step's note and target date in this browser (only for this roadmap). */
+  async setStepNote(record, index, { note, targetDate }) {
+    const all = readNotes();
+    const mine = { ...(all[record.id] || {}) };
+    const cleanNote = (note || "").trim().slice(0, 2000);
+    if (cleanNote || targetDate) mine[index] = { note: cleanNote, targetDate: targetDate || "" };
+    else delete mine[index];
+    // Keep notes for the current roadmap only (one roadmap per browser).
+    const next = Object.keys(mine).length ? { [record.id]: mine } : {};
+    try {
+      localStorage.setItem(NOTES_KEY, JSON.stringify(next));
+    } catch (error) {
+      console.error("[Roadmaps] Note save failed:", error?.name || "unknown");
+      throw new Error("Couldn't save that note.");
+    }
+    return { ...record, notes: notesFor(record.id, record.roadmap.length) };
   },
 
   /** Mark a step done or not done; returns the updated record. */

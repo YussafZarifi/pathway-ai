@@ -32,7 +32,8 @@ const SELECT = `
   roadmap_steps (
     id, position, title, description, time_estimate, tasks, resources,
     video_query, video_search_url, videos,
-    step_progress ( completed_at )
+    step_progress ( completed_at ),
+    step_notes ( note, target_date )
   )
 `;
 
@@ -46,6 +47,12 @@ async function currentSession() {
 function progressOf(step) {
   const p = Array.isArray(step.step_progress) ? step.step_progress[0] : step.step_progress;
   return p?.completed_at ? Date.parse(p.completed_at) : null;
+}
+
+/** step_notes embeds as one object or a list, like step_progress. */
+function noteOf(step) {
+  const n = Array.isArray(step.step_notes) ? step.step_notes[0] : step.step_notes;
+  return { note: n?.note || "", targetDate: n?.target_date || "" };
 }
 
 function sortedSteps(row) {
@@ -102,6 +109,7 @@ function toRecord(row, rows) {
       const completedAt = progressOf(step);
       return { index, done: Boolean(completedAt), completedAt };
     }),
+    notes: steps.map(noteOf),
     canRegenerate: Boolean(row.quiz_submission_id),
     events: eventsFrom(rows),
     activityKind: "progress",
@@ -171,6 +179,41 @@ export const accountRepository = {
   async regenerate(record) {
     const session = await currentSession();
     await regenerateSavedRoadmap(session.access_token, record.id);
+    return this.load();
+  },
+
+  /**
+   * Save a step's personal note and target date through RLS (empty both →
+   * the row is removed). Update first, insert when there was none: the
+   * browser may only change the note and the date, never the keys.
+   */
+  async setStepNote(record, index, { note, targetDate }) {
+    const session = await currentSession();
+    const stepId = record.roadmap[index]?.id;
+    if (!stepId) throw new ApiError(SAVE_FAILED, 400);
+    const cleanNote = (note || "").trim().slice(0, 2000);
+    const date = targetDate || null;
+
+    let error;
+    if (!cleanNote && !date) {
+      ({ error } = await supabase.from("step_notes").delete().eq("step_id", stepId));
+    } else {
+      const updated = await supabase
+        .from("step_notes")
+        .update({ note: cleanNote, target_date: date })
+        .eq("step_id", stepId)
+        .select("step_id");
+      error = updated.error;
+      if (!error && (updated.data || []).length === 0) {
+        ({ error } = await supabase
+          .from("step_notes")
+          .insert({ step_id: stepId, user_id: session.user.id, note: cleanNote, target_date: date }));
+      }
+    }
+    if (error) {
+      console.error("[Roadmaps] Note save failed:", error.code || "unknown");
+      throw new ApiError(SAVE_FAILED, 503);
+    }
     return this.load();
   },
 

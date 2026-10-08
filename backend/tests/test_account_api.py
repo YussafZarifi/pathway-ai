@@ -77,7 +77,7 @@ def test_export_returns_every_table_without_internal_user_ids(client):
     data = r.json()
     assert data["format"] == "pathwayai-export-1"
     assert data["account"] == {"id": USER_ID, "email": "a@example.com"}
-    assert set(data) >= {"quiz_submissions", "roadmaps", "roadmap_steps", "step_progress", "resume_analyses",
+    assert set(data) >= {"quiz_submissions", "roadmaps", "roadmap_steps", "step_progress", "step_notes", "resume_analyses",
                          "coach_threads", "coach_messages"}
     assert data["quiz_submissions"][0]["answers"] == {"goal": SECRET}  # server-only answers included
     assert all("user_id" not in row for name in ("quiz_submissions", "roadmaps", "coach_messages") for row in data[name])

@@ -99,9 +99,10 @@ class PostgresCoachRepository:
             context = None
             if roadmap is not None:
                 steps = conn.execute(
-                    "select s.position, s.title, (p.step_id is not null) as done"
+                    "select s.position, s.title, (p.step_id is not null) as done, n.target_date"
                     " from public.roadmap_steps s"
                     " left join public.step_progress p on p.step_id = s.id and p.user_id = s.user_id"
+                    " left join public.step_notes n on n.step_id = s.id and n.user_id = s.user_id"
                     " where s.roadmap_id = %s and s.user_id = %s order by s.position",
                     (roadmap["id"], user_id),
                 ).fetchall()
@@ -114,7 +115,11 @@ class PostgresCoachRepository:
                     "roadmap_id": str(roadmap["id"]),
                     "career": roadmap["career"],
                     "skills": _skills(roadmap["career_data"]),
-                    "steps": [{"number": i + 1, "title": s["title"], "done": s["done"]} for i, s in enumerate(steps)],
+                    "steps": [
+                        {"number": i + 1, "title": s["title"], "done": s["done"],
+                         "target_date": s["target_date"].isoformat() if s["target_date"] else None}
+                        for i, s in enumerate(steps)
+                    ],
                     "resume_gaps": _gaps(review["analysis"]) if review else [],
                 }
         return {

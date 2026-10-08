@@ -3,6 +3,8 @@ import {
   estimateRemaining,
   formatWeeksRange,
   getActivity,
+  getReminders,
+  parseTargetDate,
   getStepStatuses,
   getTodayFocus,
   parseDurationWeeks,
@@ -114,5 +116,41 @@ describe("getTodayFocus", () => {
   it("falls back to the description and hides 'Varies'", () => {
     const focus = getTodayFocus([{ title: "A", description: "Read", time: "Varies" }], summarizeProgress([{ index: 0, done: false }]));
     expect(focus).toMatchObject({ task: "Read", time: null });
+  });
+});
+
+describe("getReminders", () => {
+  const roadmap = [{ title: "A" }, { title: "B" }, { title: "C" }, { title: "D" }];
+  const now = new Date(2026, 9, 7, 15).getTime(); // Oct 7, 2026 afternoon
+  const notes = [
+    { targetDate: "2026-10-05" }, // overdue
+    { targetDate: "2026-10-09" }, // in 2 days
+    { targetDate: "2026-10-20" }, // too far
+    { targetDate: "2026-10-07" }, // today
+  ];
+
+  it("lists overdue and soon-due unfinished steps, soonest first", () => {
+    const statuses = roadmap.map((_, index) => ({ index, done: false }));
+    expect(getReminders(roadmap, statuses, notes, { now })).toEqual([
+      { index: 0, title: "A", targetDate: "2026-10-05", daysLeft: -2, overdue: true },
+      { index: 3, title: "D", targetDate: "2026-10-07", daysLeft: 0, overdue: false },
+      { index: 1, title: "B", targetDate: "2026-10-09", daysLeft: 2, overdue: false },
+    ]);
+  });
+
+  it("skips finished steps, missing and invalid dates", () => {
+    const statuses = roadmap.map((_, index) => ({ index, done: index === 0 }));
+    const bad = [{ targetDate: "2026-10-05" }, { targetDate: "2026-02-30" }, { targetDate: "soon" }, {}];
+    expect(getReminders(roadmap, statuses, bad, { now })).toEqual([]);
+    expect(getReminders(roadmap, statuses, undefined, { now })).toEqual([]);
+  });
+});
+
+describe("parseTargetDate", () => {
+  it("accepts real calendar dates only", () => {
+    expect(parseTargetDate("2026-10-07")).toBe(new Date(2026, 9, 7).getTime());
+    expect(parseTargetDate("2026-02-30")).toBeNull();
+    expect(parseTargetDate("10/07/2026")).toBeNull();
+    expect(parseTargetDate("")).toBeNull();
   });
 });

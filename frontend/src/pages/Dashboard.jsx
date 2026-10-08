@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { CheckCircle2, PlayCircle, Flame, Activity, Map } from "lucide-react";
+import { CheckCircle2, PlayCircle, Flame, Activity, Map, BellRing } from "lucide-react";
 import AppHeader from "../components/AppHeader";
 import Dialog from "../components/Dialog";
 import ImportRoadmapBanner from "../components/ImportRoadmapBanner";
@@ -23,6 +23,7 @@ import {
   getMotivation,
   getTodayFocus,
   getInsights,
+  getReminders,
 } from "../lib/dashboardData";
 
 function prefersReducedMotion() {
@@ -42,6 +43,7 @@ export default function Dashboard() {
     error: loadError,
     reload,
     setStepDone,
+    setStepNote,
     regenerate: regenerateRecord,
   } = useCurrentRoadmap({ fallbackState: location.state });
   const [expanded, setExpanded] = useState(() => new Set());
@@ -85,6 +87,7 @@ export default function Dashboard() {
         activityKind: record.activityKind,
       }),
       motivation: getMotivation(summary),
+      reminders: getReminders(record.roadmap, statuses, record.notes),
     };
   }, [record]);
 
@@ -272,6 +275,33 @@ export default function Dashboard() {
           />
         </div>
 
+        {view.reminders.length > 0 && (
+          <section className="dashCard dashReminders" aria-labelledby="dashRemindersTitle">
+            <h2 id="dashRemindersTitle" className="dashRailTitle dashRemindersTitle">
+              <BellRing size={16} aria-hidden="true" /> Reminders
+            </h2>
+            <ul className="dashReminderList">
+              {view.reminders.map((r) => (
+                <li key={r.index} className={`dashReminder ${r.overdue ? "is-overdue" : ""}`}>
+                  <span>
+                    <strong>Step {r.index + 1}: {r.title}</strong>{" "}
+                    <span className="dashMuted">
+                      {r.overdue
+                        ? `was due ${-r.daysLeft} day${r.daysLeft === -1 ? "" : "s"} ago`
+                        : r.daysLeft === 0
+                          ? "is due today"
+                          : `is due in ${r.daysLeft} day${r.daysLeft === 1 ? "" : "s"}`}
+                    </span>
+                  </span>
+                  <button type="button" className="dashBtn" onClick={() => openStep(r.index)}>
+                    Open step
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
         <section className="dashStats" aria-label="Progress stats">
           <StatTile
             icon={<CheckCircle2 size={15} />}
@@ -338,6 +368,8 @@ export default function Dashboard() {
                 expanded={expanded}
                 onToggleExpand={toggleExpand}
                 onToggleDone={toggleDone}
+                notes={record.notes}
+                onSaveNote={setStepNote}
               />
             )}
           </section>

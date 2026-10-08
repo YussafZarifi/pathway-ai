@@ -5651,3 +5651,93 @@ body.theme-landing .trustRow {
   background: var(--dash-done);
   color: #04130a;
 }
+
+/* Step notes, due chips and reminders (StepNotes.jsx, Dashboard.jsx) */
+.stepNotes {
+  display: grid;
+  gap: 8px;
+}
+
+.stepNotes .timelineTasksTitle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.stepNoteInput {
+  min-height: 72px;
+}
+
+.stepNoteRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.stepNoteDateLabel {
+  font-size: 13px;
+  color: var(--dash-muted);
+}
+
+.stepNoteDate {
+  width: auto;
+  max-width: 180px;
+  padding: 8px 10px;
+  color-scheme: dark;
+}
+
+.stepNotes .coachNote,
+.stepNotes .dashError {
+  margin: 0;
+}
+
+.stepDue {
+  color: #fde68a;
+  background: rgba(253, 230, 138, 0.1);
+}
+
+.stepDue--overdue {
+  color: #fecaca;
+  background: rgba(252, 165, 165, 0.12);
+}
+
+.dashReminders {
+  margin: 18px 0 0;
+  display: grid;
+  gap: 10px;
+  border-color: rgba(253, 230, 138, 0.28);
+}
+
+.dashRemindersTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dashReminderList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.dashReminder {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.dashReminder.is-overdue strong {
+  color: #fecaca;
+}
+
+.dashReminder .dashBtn {
+  padding: 7px 12px;
+  font-size: 13px;
+}

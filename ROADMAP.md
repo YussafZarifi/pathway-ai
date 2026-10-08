@@ -197,7 +197,7 @@ F-8, F-13 and F-18 are Version 2 Milestones 2–4 (see 🎯 Version 2); the rest
 | B-2 | Copy roadmap as Markdown | P3 | XS |
 | B-3 | Validate AI URLs (https only), mark external | P1 | XS |
 | B-4 | Toasts instead of `alert()` | P3 | XS |
-| B-5 | Per-step notes and target dates | P2 | M |
+| ~~B-5~~ | ✅ 2026-10-07: per-step notes and target dates (account through RLS, guests in localStorage), due chips and dashboard reminders | P2 | M |
 | B-6 | Regenerate single step / adjust difficulty | P2 | M |
 | B-7 | Weekly plan view | P2 | M |
 | B-8 | Response caching keyed by answers hash | P2 | M |
@@ -208,7 +208,7 @@ F-8, F-13 and F-18 are Version 2 Milestones 2–4 (see 🎯 Version 2); the rest
 | B-13 | Render Landing hero without waiting for JS animation (LCP) | P2 | XS |
 | ~~B-14~~ | ✅ 2026-10-07: `scoringEngine.js` deleted (imported nowhere; measured engagement) | P2 | M |
 | B-15 | Light theme + `prefers-color-scheme` | P3 | M |
-| B-16 | Weekly digest / inactivity nudge emails (background job) | P3 | L |
+| B-16 | Weekly digest / reminder emails (background job). In-app reminders from target dates exist since 2026-10-07; emails need an SMTP provider and a scheduler (owner) | P3 | L |
 | B-17 | Streaks + activity heatmap | P3 | M |
 | B-19 | Real "AI insights": a Gemini endpoint that comments on the user's progress (the dashboard's Insights are rule-based today) | P3 | M |
 | B-20 | Multiple saved roadmaps in localStorage (switch between careers) before accounts | P2 | M |

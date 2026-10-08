@@ -28,6 +28,7 @@ EXPORT_QUERIES = {
     "roadmaps": "select * from public.roadmaps where user_id = %s order by created_at",
     "roadmap_steps": "select * from public.roadmap_steps where user_id = %s order by roadmap_id, position",
     "step_progress": "select * from public.step_progress where user_id = %s order by completed_at",
+    "step_notes": "select * from public.step_notes where user_id = %s order by step_id",
     "resume_analyses": "select * from public.resume_analyses where user_id = %s order by created_at",
     "coach_threads": "select * from public.coach_threads where user_id = %s order by created_at",
     "coach_messages": "select * from public.coach_messages where user_id = %s order by thread_id, created_at",
