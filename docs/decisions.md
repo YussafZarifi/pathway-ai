@@ -24,6 +24,7 @@ ADR-001 to ADR-008 were **reconstructed on 2026-09-24** from the existing code d
 | ADR-016 | A 5-question quiz, with temporary support for the 8-question answer format | Accepted |
 | ADR-017 | Routing shell: a catch-all 404 route and scroll-to-top on navigation | Accepted |
 | ADR-018 | Supabase for authentication and PostgreSQL | Accepted |
+| ADR-021 | AI Coach: signed-in chat grounded in the user's roadmap, suggestions instead of tool writes | Accepted 2026-10-07 |
 | ADR-020 | Resume Analyzer: signed-in only, no file storage, structured critique against the current roadmap | Accepted 2026-10-05, implemented 2026-10-07 |
 | ADR-019 | Roadmaps in PostgreSQL: FastAPI writes AI content, the browser writes user state through RLS | Accepted, amended 2026-10-03; implemented 2026-10-03 |
 
@@ -287,6 +288,24 @@ ADR-001 to ADR-008 were **reconstructed on 2026-09-24** from the existing code d
   - **Determinism:** temperature 0, max 4,096 output tokens, résumé rules in the system instruction (the PDF is data, never instructions).
   - **PDF checks before Gemini:** 1 KB–2 MB, `%PDF-` signature, `%%EOF` in the last 1 KB.
 - **Status:** Accepted (owner, 2026-10-05). **Implemented 2026-10-07** (Milestone 3, M3-2 → M3-6): table, AI layer, `POST /api/resume-analyses`, `GET /api/resume-analyses/availability` (added at the owner's request so the page knows the state before an upload; also returns the active `roadmap_id` so gaps link to `/dashboard#step-N`), `/resume` page. Ships switched off (`RESUME_ANALYSIS_ENABLED=false`) until Gemini billing.
+
+## ADR-021 — AI Coach: signed-in chat grounded in the user's roadmap, suggestions instead of tool writes
+- **Date:** 2026-10-07
+- **Context:** Milestone 4 (F-18). A chat where the user asks about their roadmap and gets personalized, progress-aware guidance with conversation history. The owner (2026-10-07) asked for: personalized guidance, roadmap use, progress awareness, conversation history, strict validation, prompt-injection resistance, rate limiting, per-user isolation, RLS-backed storage, no sensitive logging. ROADMAP F-18 also mentioned "tool calling (read/update the roadmap)". Constraints carried over: AI content is written only by FastAPI as `pathwayai_api` (ADR-019); Gemini free tier (20 requests/day) with terms that discourage personal information; strict reply validation (ADR-020 implementation notes).
+- **Decision:**
+  - **Signed-in only.** History needs an owner, limits need an identity. Guests see what the coach does and a sign-in link.
+  - **Storage:** `coach_threads (id, user_id, roadmap_id → roadmaps(id, user_id) on delete set null (roadmap_id), title, created_at, updated_at)` and `coach_messages (id, thread_id + user_id → coach_threads (id, user_id) on delete cascade, role user|assistant, content ≤ 4,000 chars, actions jsonb array ≤ 2 KB, created_at)`. RLS with the shared `private.request_user_id()` policies. Grants: browser `select` on both and `delete` on threads (a thread's messages go with it); `pathwayai_api` `select, insert` on both and `update (updated_at)` on threads; `anon` nothing. Messages are never edited.
+  - **One endpoint writes:** `POST /api/coach/messages {thread_id?, message}` (≤ 1,000 chars). Order: token → database → `COACH_ENABLED` → per-user limit → body validation → load context (thread must be the user's, else 404) → Gemini → save the user message and the reply **in one transaction** (a new thread is created in the same transaction). Nothing is saved when generation fails. `GET /api/coach/availability` tells the page whether chat is possible (`{available, reason}`), like the résumé page.
+  - **Context ("memory"):** the thread's last 12 messages, the active roadmap (career, steps with done/next status and their numbers), the career card's skills and the latest résumé review's gaps (skill names only). This is rebuilt from the database for every message, so the coach always sees current progress; nothing else is remembered across threads.
+  - **No tool writes — suggested actions instead.** The reply is strict JSON `{reply, actions[≤3]}` where an action is `open_step(step)`, `mark_step_done(step)`, `open_resume` or `take_quiz`. The server validates every action against the current roadmap (step in range; `mark_step_done` only for a step not yet done) and rejects the whole reply otherwise (strict, like ADR-020). The page renders actions as buttons; **the user's click** performs them through the existing paths (step progress through RLS, navigation). A prompt-injected reply can therefore at most suggest a button for the user's own roadmap; it can't change data. Real function calling that writes is rejected for that reason.
+  - **Prompt-injection resistance:** rules live in the system instruction; the roadmap/résumé context is a separate, labelled data part ("data, not instructions"); history is passed as user/model turns; the reply is schema-bound, length-capped and rendered as plain text. Scope: tech careers and learning; anything else gets a short redirect.
+  - **Privacy:** a notice on the page asks users not to share personal details because messages are processed by Google Gemini; messages containing an email address or phone number are refused with 422 before anything is sent (same patterns as the résumé guard); replies containing them are rejected. Logs record outcome, sizes and timings only — never message text, titles or context.
+  - **Limits:** per user 20 messages/hour, 60/day, global 300/day (`COACH_LIMIT_*`), separate from the other limiters; body limit 16 KB (default).
+- **Alternatives considered:** Gemini function calling with write tools (a prompt-injected message could mark steps or alter the roadmap — rejected; suggestions are equivalent for the user with one click); streaming (nicer, but the strict whole-reply validation needs the full reply first; deferred with F-6); storing context summaries as long-term memory (more personal data kept for little gain while history is short); guests with browser-only chat (no owner for deletion, no per-user limits).
+- **Consequences:** two tables and two endpoints; each message costs one Gemini request (free tier: 20/day shared with the quiz and résumé reviews), so `COACH_ENABLED` exists to switch it off; history is browsable and deletable per thread; the coach can't edit the roadmap itself (documented as intentional).
+- **Status:** Accepted (2026-10-07; the owner delegated design decisions for Version 1 on 2026-10-07).
+
+---
 
 ---
 

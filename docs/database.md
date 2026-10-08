@@ -43,6 +43,19 @@ Migration `20261006030329_create_resume_analyses`. Only the structured AI review
 - **Indexes:** `(user_id, created_at desc)` for the newest-first history, `(roadmap_id, user_id)` for the foreign key.
 - **Checks:** `supabase/tests/m3_2_resume_analyses_rls.sql` (28).
 
+## AI Coach (✅ tables since 2026-10-07, Milestone 4, ADR-021)
+
+Migration `20261008030949_create_coach_threads_and_messages`.
+
+| Table | Key columns | Written by | Browser (`authenticated`) |
+|---|---|---|---|
+| `coach_threads` | `id`, `user_id` → `auth.users` cascade, `roadmap_id` (composite FK → `roadmaps (id, user_id)`, `on delete set null (roadmap_id)`), `title` (1–80), `created_at`, `updated_at` (trigger) | FastAPI (`pathwayai_api`: select, insert, update `updated_at` only) | select own, **delete own** (whole conversation) |
+| `coach_messages` | `id`, `thread_id` + `user_id` (composite FK → `coach_threads (id, user_id)`, cascade), `role` user/assistant, `content` (1–4,000), `actions` jsonb array ≤ 2 KB (empty for user messages), `created_at` | FastAPI (select, insert) | select own |
+
+- **RLS:** shared per-operation policies on `private.request_user_id()`; nobody edits message content or titles; `anon` has no grants.
+- **Ownership:** composite keys stop a message from joining another user's thread and a thread from pointing at another user's roadmap; deleting a roadmap keeps its threads; deleting a thread removes its messages; deleting the account removes everything.
+- **Checks:** `supabase/tests/m4_1_coach_rls.sql` (37).
+
 ## Browser storage (✅): the guest flow
 
 For guests (and builds without accounts) all roadmap persistence is **client-side**, in two `localStorage` keys: `pathwayai_roadmap` (the current roadmap, since 2026-09-26, ADR-013) and `pathwayai_tracking` (events, metrics, progress).
