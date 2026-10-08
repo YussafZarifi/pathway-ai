@@ -11,6 +11,8 @@ import Dashboard from "./pages/Dashboard";
 import Login from "./pages/Login";
 import Resume from "./pages/Resume";
 import Coach from "./pages/Coach";
+import Settings from "./pages/Settings";
+import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
 
 export default function App() {
@@ -30,6 +32,8 @@ export default function App() {
 
             {/* Accounts (optional; ADR-018) */}
             <Route path="/login" element={<Login />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/settings" element={<Settings />} />
 
             {/* Dashboard (Noir) */}
             <Route path="/dashboard" element={<Dashboard />} />

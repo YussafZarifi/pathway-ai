@@ -38,6 +38,22 @@ UNAVAILABLE = "We couldn't check your sign-in right now. Please try again."
 class AuthUser:
     id: str
     email: str | None
+    # When the user last proved their password (Unix seconds), from the
+    # token's `amr` claim; kept across token refreshes. None when the session
+    # came from another method (e.g. a recovery link). Used for actions that
+    # need a recent password confirmation (account deletion, ADR-022).
+    password_at: int | None = None
+
+
+def password_time(claims: dict) -> int | None:
+    """The latest password sign-in time in the `amr` claim, if any."""
+    times = [
+        entry.get("timestamp")
+        for entry in claims.get("amr") or []
+        if isinstance(entry, dict) and entry.get("method") == "password"
+    ]
+    times = [t for t in times if isinstance(t, int) and not isinstance(t, bool)]
+    return max(times) if times else None
 
 
 def issuer() -> str:
@@ -91,7 +107,7 @@ def verify_token(token: str) -> AuthUser:
     if claims.get("role") != "authenticated" or claims.get("is_anonymous") is True:
         raise _unauthorized()
 
-    return AuthUser(id=claims["sub"], email=claims.get("email") or None)
+    return AuthUser(id=claims["sub"], email=claims.get("email") or None, password_at=password_time(claims))
 
 
 def current_user(authorization: str | None = Header(default=None)) -> AuthUser:

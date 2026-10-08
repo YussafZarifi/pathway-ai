@@ -172,7 +172,7 @@ F-8, F-13 and F-18 are Version 2 Milestones 2–4 (see 🎯 Version 2); the rest
 
 | ID | Task | Priority | Effort | Impact |
 |---|---|---|---|---|
-| F-7 | **Supabase Authentication** (ADR-018) — code complete as Milestone 1 (C-29); OAuth providers and account settings (edit name, delete account) remain | P1 | M | ★★★ |
+| F-7 | **Supabase Authentication** (ADR-018) — Milestone 1 (C-29); **account management done 2026-10-07** (ADR-022: `/settings` with name, password change, sign-out everywhere, data export, self-service deletion; password reset). OAuth providers remain (need provider setup in the Supabase dashboard) | P1 | M | ★★★ |
 | F-8 | ✅ **Milestone 2 — PostgreSQL** (done 2026-10-03, C-30; Supabase Postgres, ADR-019): `quiz_submissions`, `roadmaps`, `roadmap_steps`, `step_progress` + migrations; import the browser-saved roadmap after sign-in (confirmation banner). Steps: 🗄️ Milestone 2 | P1 | L | ★★★ |
 | F-13 | **Milestone 3 — Resume Analyzer**: PDF upload → Gemini multimodal → structured critique vs target career | P1 | L | ★★★ |
 | F-18 | **Milestone 4 — AI Coach**: chat with memory and tool calling (read/update roadmap, find resources); was S-1 | P1 | XL | ★★★ |

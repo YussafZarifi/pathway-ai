@@ -56,6 +56,10 @@ Migration `20261008030949_create_coach_threads_and_messages`.
 - **Ownership:** composite keys stop a message from joining another user's thread and a thread from pointing at another user's roadmap; deleting a roadmap keeps its threads; deleting a thread removes its messages; deleting the account removes everything.
 - **Checks:** `supabase/tests/m4_1_coach_rls.sql` (37).
 
+## Account deletion (✅ since 2026-10-07, ADR-022)
+
+Migration `20261008033106_create_delete_current_user`: `private.delete_current_user()` — `security definer`, `search_path = ''`, executable only by `pathwayai_api` (revoked from `public`, `anon`, `authenticated`), deletes the `auth.users` row of `private.request_user_id()` (the claims FastAPI sets from a verified token) and returns whether a row was deleted. Every PathwayAI table cascades from `auth.users`. Checks: `supabase/tests/v1_delete_current_user.sql` (8: browser and anon can't call it; no claims → nothing deleted; deletes exactly the claimed user and all their rows; others untouched; second call is a no-op; the API role still can't read `auth.users`).
+
 ## Browser storage (✅): the guest flow
 
 For guests (and builds without accounts) all roadmap persistence is **client-side**, in two `localStorage` keys: `pathwayai_roadmap` (the current roadmap, since 2026-09-26, ADR-013) and `pathwayai_tracking` (events, metrics, progress).

@@ -10,6 +10,8 @@ A small FastAPI app in `backend/`. Run locally with `uvicorn main:app --reload -
 | `routers/roadmaps.py` | Saved roadmaps (ADR-019): `POST /api/roadmaps`, `POST /api/roadmaps/{id}/regenerate`, `POST /api/roadmaps/import` (M2-7); `get_repository` dependency (503 without `DATABASE_URL`) (added 2026-10-03, M2-6) |
 | `routers/resume_analyses.py` | `POST /api/resume-analyses` (ADR-020, M3-4, 2026-10-05): dependency chain token → database → feature switch → Content-Type → per-user limit → active roadmap, all before the body is read; `read_pdf` reads at most 2 MB; maps résumé/AI/database errors to honest statuses |
 | `strict_ai.py` | Shared strict-reply helpers (2026-10-07): `load_strict_json` (no repair, duplicate keys refused), `text()` (trimmed, capped, no control characters), `error_summary` (field paths only), `contains_contact_details` (email/phone guard) |
+| `routers/account.py` | `GET /api/me/export`, `DELETE /api/me` (ADR-022): per-user limits (separate budgets), recent-password check from the token's `amr`, `{"confirm": "DELETE"}` |
+| `repositories/account.py` | `export` (all of the user's rows, `user_id` columns removed) and `delete` (`private.delete_current_user()`), Postgres + in-memory |
 | `coach_ai.py` | AI Coach (ADR-021): system instruction, learner context as a labelled data part, history turns, strict `{reply, actions}` validation with actions checked against the roadmap, `coach_reply` |
 | `routers/coach.py` | `GET /api/coach/availability`, `POST /api/coach/messages` (token → database → switch → per-user limit → body/personal-data guard → thread 404/409 → Gemini → one-transaction save) |
 | `repositories/coach.py` | `load` (thread, last 12 messages, active roadmap with done flags, skills, latest review's gaps; one transaction) and `save_exchange` (thread + both messages, one transaction); Postgres + in-memory |
@@ -57,6 +59,8 @@ A small FastAPI app in `backend/`. Run locally with `uvicorn main:app --reload -
 | POST | `/api/roadmaps` | `create_roadmap` | Signed-in: generate + save; 201 with step ids (since 2026-10-03) |
 | POST | `/api/roadmaps/{id}/regenerate` | `regenerate_roadmap` | Signed-in: new roadmap from saved answers; 404 not yours, 409 no answers |
 | POST | `/api/roadmaps/import` | `import_roadmap` | Signed-in: import the browser-saved roadmap once; 201 new / 200 existing; 64 KB body limit; own rate limit |
+| GET | `/api/me/export` | `export_data` | Signed-in: JSON file with all the user's data (since 2026-10-07) |
+| DELETE | `/api/me` | `delete_account` | Signed-in, password confirmed within 5 minutes, `{"confirm":"DELETE"}`: deletes the account; 204 (since 2026-10-07) |
 | GET | `/api/coach/availability` | `availability` | Signed-in: `{available, reason}` (since 2026-10-07) |
 | POST | `/api/coach/messages` | `post_message` | Signed-in: one coach reply with suggested actions; both messages saved in one transaction (since 2026-10-07) |
 | GET | `/api/resume-analyses/availability` | `availability` | Signed-in: `{available, reason, career, roadmap_id}` for the `/resume` page; feature switch first, then the active roadmap (since 2026-10-07) |

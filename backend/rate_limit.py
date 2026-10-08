@@ -146,6 +146,20 @@ COACH_MESSAGES = {
 }
 
 
+# Account data export (ADR-022): an export reads all of a user's rows, so
+# it is limited per user. Deletion has its own limiter: exporting your data
+# right before deleting the account must never use up the deletion's budget
+# (found in browser QA); deletion also needs a recent password.
+account_limiter = RateLimiter(5, 20, 500, short_scope="hour", short_period=HOUR)
+deletion_limiter = RateLimiter(10, 30, 1000, short_scope="hour", short_period=HOUR)
+
+ACCOUNT_MESSAGES = {
+    "hour": "Too many requests for your account data. Please try again later.",
+    "day": "Too many requests for your account data today. Please try again tomorrow.",
+    "global": "PathwayAI is busy right now. Please try again later.",
+}
+
+
 def _enforce(active: RateLimiter, request: Request, messages: dict, label: str) -> None:
     """Raise 429 when the caller is over a limit.
 
@@ -184,3 +198,13 @@ def limit_resume_requests(user_id: str) -> None:
 def limit_coach_requests(user_id: str) -> None:
     """Per-user limit for POST /api/coach/messages."""
     _raise_if_limited(coach_limiter.check(f"user:{user_id}"), COACH_MESSAGES, "coach")
+
+
+def limit_account_requests(user_id: str) -> None:
+    """Per-user limit for GET /api/me/export."""
+    _raise_if_limited(account_limiter.check(f"user:{user_id}"), ACCOUNT_MESSAGES, "account")
+
+
+def limit_deletion_requests(user_id: str) -> None:
+    """Per-user limit for DELETE /api/me (separate from the export limit)."""
+    _raise_if_limited(deletion_limiter.check(f"user:{user_id}"), ACCOUNT_MESSAGES, "deletion")

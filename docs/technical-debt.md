@@ -99,3 +99,5 @@ Found in the 2026-09-24 audit. When an item is resolved, strike it through and n
 | TD-57 | UX | At 360 px the Results title wraps to 3 lines and the long AI explanation pushes the first career card below the fold | `Results.jsx`, `index.css` |
 | TD-58 | Observability | `google_genai` logs a WARNING about automatic function calling on every Gemini request (noise in production logs); disable AFC in the request config | `llm.py` |
 | ~~TD-49~~ | Dead file | ~~`App.css` intentionally empty~~ — **resolved 2026-09-25** (`aaa8c6e`) | — |
+| TD-75 | Security (accepted) | After an account is deleted, its last access token stays signature-valid until it expires (≤ 1 h; JWTs are stateless). It can't read anything (all rows are gone, RLS returns nothing) and can't refresh; `GET /api/me` would still echo its claims. Acceptable; a token deny-list would need shared state | `auth.py` |
+| TD-76 | Owner action | Password-reset links need `<origin>/reset-password` in Supabase's Redirect URLs; "Secure password change" and leaked-password protection are Supabase dashboard settings (the latter needs a paid plan) | Supabase dashboard |

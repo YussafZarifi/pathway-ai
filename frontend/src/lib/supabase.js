@@ -5,6 +5,12 @@
 import { createClient } from "@supabase/supabase-js";
 
 const SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL || "").trim();
+
+// Read before the client consumes the URL below: a password-reset link
+// lands with "type=recovery" in the hash (ADR-022). The PASSWORD_RECOVERY
+// event can fire before React subscribes, so this is the reliable signal.
+export const openedFromRecoveryLink =
+  typeof window !== "undefined" && /(^|[#&])type=recovery(&|$)/.test(window.location.hash);
 const SUPABASE_KEY = (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || "").trim();
 
 export const supabase =

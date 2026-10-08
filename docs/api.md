@@ -303,8 +303,18 @@ Nothing is saved on any failure. The browser lists threads and messages and dele
 
 ---
 
+## ✅ `GET /api/me/export` (since 2026-10-07, ADR-022)
+One JSON file (`Content-Disposition: attachment; filename="pathwayai-export.json"`, `Cache-Control: no-store`) with everything stored about the signed-in user: `quiz_submissions` (with answers), `roadmaps`, `roadmap_steps`, `step_progress`, `resume_analyses`, `coach_threads`, `coach_messages` (internal `user_id` columns removed), plus `format`, `exported_at` and `account {id, email}`. Read as `pathwayai_api` with the user's claims (RLS). 401 without a token, 503 without a database or when it's unreachable, 429 after 5 exports/hour or 20/day per user.
+
+---
+
+## ✅ `DELETE /api/me` (since 2026-10-07, ADR-022)
+Body `{"confirm": "DELETE"}` (exact; anything else → 422). Needs a **recent password confirmation**: the access token's `amr` claim must show a password sign-in within the last 5 minutes (the page signs in again with the password just before); otherwise 403 "Please confirm your password and try again." Then `private.delete_current_user()` deletes the user; every table cascades and Supabase removes the sessions. **204** (also when the account was already gone). 401 / 503 as above; 429 after 10/hour per user (a separate budget from exports).
+
+---
+
 ## CORS
-Origins come from `ALLOWED_ORIGINS` (comma-separated, no default). Methods GET/POST, header `Content-Type`, no credentials. Error responses (413/429) carry CORS headers too, so the frontend can read their messages.
+Origins come from `ALLOWED_ORIGINS` (comma-separated, no default). Methods GET/POST/DELETE (DELETE since 2026-10-07 for `DELETE /api/me`), headers `Content-Type` and `Authorization`, no credentials (bearer tokens, not cookies, so cross-site request forgery doesn't apply). Error responses (413/429) carry CORS headers too, so the frontend can read their messages.
 
 ---
 

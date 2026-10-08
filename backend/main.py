@@ -16,6 +16,7 @@ from auth import AuthUser, current_user
 from generation import AI_FAILED, generate, generate_roadmap
 from prompts import build_career_prompt
 from rate_limit import limit_ai_requests
+from routers import account as account_router
 from routers import coach as coach_router
 from routers import resume_analyses as resume_router
 from routers import roadmaps as roadmaps_router
@@ -83,7 +84,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=config.ALLOWED_ORIGINS,
     allow_credentials=False,
-    allow_methods=["GET", "POST"],
+    # DELETE: account deletion (DELETE /api/me, ADR-022).
+    allow_methods=["GET", "POST", "DELETE"],
     # Authorization carries the Supabase access token (Bearer, not a cookie,
     # so allow_credentials stays off).
     allow_headers=["Content-Type", "Authorization"],
@@ -139,3 +141,5 @@ app.include_router(roadmaps_router.router)
 app.include_router(resume_router.router)
 # Signed-in users: AI Coach chat (ADR-021).
 app.include_router(coach_router.router)
+# Signed-in users: data export and account deletion (ADR-022).
+app.include_router(account_router.router)

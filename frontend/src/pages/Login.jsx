@@ -4,30 +4,18 @@ import { ArrowRight, MailCheck, UserRound } from "lucide-react";
 import AppHeader from "../components/AppHeader";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/authContext";
-
-const MIN_PASSWORD = 8;
-
-// Supabase Auth error codes → copy we can show. Anything else gets a
-// generic message (raw errors never reach the page).
-const ERROR_COPY = {
-  invalid_credentials: "That email and password don't match an account.",
-  email_not_confirmed: "Please confirm your email first. Check your inbox for the link.",
-  user_already_exists: "An account with this email already exists. Sign in instead.",
-  weak_password: `Choose a stronger password (at least ${MIN_PASSWORD} characters).`,
-  over_email_send_rate_limit: "Too many emails sent. Please wait a few minutes and try again.",
-  over_request_rate_limit: "Too many attempts. Please wait a minute and try again.",
-  email_address_invalid: "Please enter a valid email address.",
-  signup_disabled: "New sign-ups are paused right now.",
-};
-
-function authErrorMessage(error) {
-  return ERROR_COPY[error?.code] || "Something went wrong. Please try again.";
-}
+import { MIN_PASSWORD, authErrorMessage } from "../lib/authErrors";
 
 // Where the email confirmation link lands. It must be listed under
 // Supabase > Authentication > URL Configuration (docs/deployment.md).
 function confirmRedirectUrl() {
   return `${window.location.origin}/home`;
+}
+
+// Where the password-reset link lands (ADR-022); also listed under
+// Supabase > Authentication > URL Configuration.
+function resetRedirectUrl() {
+  return `${window.location.origin}/reset-password`;
 }
 
 // Email + password sign-in and sign-up (ADR-018). Accounts are optional:
@@ -37,7 +25,9 @@ export default function Login() {
   const location = useLocation();
   const { enabled, loading, user } = useAuth();
 
-  const [mode, setMode] = useState(location.state?.mode === "signup" ? "signup" : "signin");
+  const [mode, setMode] = useState(
+    ["signup", "forgot"].includes(location.state?.mode) ? location.state.mode : "signin"
+  );
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
@@ -46,22 +36,42 @@ export default function Login() {
   const [errorCode, setErrorCode] = useState("");
   const [sentTo, setSentTo] = useState("");
   const [resent, setResent] = useState(false);
+  const [resetSent, setResetSent] = useState(false);
 
   const isSignup = mode === "signup";
+  const isForgot = mode === "forgot";
 
   useEffect(() => {
     document.body.classList.add("theme-landing");
-    document.title = `${isSignup ? "Create account" : "Sign in"} · PathwayAI`;
+    document.title = `${isSignup ? "Create account" : isForgot ? "Reset password" : "Sign in"} · PathwayAI`;
     return () => {
       document.body.classList.remove("theme-landing");
       document.title = "PathwayAI";
     };
-  }, [isSignup]);
+  }, [isSignup, isForgot]);
 
   const switchMode = (next) => {
     setMode(next);
     setError("");
     setErrorCode("");
+    setResetSent(false);
+  };
+
+  // Same answer whether or not the email has an account (no enumeration).
+  const handleReset = async (event) => {
+    event.preventDefault();
+    if (busy || !supabase) return;
+    setBusy(true);
+    setError("");
+    const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+      redirectTo: resetRedirectUrl(),
+    });
+    setBusy(false);
+    if (resetError && ["over_email_send_rate_limit", "over_request_rate_limit", "email_address_invalid"].includes(resetError.code)) {
+      setError(authErrorMessage(resetError));
+      return;
+    }
+    setResetSent(true);
   };
 
   const handleSubmit = async (event) => {
@@ -164,6 +174,51 @@ export default function Login() {
           Go to your home
           <ArrowRight size={16} aria-hidden="true" />
         </button>
+      </section>
+    );
+  } else if (isForgot) {
+    content = (
+      <section className="dashCard authCard" aria-labelledby="authTitle">
+        <h1 className="authTitle" id="authTitle">
+          Reset your password
+        </h1>
+        {resetSent ? (
+          <p className="authLead" role="status">
+            If an account exists for <strong>{email.trim()}</strong>, a link to choose a new password
+            is on its way. It works once and expires after an hour.
+          </p>
+        ) : (
+          <>
+            <p className="authLead">Enter your account&apos;s email and we&apos;ll send you a reset link.</p>
+            <form className="authForm" onSubmit={handleReset}>
+              <label className="authField">
+                <span className="authLabel">Email</span>
+                <input
+                  className="textInput"
+                  type="email"
+                  name="email"
+                  autoComplete="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                />
+              </label>
+              {error && (
+                <p className="dashError" role="alert">
+                  {error}
+                </p>
+              )}
+              <button type="submit" className="homePrimaryBtn authSubmit" disabled={busy}>
+                {busy ? "Please wait…" : "Send reset link"}
+              </button>
+            </form>
+          </>
+        )}
+        <p className="authGuest">
+          <button type="button" className="authLink" onClick={() => switchMode("signin")}>
+            Back to sign in
+          </button>
+        </p>
       </section>
     );
   } else if (sentTo) {
@@ -283,6 +338,11 @@ export default function Login() {
               </span>
             )}
           </label>
+          {!isSignup && (
+            <button type="button" className="authLink authForgot" onClick={() => switchMode("forgot")}>
+              Forgot your password?
+            </button>
+          )}
 
           {error && (
             <p className="dashError" role="alert">

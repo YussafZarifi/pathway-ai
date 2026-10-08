@@ -5469,3 +5469,62 @@ body.theme-landing .trustRow {
     opacity: 0.6;
   }
 }
+
+/* Settings (Settings.jsx; ADR-022) */
+.settingsGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+  align-items: start;
+}
+
+.settingsSection {
+  display: grid;
+  gap: 12px;
+}
+
+.settingsTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.settingsText {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.settingsSubmit {
+  justify-self: start;
+}
+
+.settingsSection .dashBtn {
+  justify-self: start;
+}
+
+.settingsDanger {
+  border-color: rgba(252, 165, 165, 0.25);
+}
+
+.settingsDangerBtn {
+  border-color: rgba(252, 165, 165, 0.45);
+  color: #fecaca;
+}
+
+.settingsDangerBtn:hover:not(:disabled) {
+  background: rgba(252, 165, 165, 0.12);
+  border-color: rgba(252, 165, 165, 0.7);
+}
+
+.authForgot {
+  justify-self: start;
+  margin-top: -4px;
+  font-size: 13px;
+}
+
+@media (max-width: 760px) {
+  .settingsGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { supabase, authEnabled } from "../lib/supabase";
+import { supabase, authEnabled, openedFromRecoveryLink } from "../lib/supabase";
 import { AuthContext } from "../lib/authContext";
 
 // Tracks the Supabase session for the whole app. Guests (and builds without
@@ -7,6 +7,9 @@ import { AuthContext } from "../lib/authContext";
 export default function AuthProvider({ children }) {
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(authEnabled);
+  // True after Supabase reports a password-recovery sign-in (the reset
+  // link); /reset-password only accepts a new password then (ADR-022).
+  const [recovery, setRecovery] = useState(authEnabled && openedFromRecoveryLink);
 
   useEffect(() => {
     if (!supabase) return undefined;
@@ -20,9 +23,11 @@ export default function AuthProvider({ children }) {
 
     // Keep this callback synchronous: awaiting other supabase.auth calls
     // inside it can deadlock the client.
-    const { data } = supabase.auth.onAuthStateChange((_event, next) => {
+    const { data } = supabase.auth.onAuthStateChange((event, next) => {
       setSession(next);
       setLoading(false);
+      if (event === "PASSWORD_RECOVERY") setRecovery(true);
+      if (event === "SIGNED_OUT") setRecovery(false);
     });
 
     return () => {
@@ -37,8 +42,10 @@ export default function AuthProvider({ children }) {
       loading,
       session,
       user: session?.user ?? null,
+      recovery,
+      endRecovery: () => setRecovery(false),
     }),
-    [loading, session]
+    [loading, session, recovery]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

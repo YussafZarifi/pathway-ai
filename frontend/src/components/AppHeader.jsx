@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { NavLink } from "react-router-dom";
-import { FileText, House, LayoutDashboard, LogIn, LogOut, Map, MessageSquare } from "lucide-react";
+import { FileText, House, LayoutDashboard, LogIn, LogOut, Map, MessageSquare, Settings } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/authContext";
 
@@ -47,9 +47,10 @@ function AccountControl() {
 
   return (
     <div className="homeAccount">
-      <span className="homeAccountEmail" title={user.email}>
-        {user.email}
-      </span>
+      <NavLink to="/settings" className={navClass} title={`Account settings (${user.email})`}>
+        <Settings size={18} aria-hidden="true" />
+        <span className="homeAccountEmail">{user.email}</span>
+      </NavLink>
       <button
         type="button"
         className="homeNavItem homeAccountBtn"

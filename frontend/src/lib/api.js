@@ -192,3 +192,18 @@ export function postCoachMessage(token, { threadId, message }, { signal } = {}) 
     { signal, token }
   );
 }
+
+// --- Signed-in users: account data (ADR-022) ----------------------------------
+
+/** Everything PathwayAI stores about the user, as one JSON object. */
+export function getAccountExport(token, { signal } = {}) {
+  return request("/api/me/export", null, { signal, token, method: "GET" });
+}
+
+/**
+ * Delete the account. The token must come from a password sign-in made
+ * moments ago (the server checks it; 403 otherwise).
+ */
+export function deleteAccount(token, { signal } = {}) {
+  return request("/api/me", { confirm: "DELETE" }, { signal, token, method: "DELETE" });
+}

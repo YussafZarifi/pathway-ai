@@ -7,9 +7,11 @@ export const AuthContext = createContext({
   loading: false,
   session: null,
   user: null,
+  recovery: false,
+  endRecovery: () => {},
 });
 
-/** { enabled, loading, session, user } for the current visitor. */
+/** { enabled, loading, session, user, recovery, endRecovery } for the current visitor. */
 export function useAuth() {
   return useContext(AuthContext);
 }

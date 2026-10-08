@@ -24,6 +24,7 @@ ADR-001 to ADR-008 were **reconstructed on 2026-09-24** from the existing code d
 | ADR-016 | A 5-question quiz, with temporary support for the 8-question answer format | Accepted |
 | ADR-017 | Routing shell: a catch-all 404 route and scroll-to-top on navigation | Accepted |
 | ADR-018 | Supabase for authentication and PostgreSQL | Accepted |
+| ADR-022 | Account management: settings, password reset, data export, self-service deletion (recent password, private security-definer function) | Accepted 2026-10-07 |
 | ADR-021 | AI Coach: signed-in chat grounded in the user's roadmap, suggestions instead of tool writes | Accepted and implemented 2026-10-07 |
 | ADR-020 | Resume Analyzer: signed-in only, no file storage, structured critique against the current roadmap | Accepted 2026-10-05, implemented 2026-10-07 |
 | ADR-019 | Roadmaps in PostgreSQL: FastAPI writes AI content, the browser writes user state through RLS | Accepted, amended 2026-10-03; implemented 2026-10-03 |
@@ -307,6 +308,20 @@ ADR-001 to ADR-008 were **reconstructed on 2026-09-24** from the existing code d
 - **Status:** Accepted (2026-10-07; the owner delegated design decisions for Version 1 on 2026-10-07). **Implemented 2026-10-07** (Milestone 4, M4-1 → M4-4).
 
 ---
+
+---
+
+## ADR-022 — Account management: settings, password reset, data export and self-service deletion
+- **Date:** 2026-10-07
+- **Context:** Version 1 needs account management (owner, 2026-10-07): edit the display name, change or reset the password, sign out everywhere, get a copy of one's data and delete the account. Constraints: only the publishable key reaches the browser (ADR-018); FastAPI works as the least-privilege `pathwayai_api` role (ADR-019), which can't touch `auth.users`; quiz answers are server-only (`quiz_submissions`), so the browser can't export them itself.
+- **Decision:**
+  - **`/settings` page (signed-in):** display name through RLS (`profiles`, column grant `update (display_name)` since M1); **password change** with Supabase Auth after re-entering the current password (`signInWithPassword` proves it, then `updateUser`); **sign out everywhere** (`signOut({ scope: "global" })`).
+  - **Password reset:** "Forgot password?" on `/login` → `resetPasswordForEmail` with `redirectTo = <origin>/reset-password`; `/reset-password` accepts the recovery session and sets a new password (≥ 8 characters, as at sign-up). The same answer whether or not the email exists (no account enumeration). Owner action: add `<origin>/reset-password` to Supabase Auth's Redirect URLs.
+  - **Data export:** `GET /api/me/export` returns one JSON file (attachment, `Cache-Control: no-store`) with everything stored about the user: quiz submissions (incl. answers), roadmaps with steps and progress, résumé reviews, coach conversations with messages. FastAPI reads it as `pathwayai_api` with the user's claims (RLS). Per-user limit 5/hour; nothing about the content is logged. The page adds the account email and display name it already has.
+  - **Account deletion:** `DELETE /api/me` with body `{"confirm": "DELETE"}` and a **recent password confirmation**: the access token's `amr` claim must show a password sign-in within the last 5 minutes (the page asks for the password and signs in again just before). FastAPI then calls `private.delete_current_user()` — `security definer`, `search_path = ''`, executable **only by `pathwayai_api`**, deleting only the row of `private.request_user_id()` (the verified user's claims). Every table cascades from `auth.users`, so all data goes in one statement; Supabase removes the sessions with it. No delete function is exposed to the browser's Data API.
+- **Alternatives considered:** a service-role key in FastAPI calling the Auth admin API (a full-power secret on the server for one feature — rejected); a `security definer` RPC callable by `authenticated` from the browser (works, but exposes an account-deleting endpoint to any stolen browser token without a recent-password check, and the advisor flags such functions); exporting in the browser (can't include quiz answers, which are server-only by design).
+- **Consequences:** one migration (the function and its grant), two routes, two pages (`/settings`, `/reset-password`). A stolen access token alone can't delete an account (it needs the password within 5 minutes). Password reset depends on the owner's Supabase redirect configuration and the free-plan email limits (TD-65).
+- **Status:** Accepted (2026-10-07; owner-delegated Version 1 decision).
 
 ---
 
