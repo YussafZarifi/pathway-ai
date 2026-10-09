@@ -39,6 +39,7 @@ import db
 import llm
 import resume_ai
 from auth import AuthUser, current_user
+from session_check import live_user
 from body_limit import TOO_LARGE
 from generation import ai_http_error
 from rate_limit import limit_resume_requests
@@ -147,7 +148,7 @@ def availability(
 # order); `pdf` comes last so nothing is read before the checks pass.
 @router.post("", status_code=201)
 def create_analysis(
-    user: AuthUser = Depends(current_user),
+    user: AuthUser = Depends(live_user),
     repo: ResumeAnalysisRepository = Depends(get_repository),
     _enabled: None = Depends(require_enabled),
     _pdf_type: None = Depends(require_pdf),

@@ -27,6 +27,7 @@ from pydantic import BaseModel, ConfigDict
 
 import db
 from auth import CLOCK_SKEW_SECONDS, AuthUser, current_user
+from session_check import live_user
 from rate_limit import limit_account_requests, limit_deletion_requests
 from repositories.account import AccountRepository, PostgresAccountRepository
 
@@ -63,7 +64,7 @@ def limit_deletions(user: AuthUser = Depends(current_user)) -> None:
 
 @router.get("/export")
 def export_data(
-    user: AuthUser = Depends(current_user),
+    user: AuthUser = Depends(live_user),
     repo: AccountRepository = Depends(get_repository),
     _limit: None = Depends(limit_requests),
 ):
@@ -92,7 +93,7 @@ def export_data(
 @router.delete("", status_code=204)
 def delete_account(
     payload: DeleteAccountRequest,
-    user: AuthUser = Depends(current_user),
+    user: AuthUser = Depends(live_user),
     repo: AccountRepository = Depends(get_repository),
     _limit: None = Depends(limit_deletions),
 ):

@@ -27,6 +27,7 @@ import config
 import db
 import llm
 from auth import AuthUser, current_user
+from session_check import live_user
 from generation import ai_http_error
 from rate_limit import limit_coach_requests
 from repositories.coach import CoachRepository, PostgresCoachRepository, ThreadFull, ThreadNotFound
@@ -94,7 +95,7 @@ def _title(message: str) -> str:
 @router.post("/messages", status_code=201)
 def post_message(
     payload: CoachMessageRequest,
-    user: AuthUser = Depends(current_user),
+    user: AuthUser = Depends(live_user),
     repo: CoachRepository = Depends(get_repository),
     _enabled: None = Depends(require_enabled),
     _limit: None = Depends(limit_requests),

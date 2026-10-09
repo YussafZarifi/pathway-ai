@@ -43,6 +43,9 @@ class AuthUser:
     # came from another method (e.g. a recovery link). Used for actions that
     # need a recent password confirmation (account deletion, ADR-022).
     password_at: int | None = None
+    # The Supabase session the token belongs to (`session_id` claim); the
+    # session_check module refuses tokens whose session has ended.
+    session_id: str | None = None
 
 
 def password_time(claims: dict) -> int | None:
@@ -107,7 +110,13 @@ def verify_token(token: str) -> AuthUser:
     if claims.get("role") != "authenticated" or claims.get("is_anonymous") is True:
         raise _unauthorized()
 
-    return AuthUser(id=claims["sub"], email=claims.get("email") or None, password_at=password_time(claims))
+    session_id = claims.get("session_id")
+    return AuthUser(
+        id=claims["sub"],
+        email=claims.get("email") or None,
+        password_at=password_time(claims),
+        session_id=session_id if isinstance(session_id, str) else None,
+    )
 
 
 def current_user(authorization: str | None = Header(default=None)) -> AuthUser:

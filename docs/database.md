@@ -64,6 +64,8 @@ Migration `20261008035233_create_step_notes`: `step_notes (step_id + user_id →
 
 Migration `20261008033106_create_delete_current_user`: `private.delete_current_user()` — `security definer`, `search_path = ''`, executable only by `pathwayai_api` (revoked from `public`, `anon`, `authenticated`), deletes the `auth.users` row of `private.request_user_id()` (the claims FastAPI sets from a verified token) and returns whether a row was deleted. Every PathwayAI table cascades from `auth.users`. Checks: `supabase/tests/v1_delete_current_user.sql` (8: browser and anon can't call it; no claims → nothing deleted; deletes exactly the claimed user and all their rows; others untouched; second call is a no-op; the API role still can't read `auth.users`).
 
+Migration `20261009033403_create_session_is_active` (ADR-022 amendment): `private.session_is_active(p_session_id uuid)` — `security definer`, `search_path = ''`, true only while that `auth.sessions` row belongs to the user in the request claims and hasn't passed `not_after`; executable only by `pathwayai_api`. FastAPI calls it before guarded routes (`session_check.py`). Checks: `supabase/tests/v1_session_is_active.sql` (7).
+
 ## Browser storage (✅): the guest flow
 
 For guests (and builds without accounts) all roadmap persistence is **client-side**, in two `localStorage` keys: `pathwayai_roadmap` (the current roadmap, since 2026-09-26, ADR-013) and `pathwayai_tracking` (events, metrics, progress).

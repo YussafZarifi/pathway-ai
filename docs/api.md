@@ -335,3 +335,7 @@ Origins come from `ALLOWED_ORIGINS` (comma-separated, no default). Methods GET/P
 | GET | `/r/{slug}` | Public shared roadmap |
 
 Conventions for new endpoints: plural nouns, `/v1` prefix, Pydantic request **and** response models, consistent error envelope `{ "error": { "code", "message", "requestId" } }`, rate-limited, never echo internal exceptions.
+
+## Ended sessions (ADR-022 amendment, 2026-10-08)
+
+`POST /api/roadmaps`, `/api/roadmaps/import`, `/api/roadmaps/{id}/regenerate`, `/api/roadmaps/{id}/activate`, `POST /api/resume-analyses`, `POST /api/coach/messages`, `GET /api/me/export` and `DELETE /api/me` also check that the token's Supabase session still exists (`private.session_is_active`). A token from a signed-out session or a deleted account → **401** "Please sign in again." before any other work; if the check itself fails → **503**.

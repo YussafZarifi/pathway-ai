@@ -30,6 +30,7 @@ from pydantic import TypeAdapter, ValidationError
 import db
 from ai_output import Career
 from auth import AuthUser, current_user
+from session_check import live_user
 from generation import generate_roadmap, prompt_version
 from rate_limit import limit_ai_requests, limit_import_requests
 from repositories.roadmaps import PostgresRoadmapRepository, RoadmapRepository
@@ -90,7 +91,7 @@ def _save(action: str, fn, *args, **kwargs):
 @router.post("", status_code=201)
 def create_roadmap(
     payload: SaveRoadmapRequest,
-    user: AuthUser = Depends(current_user),
+    user: AuthUser = Depends(live_user),
     repo: RoadmapRepository = Depends(get_repository),
     _limit: None = Depends(limit_ai_requests),
 ):
@@ -145,7 +146,7 @@ def _lenient_career_data(raw: dict | None) -> dict | None:
 def import_roadmap(
     payload: ImportRoadmapRequest,
     response: Response,
-    user: AuthUser = Depends(current_user),
+    user: AuthUser = Depends(live_user),
     repo: RoadmapRepository = Depends(get_repository),
     _limit: None = Depends(limit_import_requests),
 ):
@@ -184,7 +185,7 @@ def import_roadmap(
 @router.post("/{roadmap_id}/regenerate", status_code=201)
 def regenerate_roadmap(
     roadmap_id: uuid.UUID,
-    user: AuthUser = Depends(current_user),
+    user: AuthUser = Depends(live_user),
     repo: RoadmapRepository = Depends(get_repository),
     _limit: None = Depends(limit_ai_requests),
 ):
@@ -216,7 +217,7 @@ def regenerate_roadmap(
 @router.post("/{roadmap_id}/activate")
 def activate_roadmap(
     roadmap_id: uuid.UUID,
-    user: AuthUser = Depends(current_user),
+    user: AuthUser = Depends(live_user),
     repo: RoadmapRepository = Depends(get_repository),
     _limit: None = Depends(limit_import_requests),
 ):
