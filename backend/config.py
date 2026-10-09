@@ -40,6 +40,12 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "").strip()
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "").strip() or "gemini-2.5-flash-lite"
 GEMINI_TIMEOUT_SECONDS = _int("GEMINI_TIMEOUT_SECONDS", 30)
 
+# Check AI-suggested resource links before showing a roadmap (ROADMAP P-7;
+# link_check.py: public HTTPS only, SSRF-safe). Drops only clearly broken
+# links. Set false to skip the check (e.g. an environment without outbound
+# internet).
+LINK_CHECK_ENABLED = _bool("LINK_CHECK_ENABLED", True)
+
 # Comma-separated frontend origins, e.g. "https://pathwayai.onrender.com".
 ALLOWED_ORIGINS = _origins(os.getenv("ALLOWED_ORIGINS", ""))
 

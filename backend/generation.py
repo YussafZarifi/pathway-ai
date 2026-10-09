@@ -6,6 +6,8 @@ from concurrent.futures import ThreadPoolExecutor
 
 from fastapi import HTTPException
 
+import config
+import link_check
 import llm
 import youtube
 from ai_output import RoadmapSchema, parse_roadmap
@@ -50,7 +52,12 @@ def generate_roadmap(answers, career: str) -> dict:
         prompt, f"roadmap v{answers.version}", RoadmapSchema,
         lambda text: parse_roadmap(text, career),
     )
-    add_videos(result, career)
+    # Videos and link checks run side by side; both are network-bound.
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        videos = pool.submit(add_videos, result, career)
+        if config.LINK_CHECK_ENABLED:
+            link_check.filter_resources(result["roadmap"])
+        videos.result()
     return result
 
 

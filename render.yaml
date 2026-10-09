@@ -41,6 +41,9 @@ services:
       # project (the unpaid tier's terms forbid personal information).
       - key: RESUME_ANALYSIS_ENABLED
         value: "false"
+      # Drop clearly broken AI resource links (link_check.py; SSRF-safe).
+      - key: LINK_CHECK_ENABLED
+        value: "true"
       # AI Coach (ADR-021): "false" switches it off (saves Gemini quota).
       - key: COACH_ENABLED
         value: "true"

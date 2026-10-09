@@ -82,7 +82,7 @@ Rules for every Version 2 commit (keep it deployable): backend tests pass; lint 
 | ~~P-4~~ | ✅ 2026-10-08: career matches sorted by match % on the server (`parse_careers`) | XS | ★★ |
 | ~~P-5~~ | ✅ 2026-10-08: Results says matches are sorted and that match %, salaries (US dollars, full-time) and growth are AI estimates, not measurements | S | ★★★ |
 | ~~P-6~~ | ✅ 2026-10-08: no "Coming soon" left — the Resume Analyzer and AI Coach are real; Landing's cards are real buttons ("With a free account" / "Needs an account" when accounts are off) | S | ★★★ |
-| P-7 | Check AI resource links before showing them (3 of 13 broken in one review roadmap, incl. an invented YouTube video): server-side HEAD check or drop unverifiable links (TD-21, B-3). Added from the review evidence | M | ★★★ |
+| ~~P-7~~ | ✅ 2026-10-08: AI resource links are checked before a roadmap is shown (`link_check.py`, one HEAD each, SSRF-safe: public HTTPS only, vetted at connect time, redirects re-checked); clearly broken links (404/410, no such host, non-HTTPS) are dropped, inconclusive ones kept. Also closes B-3 (https only) | M | ★★★ |
 
 ### Medium / low priority
 | ID | Task | Priority | Effort |
@@ -195,7 +195,7 @@ F-8, F-13 and F-18 are Version 2 Milestones 2–4 (see 🎯 Version 2); the rest
 |---|---|---|---|
 | B-1 | Quiz keyboard shortcuts (1–9, Enter, ←) + sessionStorage answer persistence | P2 | S |
 | B-2 | Copy roadmap as Markdown | P3 | XS |
-| B-3 | Validate AI URLs (https only), mark external | P1 | XS |
+| ~~B-3~~ | ✅ 2026-10-08 with P-7: only HTTPS resource links survive the link check | P1 | XS |
 | B-4 | Toasts instead of `alert()` | P3 | XS |
 | ~~B-5~~ | ✅ 2026-10-07: per-step notes and target dates (account through RLS, guests in localStorage), due chips and dashboard reminders | P2 | M |
 | B-6 | Regenerate single step / adjust difficulty | P2 | M |

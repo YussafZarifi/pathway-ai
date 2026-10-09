@@ -12,6 +12,8 @@ os.environ["ALLOWED_ORIGINS"] = "http://localhost:5173"
 # Never reach the real database from tests, whatever backend/.env says
 # (load_dotenv doesn't override variables that are already set).
 os.environ["DATABASE_URL"] = ""
+# No network: the resource-link check is tested with fakes (test_link_check.py).
+os.environ["LINK_CHECK_ENABLED"] = "false"
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
