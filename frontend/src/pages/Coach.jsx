@@ -63,7 +63,6 @@ export default function Coach() {
   const inputRef = useRef(null);
   const sendAbort = useRef(null);
 
-
   const refreshAvailability = useCallback(async (signal) => {
     try {
       const data = await checkAvailability({ signal });

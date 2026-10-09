@@ -60,7 +60,6 @@ export default function Landing() {
   const { enabled, user } = useAuth();
   const [accountsDialogOpen, setAccountsDialogOpen] = useState(false);
 
-
   // The footer's "About" link (/#about) lands here.
   useEffect(() => {
     if (location.hash === "#about") document.getElementById("about")?.scrollIntoView({ block: "start" });

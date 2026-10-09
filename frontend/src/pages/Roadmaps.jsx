@@ -49,7 +49,6 @@ export default function Roadmaps() {
   const [busyId, setBusyId] = useState(null);
   const [note, setNote] = useState({ text: "", error: false });
 
-
   const load = useCallback(async () => {
     setState((prev) => ({ ...prev, status: "loading", error: "" }));
     try {

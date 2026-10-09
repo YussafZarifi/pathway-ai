@@ -56,7 +56,6 @@ export default function Settings() {
   const [delState, setDelState] = useState({ busy: false, text: "", error: false });
   const [deleted, setDeleted] = useState(false);
 
-
   // Typed text always wins over a load that finishes later.
   const nameEdited = useRef(false);
 

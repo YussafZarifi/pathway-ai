@@ -17,7 +17,6 @@ export default function ResetPassword() {
   const [confirm, setConfirm] = useState("");
   const [state, setState] = useState({ busy: false, text: "", error: false, done: false });
 
-
   async function onSubmit(event) {
     event.preventDefault();
     const problem = newPasswordProblem(next, confirm);

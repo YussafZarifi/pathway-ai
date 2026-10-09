@@ -54,7 +54,6 @@ export default function Dashboard() {
   const [scrollTarget, setScrollTarget] = useState(null);
   const openedFromHash = useRef(false);
 
-
   const hasRoadmap = Boolean(record);
 
   useEffect(() => {

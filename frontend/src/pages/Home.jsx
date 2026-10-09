@@ -24,7 +24,6 @@ export default function Home() {
     ? { career: record.career, summary: summarizeProgress(record.statuses) }
     : null;
 
-
   return (
     <div className="homePage">
       <AppHeader />

@@ -188,7 +188,6 @@ export default function Resume() {
   const [historyError, setHistoryError] = useState("");
   const analyzeAbort = useRef(null);
 
-
   const refreshAvailability = useCallback(async (signal) => {
     setAvailability((prev) => ({ ...prev, status: prev.data ? "ready" : "loading" }));
     try {
