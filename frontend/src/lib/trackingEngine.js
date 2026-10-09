@@ -9,6 +9,29 @@ import { validateEvent, EVENT_TYPES, METRIC_NAMES } from "../data/trackingSchema
 const STORAGE_KEY = "pathwayai_tracking";
 const VERSION = "1.0.0";
 
+// The event log and metric histories are capped so localStorage can't fill
+// up over months of use (B-18). The dashboard reads the last 14 days of
+// events and the first event of each type (achievement dates), so the
+// oldest events are dropped except each type's first.
+export const MAX_EVENTS = 500;
+export const MAX_METRIC_VALUES = 100;
+
+export function capEvents(events, max = MAX_EVENTS) {
+  if (events.length <= max) return events;
+  const firstOfType = new Set();
+  const seen = new Set();
+  for (const e of events) {
+    if (!seen.has(e?.type)) {
+      seen.add(e?.type);
+      firstOfType.add(e);
+    }
+  }
+  const keepFirsts = events.filter((e) => firstOfType.has(e));
+  const recent = events.filter((e) => !firstOfType.has(e)).slice(-(max - keepFirsts.length));
+  const keep = new Set([...keepFirsts, ...recent]);
+  return events.filter((e) => keep.has(e));
+}
+
 // ✅ Re-export so pages can do: import { EVENT_TYPES, METRIC_NAMES } from "../lib/trackingEngine"
 export { EVENT_TYPES, METRIC_NAMES };
 
@@ -87,8 +110,13 @@ function getTrackingData() {
     progress: data.progress && typeof data.progress === "object" ? data.progress : {},
   };
 
-  // Persist patch if something was missing
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(patched));
+  // Persist only when a field was actually missing (reads stay reads, B-18).
+  const complete =
+    Array.isArray(data.events) &&
+    data.metrics && typeof data.metrics === "object" &&
+    data.progress && typeof data.progress === "object" &&
+    Object.keys(defaultTrackingData()).every((key) => key in data);
+  if (!complete) saveTrackingData(patched);
   return patched;
 }
 
@@ -140,6 +168,7 @@ export function trackEvent(type, payload = {}) {
     };
 
     data.events.push(event);
+    data.events = capEvents(data.events);
 
     // Basic counters (safe)
     data.totalScreensViewed = (data.totalScreensViewed || 0) + 1;
@@ -192,6 +221,9 @@ export function trackMetric(name, value) {
       value,
       timestamp: Date.now(),
     });
+    if (metric.values.length > MAX_METRIC_VALUES) {
+      metric.values = metric.values.slice(-MAX_METRIC_VALUES);
+    }
 
     const values = metric.values.map((v) => v.value);
     const sum = values.reduce((s, v) => s + v, 0);

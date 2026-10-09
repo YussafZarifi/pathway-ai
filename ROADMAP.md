@@ -212,7 +212,7 @@ F-8, F-13 and F-18 are Version 2 Milestones 2–4 (see 🎯 Version 2); the rest
 | B-17 | Streaks + activity heatmap | P3 | M |
 | B-19 | Real "AI insights": a Gemini endpoint that comments on the user's progress (the dashboard's Insights are rule-based today) | P3 | M |
 | B-20 | Multiple saved roadmaps in localStorage (switch between careers) before accounts | P2 | M |
-| B-18 | Prune or cap localStorage event log; stop write-on-read in `getTrackingData` | P2 | S |
+| ~~B-18~~ | ✅ 2026-10-08: event log capped at 500 (each type's first event kept for achievement dates), metric histories at 100 values; reads no longer rewrite localStorage | P2 | S |
 
 ## 🌟 Stretch Goals
 
