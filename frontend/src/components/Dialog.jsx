@@ -4,7 +4,7 @@ import { X } from "lucide-react";
 // Accessible modal built on the native <dialog> (showModal): focus trap,
 // Esc to close and focus return to the trigger come from the browser.
 // Clicking the backdrop closes it.
-export default function Dialog({ isOpen, onClose, title, children, actions }) {
+export default function Dialog({ isOpen, onClose, title, children, actions, wide = false }) {
   const dialogRef = useRef(null);
   const titleId = useId();
   const descId = useId();
@@ -24,7 +24,7 @@ export default function Dialog({ isOpen, onClose, title, children, actions }) {
   return (
     <dialog
       ref={dialogRef}
-      className="appDialog"
+      className={`appDialog ${wide ? "appDialog--wide" : ""}`}
       aria-labelledby={titleId}
       aria-describedby={descId}
       onClose={onClose}

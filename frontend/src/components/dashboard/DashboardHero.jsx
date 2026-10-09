@@ -25,7 +25,7 @@ export default function DashboardHero({ career, careerData, summary, remaining, 
 
       <div className="dashHeroBody">
         <div className="dashEyebrow">Pursuing</div>
-        <h1 id="dashCareerTitle" className="dashHeroTitle">
+        <h1 id="dashCareerTitle" className="dashHeroTitle" tabIndex={-1}>
           {career}
         </h1>
 

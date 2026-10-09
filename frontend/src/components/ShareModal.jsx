@@ -1,79 +1,62 @@
-import { motion } from "framer-motion";
-import { X, Download, Printer } from "lucide-react";
+import { useState } from "react";
+import { Download, Printer } from "lucide-react";
+import Dialog from "./Dialog";
 
+// Save the results as a PDF or print them, in the shared accessible dialog
+// (TD-20). Failures are shown inline, not with alert() (B-4).
 export default function ShareModal({ isOpen, onClose, selectedCareer }) {
-  if (!isOpen) return null;
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
 
   const handleDownloadPdf = async () => {
+    setBusy(true);
+    setError("");
     try {
       const { default: html2pdf } = await import("html2pdf.js");
-
       const element = document.querySelector(".resultsPage");
-      const opt = {
-        margin: 0.5,
-        filename: `pathway-ai-${selectedCareer?.toLowerCase().replace(/\s+/g, "-")}.pdf`,
-        image: { type: "jpeg", quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true },
-        jsPDF: { unit: "in", format: "letter", orientation: "portrait" }
-      };
-
-      await html2pdf().set(opt).from(element).save();
-    } catch (error) {
-      console.error("PDF generation failed:", error);
-      alert("Failed to generate PDF. Please try again.");
+      const name = (selectedCareer || "results").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+      await html2pdf()
+        .set({
+          margin: 0.5,
+          filename: `pathwayai-${name || "results"}.pdf`,
+          image: { type: "jpeg", quality: 0.98 },
+          html2canvas: { scale: 2, useCORS: true },
+          jsPDF: { unit: "in", format: "letter", orientation: "portrait" },
+        })
+        .from(element)
+        .save();
+    } catch (e) {
+      console.error("[PathwayAI] PDF generation failed:", e?.name || "Error");
+      setError("We couldn't create the PDF. Please try again, or use Print and choose \"Save as PDF\".");
+    } finally {
+      setBusy(false);
     }
   };
 
-  const handlePrint = () => {
-    window.print();
-  };
-
   return (
-    <motion.div
-      className="shareModalOverlay"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      onClick={onClose}
-    >
-      <motion.div
-        className="shareModalContent"
-        initial={{ scale: 0.95, y: 20 }}
-        animate={{ scale: 1, y: 0 }}
-        exit={{ scale: 0.95, y: 20 }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="shareModalHeader">
-          <h2 className="shareModalTitle">Save Your Results</h2>
-          <button className="shareModalClose" onClick={onClose} aria-label="Close">
-            <X size={24} />
-          </button>
-        </div>
-
-        <div className="shareModalBody">
-          <p className="shareModalSubtitle">
-            Save a copy of your career matches.
-          </p>
-
-          <div className="shareOptions">
-            <button className="shareOption" onClick={handleDownloadPdf}>
-              <Download size={24} />
-              <div>
-                <h3 className="shareOptionTitle">Download as PDF</h3>
-                <p className="shareOptionDesc">Save your career matches as a PDF file</p>
-              </div>
-            </button>
-
-            <button className="shareOption" onClick={handlePrint}>
-              <Printer size={24} />
-              <div>
-                <h3 className="shareOptionTitle">Print</h3>
-                <p className="shareOptionDesc">Open print dialog for physical copy</p>
-              </div>
-            </button>
-          </div>
-        </div>
-      </motion.div>
-    </motion.div>
+    <Dialog isOpen={isOpen} onClose={onClose} title="Save your results">
+      <p className="shareModalSubtitle">Save a copy of your career matches.</p>
+      <div className="shareOptions">
+        <button type="button" className="shareOption" onClick={handleDownloadPdf} disabled={busy}>
+          <Download size={24} aria-hidden="true" />
+          <span>
+            <span className="shareOptionTitle">{busy ? "Creating the PDF…" : "Download as PDF"}</span>
+            <span className="shareOptionDesc">Save your career matches as a PDF file</span>
+          </span>
+        </button>
+        <button type="button" className="shareOption" onClick={() => window.print()}>
+          <Printer size={24} aria-hidden="true" />
+          <span>
+            <span className="shareOptionTitle">Print</span>
+            <span className="shareOptionDesc">Open the print dialog for a paper copy</span>
+          </span>
+        </button>
+      </div>
+      {error && (
+        <p className="dashError" role="alert">
+          {error}
+        </p>
+      )}
+    </Dialog>
   );
 }

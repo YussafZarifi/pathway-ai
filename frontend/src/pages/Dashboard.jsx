@@ -160,8 +160,10 @@ export default function Dashboard() {
       trackMetric(METRIC_NAMES.ROADMAP_STEPS_TOTAL, total);
 
       setExpanded(new Set());
-      // Same route, so ScrollToTop doesn't run: show the new roadmap from its hero.
+      // Same route, so ScrollToTop doesn't run: show the new roadmap from its
+      // hero and move keyboard focus to its title (TD-54).
       window.scrollTo(0, 0);
+      requestAnimationFrame(() => document.getElementById("dashCareerTitle")?.focus({ preventScroll: true }));
     } catch (e) {
       console.error("Error regenerating roadmap:", e);
       setRegenError(

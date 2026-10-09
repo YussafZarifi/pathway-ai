@@ -1,5 +1,5 @@
 // src/pages/Quiz.jsx
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { QUESTIONS } from "../data/questions";
@@ -10,6 +10,9 @@ export default function Quiz() {
   const [step, setStep] = useState(0);
   const [answers, setAnswers] = useState({});
   const [quizStartTime] = useState(() => Date.now());
+  // After Continue/Back, keyboard and screen-reader focus moves to the new
+  // question's heading once it has animated in (TD-54).
+  const focusNextTitle = useRef(false);
   const navigate = useNavigate();
 
   // Track session start on mount
@@ -59,6 +62,7 @@ export default function Quiz() {
     const isLast = step === questions.length - 1;
 
     if (!isLast) {
+      focusNextTitle.current = true;
       setStep((s) => s + 1);
       return;
     }
@@ -86,6 +90,7 @@ export default function Quiz() {
   }
 
   function prev() {
+    focusNextTitle.current = true;
     setStep((s) => Math.max(0, s - 1));
   }
 
@@ -122,7 +127,19 @@ export default function Quiz() {
             exit={{ opacity: 0, y: -14 }}
             transition={{ duration: 0.22 }}
           >
-            <h1 className="qTitle" id={titleId}>{q.title}</h1>
+            <h1
+              className="qTitle"
+              id={titleId}
+              tabIndex={-1}
+              ref={(el) => {
+                if (el && focusNextTitle.current) {
+                  focusNextTitle.current = false;
+                  el.focus({ preventScroll: true });
+                }
+              }}
+            >
+              {q.title}
+            </h1>
             {q.subtitle && <p className="qSub">{q.subtitle}</p>}
 
             {/* ✅ Single choice */}

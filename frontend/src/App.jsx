@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
+import { MotionConfig } from "framer-motion";
 import AuthProvider from "./components/AuthProvider";
 import ThemeGate from "./components/ThemeGate";
 import ScrollToTop from "./components/ScrollToTop";
@@ -27,41 +28,44 @@ function RouteErrorBoundary({ children }) {
 export default function App() {
   return (
     <AuthProvider>
-      <BrowserRouter>
-        <ScrollToTop />
-        <ThemeGate>
-          <RouteErrorBoundary>
-            <Routes>
-              {/* Public pages (Aurora) */}
-              <Route path="/" element={<Landing />} />
+      {/* Honour the OS "reduce motion" setting for every framer-motion animation (TD-33). */}
+      <MotionConfig reducedMotion="user">
+        <BrowserRouter>
+          <ScrollToTop />
+          <ThemeGate>
+            <RouteErrorBoundary>
+              <Routes>
+                {/* Public pages (Aurora) */}
+                <Route path="/" element={<Landing />} />
 
-              {/* Home page (Noir) */}
-              <Route path="/home" element={<Home />} />
-              <Route path="/quiz" element={<Quiz />} />
-              <Route path="/results" element={<Results />} />
+                {/* Home page (Noir) */}
+                <Route path="/home" element={<Home />} />
+                <Route path="/quiz" element={<Quiz />} />
+                <Route path="/results" element={<Results />} />
 
-              {/* Accounts (optional; ADR-018) */}
-              <Route path="/login" element={<Login />} />
-              <Route path="/reset-password" element={<ResetPassword />} />
-              <Route path="/settings" element={<Settings />} />
+                {/* Accounts (optional; ADR-018) */}
+                <Route path="/login" element={<Login />} />
+                <Route path="/reset-password" element={<ResetPassword />} />
+                <Route path="/settings" element={<Settings />} />
 
-              {/* Dashboard (Noir) */}
-              <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/roadmaps" element={<Roadmaps />} />
+                {/* Dashboard (Noir) */}
+                <Route path="/dashboard" element={<Dashboard />} />
+                <Route path="/roadmaps" element={<Roadmaps />} />
 
-              {/* Resume Analyzer (signed-in; ADR-020) */}
-              <Route path="/resume" element={<Resume />} />
+                {/* Resume Analyzer (signed-in; ADR-020) */}
+                <Route path="/resume" element={<Resume />} />
 
-              {/* AI Coach (signed-in; ADR-021) */}
-              <Route path="/coach" element={<Coach />} />
+                {/* AI Coach (signed-in; ADR-021) */}
+                <Route path="/coach" element={<Coach />} />
 
-              {/* Anything else: branded 404 instead of a blank page */}
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </RouteErrorBoundary>
-          <AppFooter />
-        </ThemeGate>
-      </BrowserRouter>
+                {/* Anything else: branded 404 instead of a blank page */}
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </RouteErrorBoundary>
+            <AppFooter />
+          </ThemeGate>
+        </BrowserRouter>
+      </MotionConfig>
     </AuthProvider>
   );
 }

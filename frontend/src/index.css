@@ -5933,3 +5933,37 @@ button.landingFeatureCard:focus-visible {
     padding: 9px;
   }
 }
+
+/* Wide dialog (career comparison) and share options inside the shared dialog */
+.appDialog--wide {
+  width: min(960px, calc(100% - 32px));
+}
+
+.appDialog--wide .compareGrid {
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.shareOptionTitle,
+.shareOptionDesc {
+  display: block;
+}
+
+.shareOption {
+  text-align: left;
+  font: inherit;
+  color: inherit;
+}
+
+/* Headings that receive focus programmatically (quiz steps, regenerate) */
+.qTitle:focus,
+.dashHeroTitle:focus {
+  outline: none;
+}
+
+.qTitle:focus-visible,
+.dashHeroTitle:focus-visible {
+  outline: 2px solid var(--dash-accent, #a855f7);
+  outline-offset: 4px;
+  border-radius: 6px;
+}

@@ -87,7 +87,7 @@ Rules for every Version 2 commit (keep it deployable): backend tests pass; lint 
 ### Medium / low priority
 | ID | Task | Priority | Effort |
 |---|---|---|---|
-| N-21 | Accessibility + quality batch: keyboard focus after quiz steps and regenerate (TD-54); keyboard-operable Landing card, `aria-pressed` on career cards (TD-55); quiet aborted requests (TD-53); Esc + focus for Compare and Share dialogs via the shared `Dialog` (TD-20); reduced-motion support with `MotionConfig reducedMotion="user"` (TD-33) | P1 | M |
+| ~~N-21~~ | ✅ 2026-10-08: keyboard focus moves to the new question after Continue/Back and to the roadmap title after regenerating (TD-54); career cards expose `aria-pressed`/`aria-expanded` and Landing's cards are buttons (TD-55); aborted requests are no longer logged as errors (TD-53); Compare and Share use the shared native dialog (Esc, focus trap and return; TD-20); `MotionConfig reducedMotion="user"` app-wide (TD-33). Also: no "Work environment: N/A" row (TD-56), no `alert()` (B-4) | P1 | M |
 | P-8 | Typography consistency: one font on buttons, hour choices and headings (buttons don't inherit the body font; heavy Results heading) (TD-59) | P2 | S |
 | P-9 | Header consistency: brand header on Quiz and Results; a Landing link back to a saved roadmap for returning visitors (was N-15); Results "Back to home" target matches the header's Home (TD-60) | P2 | S |
 | P-10 | Animation polish: the quiz card no longer jumps between questions (Continue moves); no card overlap while Results cards animate (TD-61) | P2 | S |
@@ -196,7 +196,7 @@ F-8, F-13 and F-18 are Version 2 Milestones 2–4 (see 🎯 Version 2); the rest
 | B-1 | Quiz keyboard shortcuts (1–9, Enter, ←) + sessionStorage answer persistence | P2 | S |
 | B-2 | Copy roadmap as Markdown | P3 | XS |
 | ~~B-3~~ | ✅ 2026-10-08 with P-7: only HTTPS resource links survive the link check | P1 | XS |
-| B-4 | Toasts instead of `alert()` | P3 | XS |
+| ~~B-4~~ | ✅ 2026-10-08: the last `alert()` (PDF failure) became an inline message | P3 | XS |
 | ~~B-5~~ | ✅ 2026-10-07: per-step notes and target dates (account through RLS, guests in localStorage), due chips and dashboard reminders | P2 | M |
 | B-6 | Regenerate single step / adjust difficulty | P2 | M |
 | B-7 | Weekly plan view | P2 | M |

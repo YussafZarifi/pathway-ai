@@ -177,8 +177,9 @@ export default function Results() {
           explanation: data.explanation,
         });
       } catch (e) {
-        console.error("Error fetching careers:", e);
+        // An aborted request (leaving the page) is not an error (TD-53).
         if (e.name !== "AbortError") {
+          console.error("[PathwayAI] Career suggestions failed:", e?.status ?? e?.name);
           setError(errorMessage(e, "Could not generate results. Please try again."));
         }
       } finally {
@@ -233,8 +234,8 @@ export default function Results() {
         state: { career: selectedCareer, roadmap: steps },
       });
     } catch (e) {
-      console.error("Error generating roadmap:", e);
       if (e.name !== "AbortError") {
+        console.error("[PathwayAI] Roadmap generation failed:", e?.status ?? e?.name);
         setError(errorMessage(e, "Could not generate roadmap. Please try again."));
       }
     } finally {
@@ -262,8 +263,8 @@ export default function Results() {
       // Track career regeneration
       trackEvent(EVENT_TYPES.CAREER_REGENERATED, {});
     } catch (e) {
-      console.error("Error regenerating careers:", e);
       if (e.name !== "AbortError") {
+        console.error("[PathwayAI] Regenerating careers failed:", e?.status ?? e?.name);
         setError(errorMessage(e, "Could not regenerate results. Please try again."));
       }
     } finally {
@@ -458,6 +459,8 @@ export default function Results() {
                             className={`careerCard ${
                               selected ? "selected" : ""
                             } ${isExpanded ? "expanded" : ""}`}
+                            aria-pressed={selected}
+                            aria-expanded={!compareMode ? isExpanded : undefined}
                             onClick={() => {
                               setSelectedCareer(career.title);
                               if (!compareMode)
