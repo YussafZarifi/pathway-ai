@@ -103,7 +103,7 @@ Current limitations: no streaming, no caching, and salary figures are generated 
 | AI | Google Gemini (`google-genai` SDK, `gemini-2.5-flash-lite`) |
 | Auth + DB | Supabase Auth (email + password), Supabase Postgres (9 tables, RLS, SQL-tested policies), PyJWT token verification, psycopg 3 |
 | Storage | Browser `localStorage` for guests; Supabase Postgres for signed-in users |
-| Quality | pytest (523 backend tests), Vitest + Testing Library (149 frontend tests), 151 SQL policy checks, ESLint, GitHub Actions CI, pip-audit + npm audit |
+| Quality | pytest (526 backend tests), Vitest + Testing Library (149 frontend tests), 151 SQL policy checks, ESLint, GitHub Actions CI, pip-audit + npm audit |
 
 ---
 

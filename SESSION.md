@@ -4,7 +4,23 @@
 
 ---
 
-## Current session — 2026-10-05 → 2026-10-08 · Version 1 build and final security audit
+## Current session — 2026-10-09 · Production API docs hardening
+
+### Summary
+- Verified `main`, `origin`, the 95-commit pre-session divergence, and the existing untracked local tooling files. The changes are local only; nothing was pushed or deployed.
+- Baseline: backend 523 passed, frontend 149 passed, lint passed, build passed, `npm audit --offline` found 0 vulnerabilities. The backend's default Python lacked pytest, so tests were run with `backend/.venv`. Vitest/Vite needed an elevated run after sandbox `spawn EPERM`.
+- Completed `API_DOCS_ENABLED`: `/docs`, `/redoc` and `/openapi.json` are disabled by default and explicitly off in Render; local development can opt in. Added 3 backend regression cases and updated deployment/project docs.
+- Final checks: backend 526 passed (one known Starlette/httpx deprecation warning), frontend 149 passed, lint passed, build passed (existing large-chunk warning), npm audit 0 vulnerabilities. Manually confirmed docs return 200 with the local opt-in enabled.
+- `pip-audit` was unavailable in the environment. Database SQL checks were not run against the production Supabase project. Security review confirmed this change only affects documentation route registration; auth, RLS, SSRF, AI, upload, validation, rate limits, secrets, logging and user data paths are unchanged.
+- Local code commit: `b8b450b fix(api): disable interactive docs in production`; followed by a documentation-sync commit. Final branch divergence: 97 commits ahead of `origin/main`.
+
+### Remaining work and next task
+- Highest-priority code hardening from `CODEX_HANDOFF.md`: constrain trusted forwarded-IP hops so spoofed `X-Forwarded-For` cannot evade per-IP limits.
+- Then address stale counts/descriptions across project docs and the owner-side launch tasks. No production settings, database, push or deployment was touched.
+
+## History
+
+### Version 1 build and final security audit — 2026-10-05 to 2026-10-08
 
 ### Summary
 - **Milestone 3 — Resume Analyzer (ADR-020), 2026-10-05 → 10-07:** `resume_analyses` table (28 SQL checks), `resume_ai.py` (strict validation, reject-never-repair), `POST /api/resume-analyses` (auth → database → switch → type → limit → roadmap, all before the body; 2 MB counted while streaming), availability route, `/resume` page with history and delete. Off by default (`RESUME_ANALYSIS_ENABLED=false`) until Gemini billing; only synthetic résumés analyzed.
@@ -36,7 +52,6 @@
 
 ---
 
-## History
 - 2026-10-04 — Pre-Milestone 3 audit: JWT clock-skew leeway, body limits counted while reading (chunked bypass fixed), backend and frontend dependency upgrades (0 vulnerabilities); live audit 50/50.
 - 2026-10-03 — Milestone 2 complete (M2-2 → M2-11), see ROADMAP 🗄️ Milestone 2 and ADR-019.
 - 2026-10-03 — Milestone 2 (M2-2 → M2-11): roadmap tables + `pathwayai_api` role, pooled login, backend pool/repository/endpoints, frontend repositories, account mode, import banner, QA; ADR-019 amended (`private.request_user_id()`).
