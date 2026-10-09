@@ -89,3 +89,7 @@ COACH_LIMIT_PER_DAY = _int("COACH_LIMIT_PER_DAY", 60)
 COACH_GLOBAL_LIMIT_PER_DAY = _int("COACH_GLOBAL_LIMIT_PER_DAY", 300)
 
 LOG_LEVEL =os.getenv("LOG_LEVEL", "").strip().upper() or "INFO"
+
+# FastAPI's interactive schemas expose route details. Keep them disabled by
+# default; local development can opt in with API_DOCS_ENABLED=true.
+API_DOCS_ENABLED = _bool("API_DOCS_ENABLED", False)

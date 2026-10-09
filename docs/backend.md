@@ -42,6 +42,7 @@ A small FastAPI app in `backend/`. Run locally with `uvicorn main:app --reload -
 | `ALLOWED_ORIGINS` | empty | Comma-separated CORS origins, trailing slash tolerated. **No localhost default**: empty means no browser origin is allowed (warning at startup) |
 | `GEMINI_MODEL` | `gemini-2.5-flash-lite` | |
 | `GEMINI_TIMEOUT_SECONDS` | 30 | Per Gemini request |
+| `API_DOCS_ENABLED` | `false` | Set `true` only for local development; controls `/docs`, `/redoc` and `/openapi.json` |
 | `RATE_LIMIT_PER_MINUTE` | 8 | Per client IP, AI endpoints combined |
 | `RATE_LIMIT_PER_DAY` | 50 | Per client IP |
 | `GLOBAL_AI_LIMIT_PER_DAY` | 500 | All clients together |

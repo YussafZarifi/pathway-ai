@@ -23,6 +23,12 @@ def test_health(client):
     assert r.headers["X-Request-ID"]
 
 
+@pytest.mark.parametrize("path", ["/docs", "/redoc", "/openapi.json"])
+def test_api_documentation_is_disabled_by_default(client, path):
+    response = client.get(path)
+    assert response.status_code == 404
+
+
 def test_roadmap_success_shape(client, fake_gemini):
     fake_gemini(roadmap_reply())
     r = client.post("/api/ai/roadmap", json={"answers": ANSWERS, "career": "DevOps Engineer"}, headers=ORIGIN)

@@ -43,7 +43,13 @@ async def lifespan(app: FastAPI):
     db.close()  # the saved-roadmap pool, if it was ever opened
 
 
-app = FastAPI(title="PathwayAI API", lifespan=lifespan)
+app = FastAPI(
+    title="PathwayAI API",
+    lifespan=lifespan,
+    docs_url="/docs" if config.API_DOCS_ENABLED else None,
+    redoc_url="/redoc" if config.API_DOCS_ENABLED else None,
+    openapi_url="/openapi.json" if config.API_DOCS_ENABLED else None,
+)
 
 if not config.ALLOWED_ORIGINS:
     logger.warning("ALLOWED_ORIGINS is empty: browsers on other origins can't call this API")

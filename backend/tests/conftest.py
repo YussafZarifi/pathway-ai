@@ -14,6 +14,7 @@ os.environ["ALLOWED_ORIGINS"] = "http://localhost:5173"
 os.environ["DATABASE_URL"] = ""
 # No network: the resource-link check is tested with fakes (test_link_check.py).
 os.environ["LINK_CHECK_ENABLED"] = "false"
+os.environ["API_DOCS_ENABLED"] = "false"
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
