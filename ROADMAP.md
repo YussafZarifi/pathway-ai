@@ -1,7 +1,7 @@
 # ROADMAP.md — Living roadmap
 
 > Sections: ✅ Completed · 🎯 Version 2 (current focus) · 🔐 Milestone 1 · 🗄️ Milestone 2 · 📄 Milestone 3 · ⏸️ Deployment (postponed) · 🌱 Post-Launch Improvements · 🔮 Future Features · 📦 Backlog · 🌟 Stretch. Update at the end of every coding session. Move items between sections, set dates when completed.
-> **Current focus (owner, 2026-10-01): Version 2 = Milestones 1–4.** Deployment is postponed until Version 2 is complete; every commit must still keep the project deployable (CLAUDE.md §11).
+> **Status (2026-10-08): Version 2 = Milestones 1–4 is complete, plus the Version 1 extras** (account management, roadmap history, step notes and reminders, P-1–P-11, N-10/N-14/N-21, F-4 CI, B-18) and a final security audit. **Next:** the owner's review and actions, then push/deploy (D-1–D-6) only on the owner's go-ahead. Everything still open below is an enhancement, not a defect.
 > **Priority:** P0 = blocker/critical · P1 = high · P2 = medium · P3 = nice-to-have
 > **Effort:** XS < 1h · S 1–2h · M ~half day · L 1–3 days · XL multiple days
 > **Recruiter impact:** ★★★ high · ★★ medium · ★ low
@@ -174,8 +174,8 @@ F-8, F-13 and F-18 are Version 2 Milestones 2–4 (see 🎯 Version 2); the rest
 |---|---|---|---|---|
 | F-7 | **Supabase Authentication** (ADR-018) — Milestone 1 (C-29); **account management done 2026-10-07** (ADR-022: `/settings` with name, password change, sign-out everywhere, data export, self-service deletion; password reset). OAuth providers remain (need provider setup in the Supabase dashboard) | P1 | M | ★★★ |
 | F-8 | ✅ **Milestone 2 — PostgreSQL** (done 2026-10-03, C-30; Supabase Postgres, ADR-019): `quiz_submissions`, `roadmaps`, `roadmap_steps`, `step_progress` + migrations; import the browser-saved roadmap after sign-in (confirmation banner). Steps: 🗄️ Milestone 2 | P1 | L | ★★★ |
-| F-13 | **Milestone 3 — Resume Analyzer**: PDF upload → Gemini multimodal → structured critique vs target career | P1 | L | ★★★ |
-| F-18 | **Milestone 4 — AI Coach**: chat with memory and tool calling (read/update roadmap, find resources); was S-1 | P1 | XL | ★★★ |
+| ~~F-13~~ | ✅ **Milestone 3 — Resume Analyzer** (2026-10-07, ADR-020): PDF upload → Gemini → strict structured critique against the target career; off by default until Gemini billing | P1 | L | ★★★ |
+| ~~F-18~~ | ✅ **Milestone 4 — AI Coach** (2026-10-07, ADR-021): grounded chat with saved threads and user-confirmed suggested actions (no tool writes) | P1 | XL | ★★★ |
 | ~~F-2~~ | ✅ 2026-10-07: Vitest + Testing Library, 64 tests (`api.js`, `roadmapStore.js`, `dashboardData.js`, `lib/resume`, `AnalysisView`, `/resume`); `npm test` | P1 | L | ★★★ |
 | F-3 | Playwright E2E: quiz → results → dashboard with mocked API | P1 | M | ★★★ |
 | ~~F-4~~ | ✅ 2026-10-08: `.github/workflows/ci.yml` — backend pytest + pip-audit, frontend lint, Vitest, build, npm audit (no secrets; runs once the branch is pushed) | P1 | S | ★★★ |
