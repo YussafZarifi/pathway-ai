@@ -88,10 +88,10 @@ Rules for every Version 2 commit (keep it deployable): backend tests pass; lint 
 | ID | Task | Priority | Effort |
 |---|---|---|---|
 | ~~N-21~~ | ✅ 2026-10-08: keyboard focus moves to the new question after Continue/Back and to the roadmap title after regenerating (TD-54); career cards expose `aria-pressed`/`aria-expanded` and Landing's cards are buttons (TD-55); aborted requests are no longer logged as errors (TD-53); Compare and Share use the shared native dialog (Esc, focus trap and return; TD-20); `MotionConfig reducedMotion="user"` app-wide (TD-33). Also: no "Work environment: N/A" row (TD-56), no `alert()` (B-4) | P1 | M |
-| P-8 | Typography consistency: one font on buttons, hour choices and headings (buttons don't inherit the body font; heavy Results heading) (TD-59) | P2 | S |
-| P-9 | Header consistency: brand header on Quiz and Results; a Landing link back to a saved roadmap for returning visitors (was N-15); Results "Back to home" target matches the header's Home (TD-60) | P2 | S |
-| P-10 | Animation polish: the quiz card no longer jumps between questions (Continue moves); no card overlap while Results cards animate (TD-61) | P2 | S |
-| P-11 | Remaining UI polish from the review (TD-62): naming (Resume Feedback vs Resume Analyzer, Share icon opens download/print), error message placement/wording, hint on the disabled "Generate roadmap", reveal "+1" skills, no check marks on undone tasks, first-visit dashboard stats/achievements/insights, compare "Work environment: N/A" (TD-56), mobile Results fold (TD-57), dashboard footer, Landing icon alignment | P2 | M |
+| ~~P-8~~ | ✅ 2026-10-08: form controls inherit the page font; Results heading 36 px / 700 (TD-59) | P2 | S |
+| ~~P-9~~ | ✅ 2026-10-08: shared `AppHeader` on Quiz and Results; Results "Back to home" → `/home`; Landing's header already links returning visitors to their roadmap (TD-60) | P2 | S |
+| ~~P-10~~ | ✅ 2026-10-08: quiz card anchored under the header with a minimum height — Continue stays at the same y on all 5 questions at 1280 px (was 485–580) (TD-61) | P2 | S |
+| ~~P-11~~ | ✅ 2026-10-08: download icon for Download/print; regenerate error shown as a banner above the roadmap with clearer wording; hint under a disabled "Generate roadmap"; "+N more" skills revealed when a card expands; neutral bullets for undone tasks; "Quick win" only names the next step (never out of order); phone Results fold (TD-57); fixed: at ≤420 px the header nav was empty (icons and labels both hidden) | P2 | M |
 | N-22 | `og:image` link-preview card (1200×630) + `og:url` once the live URL exists | P2 | XS |
 | ~~N-13~~ | ✅ 2026-10-07: ESLint at 0 errors (real unused vars fixed; `motion` allowed by name) | P2 | S |
 | ~~F-12~~ | ✅ 2026-10-08: React error boundary around the routes (reset on navigation; logs only the error's name) | P1 | XS |

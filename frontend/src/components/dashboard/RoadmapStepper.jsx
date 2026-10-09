@@ -4,7 +4,7 @@ import {
   Clock,
   PlayCircle,
   ExternalLink,
-  CheckCircle2,
+  Circle,
   BookOpen,
   ListChecks,
 } from "lucide-react";
@@ -55,7 +55,7 @@ function StepDetails({ step, index, note, onSaveNote }) {
           <ul className="timelineTasksList">
             {tasks.map((task, idx) => (
               <li key={idx} className="timelineTaskItem">
-                <CheckCircle2 size={14} aria-hidden="true" />
+                <Circle size={8} aria-hidden="true" />
                 <span>{task}</span>
               </li>
             ))}

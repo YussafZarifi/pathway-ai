@@ -3,6 +3,7 @@ import {
   estimateRemaining,
   formatWeeksRange,
   getActivity,
+  getInsights,
   getReminders,
   parseTargetDate,
   getStepStatuses,
@@ -152,5 +153,32 @@ describe("parseTargetDate", () => {
     expect(parseTargetDate("2026-02-30")).toBeNull();
     expect(parseTargetDate("10/07/2026")).toBeNull();
     expect(parseTargetDate("")).toBeNull();
+  });
+});
+
+describe("getInsights quick win (TD-62)", () => {
+  const roadmap = [
+    { title: "A", time: "3 weeks" },
+    { title: "B", time: "1 week" },
+    { title: "C", time: "4 weeks" },
+  ];
+  const statuses = (doneCount) => roadmap.map((_, i) => ({ index: i, done: i < doneCount, completedAt: i < doneCount ? 1 : null }));
+  const ids = (doneCount) =>
+    getInsights({ roadmap, statuses: statuses(doneCount), summary: summarizeProgress(statuses(doneCount)), remaining: null, activity: null })
+      .map((x) => x.id);
+
+  it("never suggests a later step out of order on a first visit", () => {
+    expect(ids(0)).toEqual(["start"]);
+  });
+
+  it("names the next step when it is also the shortest one left", () => {
+    expect(ids(1)).toContain("shortest");
+  });
+
+  it("stays quiet when a later step is shorter than the next one", () => {
+    const later = [{ title: "A", time: "1 week" }, { title: "B", time: "4 weeks" }, { title: "C", time: "1 week" }];
+    const st = later.map((_, i) => ({ index: i, done: i < 1, completedAt: i < 1 ? 1 : null }));
+    const out = getInsights({ roadmap: later, statuses: st, summary: summarizeProgress(st), remaining: null, activity: null });
+    expect(out.map((x) => x.id)).not.toContain("shortest");
   });
 });

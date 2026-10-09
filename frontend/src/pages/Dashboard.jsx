@@ -163,7 +163,7 @@ export default function Dashboard() {
     } catch (e) {
       console.error("Error regenerating roadmap:", e);
       setRegenError(
-        errorMessage(e, "Couldn't generate a new roadmap.") + " Your current one is unchanged."
+        errorMessage(e, "Couldn't generate a new roadmap.") + " Your current roadmap and progress are still here."
       );
     } finally {
       setRegenerating(false);
@@ -348,6 +348,11 @@ export default function Dashboard() {
                 {stepError}
               </p>
             )}
+            {regenError && (
+              <p className="dashError dashError--banner" role="alert">
+                {regenError}
+              </p>
+            )}
 
             {regenerating ? (
               <div className="stepperSkeleton" aria-hidden="true">
@@ -378,7 +383,6 @@ export default function Dashboard() {
             <QuickActions
               canRegenerate={record.canRegenerate}
               regenerating={regenerating}
-              error={regenError}
               onRegenerate={() => setConfirmRegenerate(true)}
               onRetakeQuiz={() => navigate("/quiz")}
               onOpenResume={() => navigate("/resume")}

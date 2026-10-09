@@ -24,7 +24,6 @@ function ActionButton({ icon, label, hint, onClick, disabled, tone }) {
 export default function QuickActions({
   canRegenerate,
   regenerating,
-  error,
   onRegenerate,
   onRetakeQuiz,
   onOpenResume,
@@ -76,12 +75,6 @@ export default function QuickActions({
           tone="coach"
         />
       </div>
-
-      {error && (
-        <p className="dashError" role="alert">
-          {error}
-        </p>
-      )}
     </section>
   );
 }

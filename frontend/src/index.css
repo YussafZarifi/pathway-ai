@@ -27,6 +27,14 @@ body:not(.theme-landing) {
   box-sizing: border-box;
 }
 
+/* Form controls don't inherit the page font by default (P-8). */
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+}
+
 body {
   margin: 0;
   font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
@@ -68,8 +76,8 @@ body.theme-landing .resultsSummary {
 
 /* Results title positioning */
 .resultsTitleMain {
-  font-size: 42px;
-  font-weight: 800;
+  font-size: 36px;
+  font-weight: 700;
   letter-spacing: -0.8px;
   margin: 0;
   line-height: 1.1;
@@ -595,9 +603,6 @@ body.theme-landing .badge {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 34px 18px;
   position: relative;
   isolation: isolate;
   background: #000000;
@@ -666,6 +671,16 @@ body.theme-landing .badge {
   background: rgba(168, 85, 247, 0.08);
 }
 
+/* Below the shared header; the card starts at a fixed height and keeps a
+   minimum size so Continue doesn't move between questions (P-10). */
+.quizBody {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: clamp(24px, 6vh, 64px) 18px 34px;
+}
+
 .quizTop {
   width: 100%;
   max-width: 860px;
@@ -713,6 +728,28 @@ body.theme-landing .badge {
   background: rgba(255, 255, 255, 0.03);
   padding: 34px 40px;
   box-shadow: 0 30px 90px rgba(0, 0, 0, 0.55), 0 20px 60px rgba(168, 85, 247, 0.1);
+  display: flex;
+  flex-direction: column;
+  min-height: 560px;
+}
+
+/* Tall enough on wide screens for the longest question (with its optional
+   career field), so Continue stays put. */
+@media (min-width: 901px) {
+  .quizCard {
+    min-height: 690px;
+  }
+}
+
+.quizStep {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.quizStep .quizBottom {
+  margin-top: auto;
+  padding-top: 22px;
 }
 
 .qTitle {
@@ -954,6 +991,12 @@ body.theme-landing .badge {
   gap: 12px;
   flex-wrap: wrap;
   margin-top: 18px;
+}
+
+.resultsHint {
+  margin: 10px 0 0;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.6);
 }
 
 /* From Uiverse.io by dexter-st */
@@ -1642,12 +1685,6 @@ body.theme-landing .badge {
   }
 }
 
-@media (max-width: 420px) {
-  .homeNavItem svg {
-    display: none;
-  }
-}
-
 .careerCard {
   position: relative;
   text-align: left;
@@ -1752,7 +1789,6 @@ body.theme-landing .badge {
   min-height: 100vh;
   background: #000000;
   color: #ffffff;
-  padding: 30px 20px;
   position: relative;
   isolation: isolate;
 }
@@ -1826,6 +1862,10 @@ body.theme-landing .badge {
   color: #ffffff;
 }
 
+.resultsMain {
+  padding: 30px 20px;
+}
+
 .resultsCard {
   max-width: 900px;
   margin: 0 auto;
@@ -1879,6 +1919,32 @@ body.theme-landing .badge {
 .resultsHeaderActions {
   display: flex;
   gap: 8px;
+}
+
+/* Phones: a shorter title and tighter frame so the first match shows
+   sooner (TD-57). */
+@media (max-width: 520px) {
+  .resultsMain {
+    padding: 16px 10px;
+  }
+
+  .resultsCard {
+    padding: 22px 16px;
+  }
+
+  .resultsTitleMain {
+    font-size: 26px;
+    letter-spacing: -0.4px;
+  }
+
+  .resultsHeader {
+    margin-bottom: 14px;
+  }
+
+  .resultsSummary {
+    font-size: 15px;
+    line-height: 1.5;
+  }
 }
 
 .iconBtn {
@@ -2356,7 +2422,8 @@ body.theme-landing .badge {
 }
 
 .timelineTaskItem svg {
-  color: #22c55e;
+  color: rgba(255, 255, 255, 0.45);
+  fill: currentColor;
   flex-shrink: 0;
 }
 
@@ -3597,6 +3664,15 @@ body.theme-landing .badge {
   margin: 12px 0 0;
   font-size: 13px;
   color: #fca5a5;
+}
+
+.dashError--banner {
+  margin: 0 0 14px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(248, 113, 113, 0.35);
+  background: rgba(248, 113, 113, 0.08);
+  font-size: 14px;
 }
 
 /* Empty state (no roadmap yet) */

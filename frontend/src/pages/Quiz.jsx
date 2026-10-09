@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
+import AppHeader from "../components/AppHeader";
 import { QUESTIONS } from "../data/questions";
 import { trackEvent, trackMetric, startSession, endSession, EVENT_TYPES, METRIC_NAMES } from "../lib/trackingEngine";
 
@@ -105,6 +106,8 @@ export default function Quiz() {
 
   return (
     <div className="quizPage">
+      <AppHeader />
+      <main className="quizBody">
       {/* ✅ Progress bar at the top */}
       <div className="quizTop">
         <div className="progressWrap">
@@ -122,6 +125,7 @@ export default function Quiz() {
         <AnimatePresence mode="wait">
           <motion.div
             key={q.id}
+            className="quizStep"
             initial={{ opacity: 0, y: 14 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -14 }}
@@ -267,6 +271,7 @@ export default function Quiz() {
           </motion.div>
         </AnimatePresence>
       </div>
+      </main>
     </div>
   );
 }

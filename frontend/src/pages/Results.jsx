@@ -22,9 +22,10 @@ import {
   Lightbulb,
   Target,
   RefreshCw,
-  Share2,
+  Download,
   BarChart3,
 } from "lucide-react";
+import AppHeader from "../components/AppHeader";
 import CareerCompareModal from "../components/CareerCompareModal";
 import ShareModal from "../components/ShareModal";
 import { CAREER_DETAILS } from "../data/careerDetails";
@@ -290,6 +291,8 @@ export default function Results() {
 
   return (
     <div className="resultsPage">
+      <AppHeader />
+      <main className="resultsMain">
       <div className="resultsCard">
         <div className="resultsHeader">
           <h1 className="resultsTitleMain">Your Career Matches</h1>
@@ -308,7 +311,7 @@ export default function Results() {
               title="Download or print"
               aria-label="Download or print results"
             >
-              <Share2 size={20} />
+              <Download size={20} aria-hidden="true" />
             </button>
           </div>
         </div>
@@ -379,7 +382,7 @@ export default function Results() {
                   </button>
                   <button
                     className="ghostBtn large"
-                    onClick={() => navigate("/")}
+                    onClick={() => navigate("/home")}
                   >
                     Back to home
                   </button>
@@ -529,7 +532,7 @@ export default function Results() {
 
                             {career.skills && career.skills.length > 0 && (
                               <div className="careerSkills">
-                                {career.skills.slice(0, 4).map((skill, idx) => (
+                                {career.skills.slice(0, isExpanded ? undefined : 4).map((skill, idx) => (
                                   <span
                                     key={idx}
                                     className="careerSkillTag"
@@ -537,9 +540,12 @@ export default function Results() {
                                     {skill}
                                   </span>
                                 ))}
-                                {career.skills.length > 4 && (
-                                  <span className="careerSkillTag more">
-                                    +{career.skills.length - 4}
+                                {!isExpanded && career.skills.length > 4 && (
+                                  <span
+                                    className="careerSkillTag more"
+                                    title={career.skills.slice(4).join(", ")}
+                                  >
+                                    +{career.skills.length - 4} more
                                   </span>
                                 )}
                               </div>
@@ -662,6 +668,7 @@ export default function Results() {
                       className="uiverseBtn large"
                       onClick={generateRoadmap}
                       disabled={!canGenerate || loadingRoadmap}
+                      aria-describedby={!canGenerate ? "generateHint" : undefined}
                       style={
                         !canGenerate
                           ? {
@@ -679,11 +686,16 @@ export default function Results() {
 
                   <button
                     className="ghostBtn large"
-                    onClick={() => navigate("/")}
+                    onClick={() => navigate("/home")}
                   >
                     Back to home
                   </button>
                 </div>
+                {!canGenerate && (
+                  <p className="resultsHint" id="generateHint">
+                    Pick a career above to generate its roadmap.
+                  </p>
+                )}
 
                 {loadingRoadmap && (
                   <div className="roadmapLoading">
@@ -697,6 +709,7 @@ export default function Results() {
           </>
         )}
       </div>
+      </main>
 
       <CareerCompareModal
         isOpen={showCompareModal}

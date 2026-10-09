@@ -259,17 +259,20 @@ export function getInsights({
     });
   }
 
-  // Shortest remaining step, when there's a choice to make.
+  // The next step is also the shortest one left. Steps build on each other,
+  // so a later short step is never suggested out of order (TD-62).
   const remainingSteps = statuses
     .filter((s) => !s.done)
     .map((s) => ({ s, range: parseDurationWeeks(roadmap[s.index]?.time) }))
     .filter((x) => x.range);
-  if (remainingSteps.length > 1) {
-    const shortest = remainingSteps.reduce((a, b) => (b.range.max < a.range.max ? b : a));
+  const shortest = remainingSteps.length > 1
+    ? remainingSteps.reduce((a, b) => (b.range.max < a.range.max ? b : a))
+    : null;
+  if (shortest && summary.done > 0 && shortest.s.index === summary.currentIndex) {
     const step = roadmap[shortest.s.index];
     insights.push({
       id: "shortest",
-      text: `Quick win: "${step.title}" is the shortest step left (${step.time}).`,
+      text: `Quick win: your next step, "${step.title}", is the shortest one left (${step.time}).`,
     });
   }
 
