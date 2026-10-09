@@ -178,7 +178,7 @@ F-8, F-13 and F-18 are Version 2 Milestones 2–4 (see 🎯 Version 2); the rest
 | F-18 | **Milestone 4 — AI Coach**: chat with memory and tool calling (read/update roadmap, find resources); was S-1 | P1 | XL | ★★★ |
 | ~~F-2~~ | ✅ 2026-10-07: Vitest + Testing Library, 64 tests (`api.js`, `roadmapStore.js`, `dashboardData.js`, `lib/resume`, `AnalysisView`, `/resume`); `npm test` | P1 | L | ★★★ |
 | F-3 | Playwright E2E: quiz → results → dashboard with mocked API | P1 | M | ★★★ |
-| F-4 | GitHub Actions CI: lint, test, build (+ E2E) | P1 | S | ★★★ |
+| ~~F-4~~ | ✅ 2026-10-08: `.github/workflows/ci.yml` — backend pytest + pip-audit, frontend lint, Vitest, build, npm audit (no secrets; runs once the branch is pushed) | P1 | S | ★★★ |
 | F-17 | Make the GitHub repo public (owner decision) | P1 | XS | ★★★ |
 | F-14 | Skill-gap analysis (resume skills vs career skills) feeding the roadmap | P2 | L | ★★★ |
 | F-6 | Streaming roadmap generation (SSE) | P1 | L | ★★★ |
