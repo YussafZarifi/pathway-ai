@@ -1,6 +1,6 @@
 # Backend
 
-A small FastAPI app in `backend/`. Run locally with `uvicorn main:app --reload --port 8000`; on Render it runs with `uvicorn main:app --host 0.0.0.0 --port $PORT --proxy-headers --forwarded-allow-ips "*"` (see `render.yaml`).
+A small FastAPI app in `backend/`. Run locally with `uvicorn main:app --reload --port 8000 --no-proxy-headers`; on Render the Blueprint also disables Uvicorn proxy rewriting and the app uses Render's trusted `CF-Connecting-IP` header (see `render.yaml`). For the complete local, Render and future-host configuration, see `docs/deployment.md` and ADR-023.
 
 | File | Role |
 |---|---|
@@ -30,7 +30,7 @@ A small FastAPI app in `backend/`. Run locally with `uvicorn main:app --reload -
 | `auth.py` | Supabase access-token verification: `current_user` dependency, `verify_token` (PyJWT + cached JWKS, ES256/RS256 only, no shared secret, 30 s clock-skew leeway `CLOCK_SKEW_SECONDS` since 2026-10-04; never logs tokens or claims) (added 2026-09-30, ADR-018) |
 | `db.py` | Postgres access for saved roadmaps (ADR-019): lazy `psycopg_pool` pool as `pathwayai_api` through the transaction pooler (prepared statements off), `transaction(user_id)` sets the verified user's claims transaction-locally so RLS applies; connection problems → `DatabaseUnavailable` (added 2026-10-03, M2-5) |
 | `repositories/roadmaps.py` | `RoadmapRepository` Protocol: `create`, `get_source`, `add_regenerated`, `import_local`; `PostgresRoadmapRepository` (every method takes the user id; a per-user transaction-scoped advisory lock serializes one user's writes) and `InMemoryRoadmapRepository` for tests; `roadmap_out` / `step_out` map rows to the API shape (`time_estimate` → `time`) (added 2026-10-03, M2-5) |
-| `tests/` | 526 pytest tests (`requirements-dev.txt`); see `docs/testing.md` |
+| `tests/` | 551 pytest tests (`requirements-dev.txt`); see `docs/testing.md` |
 
 ## Configuration (`config.py`)
 `load_dotenv()` reads `backend/.env` locally; on Render the service environment is used. Template: `backend/.env.example`.
@@ -43,6 +43,8 @@ A small FastAPI app in `backend/`. Run locally with `uvicorn main:app --reload -
 | `GEMINI_MODEL` | `gemini-2.5-flash-lite` | |
 | `GEMINI_TIMEOUT_SECONDS` | 30 | Per Gemini request |
 | `API_DOCS_ENABLED` | `false` | Set `true` only for local development; controls `/docs`, `/redoc` and `/openapi.json` |
+| `TRUSTED_PROXY_MODE` | `none` | `none` ignores forwarded headers; `render` trusts Render's `CF-Connecting-IP`; `cidrs` enables XFF only from configured trusted proxy networks |
+| `TRUSTED_PROXY_CIDRS` | empty | Comma-separated IPv4/IPv6 CIDRs required for `TRUSTED_PROXY_MODE=cidrs` |
 | `RATE_LIMIT_PER_MINUTE` | 8 | Per client IP, AI endpoints combined |
 | `RATE_LIMIT_PER_DAY` | 50 | Per client IP |
 | `GLOBAL_AI_LIMIT_PER_DAY` | 500 | All clients together |
@@ -85,7 +87,7 @@ Full contracts: `docs/api.md`.
 
 ## Rate limiting (`rate_limit.py`, ADR-014)
 Sliding windows keyed by client IP (per minute, per day) plus one global daily window. Only allowed requests are recorded, so memory is bounded by the global cap. Checks the day window before the minute window so the message is accurate. Invalid (422) requests still count, since the dependency runs before body validation.
-- Client IP = `request.client.host`, which Uvicorn fills from `X-Forwarded-For` with `--proxy-headers --forwarded-allow-ips "*"`. A client that forges `X-Forwarded-For` might get a fresh per-IP bucket; the global cap still bounds total spend.
+- Client IP is resolved from the raw socket peer. `TRUSTED_PROXY_MODE=none` (local default) ignores forwarding headers. Render mode trusts only one valid `CF-Connecting-IP` header; Render documents that Cloudflare overwrites it and the app port is not directly reachable. CIDR mode first verifies the socket peer is in `TRUSTED_PROXY_CIDRS`, then walks a single, valid `X-Forwarded-For` chain right-to-left and skips only configured proxy addresses. Untrusted peers, malformed values and duplicate headers fall back to the socket peer. Keep Uvicorn `--no-proxy-headers` enabled so the application sees that peer unchanged.
 - State is per process: resets on restart/deploy and isn't shared between instances. Move to Redis (Render Key Value) before running more than one instance.
 
 ## Error handling

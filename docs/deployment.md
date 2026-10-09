@@ -35,7 +35,7 @@ Still missing before a public launch (not blockers for a first deploy):
 # backend (terminal 1)
 cd backend
 cp .env.example .env          # set GEMINI_API_KEY (optional: YOUTUBE_API_KEY, SUPABASE_URL, DATABASE_URL)
-uvicorn main:app --reload --port 8000
+uvicorn main:app --reload --port 8000 --no-proxy-headers
 
 # frontend (terminal 2)
 cd frontend
@@ -44,11 +44,13 @@ npm run dev                   # http://localhost:5173
 ```
 `backend/.env` and `frontend/.env.local` are git-ignored. `.env.example` sets `ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173` for Vite.
 
+For local development, keep `TRUSTED_PROXY_MODE=none` and `TRUSTED_PROXY_CIDRS` empty. Run Uvicorn with `--no-proxy-headers`; rate limits then use the direct socket peer and ignore forwarded headers. The same command keeps localhost requests predictable even if a browser or test client supplies `X-Forwarded-For`.
+
 ## Render setup (`render.yaml`)
 
 | Service | Type | Root | Build | Start / publish |
 |---|---|---|---|---|
-| `pathwayai-api` | Web service, Python 3.11.9, free plan, Ohio | `backend/` | `pip install -r requirements.txt` | `uvicorn main:app --host 0.0.0.0 --port $PORT --proxy-headers --forwarded-allow-ips "*"`, health check `/health` |
+| `pathwayai-api` | Web service, Python 3.11.9, free plan, Ohio | `backend/` | `pip install -r requirements.txt` | `uvicorn main:app --host 0.0.0.0 --port $PORT --no-proxy-headers`, health check `/health` |
 | `pathwayai-web` | Static site, Node 22 | `frontend/` | `npm ci && npm run build` | publishes `dist/`; rewrite `/*` → `/index.html` (BrowserRouter) |
 
 Both have `buildFilter` paths, so a frontend-only change doesn't redeploy the API and vice versa.
@@ -70,11 +72,15 @@ Both have `buildFilter` paths, so a frontend-only change doesn't redeploy the AP
 | *(Supabase dashboard)* | auth | Authentication → URL Configuration | Add `<frontend origin>/reset-password` to **Redirect URLs** so password-reset links work (ADR-022). Recommended: Authentication → Providers → Email → **Secure password change** on, and leaked-password protection (paid plans) |
 | `LINK_CHECK_ENABLED` | api | `"true"` in the Blueprint | Check AI-suggested resource links with one HEAD request each before a roadmap is shown and drop clearly broken ones (404/410, no such host, non-HTTPS). Public HTTPS on port 443 only; hosts are vetted at connect time (no private/loopback/link-local/metadata addresses, no DNS rebinding); redirects re-checked. Needs outbound internet; `false` skips it |
 | `API_DOCS_ENABLED` | api | `"false"` in the Blueprint | Controls FastAPI's `/docs`, `/redoc` and `/openapi.json`. Keep disabled in production; set `true` only for local development |
+| `TRUSTED_PROXY_MODE` | api | `"render"` in the Blueprint | Trust Render's Cloudflare-overwritten `CF-Connecting-IP` header. Uvicorn proxy rewriting is disabled so raw socket peers remain available for the app's trust checks |
+| `TRUSTED_PROXY_CIDRS` | api | unset on Render | For other platforms, set `TRUSTED_PROXY_MODE=cidrs` and list the exact IPv4/IPv6 proxy CIDRs. The app accepts XFF only when the immediate socket peer matches one of them |
 | `COACH_ENABLED` | api | `"true"` in the Blueprint | AI Coach (ADR-021, Milestone 4). `false` → `POST /api/coach/messages` returns 503 and the page says the coach isn't available. Needs `SUPABASE_URL` and `DATABASE_URL`. Each message is one Gemini request. Invalid values stop startup |
 | `COACH_LIMIT_PER_HOUR` / `COACH_LIMIT_PER_DAY` / `COACH_GLOBAL_LIMIT_PER_DAY` | api | optional, Dashboard | Coach messages per signed-in user per hour (default 20) and day (60), and for everyone per day (300). In process memory |
 | `RESUME_LIMIT_PER_HOUR` / `RESUME_LIMIT_PER_DAY` / `RESUME_GLOBAL_LIMIT_PER_DAY` | api | optional, Dashboard | Résumé analyses per signed-in user per hour (default 3) and day (10), and for everyone per day (100). In process memory, like the other limits |
 | `VITE_SUPABASE_URL` | web | `sync: false` | Optional, build time: same project URL. Unset → no account UI (guest-only build) |
 | `VITE_SUPABASE_PUBLISHABLE_KEY` | web | `sync: false` | Optional, build time: the `sb_publishable_…` key (public by design). **Never** the secret / service_role key |
+
+Render mode is safe for this public web service because Render routes public requests through its managed Cloudflare and load-balancer ingress; Render documents that the service port is not directly reachable and that Cloudflare overwrites `CF-Connecting-IP`. Do not enable `render` mode on another host. For a future proxy, set `TRUSTED_PROXY_MODE=cidrs`, set `TRUSTED_PROXY_CIDRS` to only that provider's documented proxy source networks (comma-separated IPv4 and/or IPv6 CIDRs), and keep `--no-proxy-headers`. The trusted proxy must append the actual client and proxy hops to a single `X-Forwarded-For` field; the API walks from the right and skips only trusted CIDRs. Never use `0.0.0.0/0` or `::/0` as trusted proxy CIDRs. If the provider cannot provide stable proxy source ranges, use a provider-authenticated client-IP header and a dedicated deployment mode rather than trusting XFF from all peers.
 
 ### Supabase (accounts, ADR-018)
 - Project `pczczkmkavmxibxureck`, free plan. Schema: `supabase/migrations/` (see `docs/database.md`).

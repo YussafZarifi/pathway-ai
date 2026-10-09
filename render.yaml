@@ -10,9 +10,9 @@ services:
     region: ohio
     rootDir: backend
     buildCommand: pip install -r requirements.txt
-    # --proxy-headers + --forwarded-allow-ips: take the client IP from
-    # Render's proxy (X-Forwarded-For) so rate limits apply per visitor.
-    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT --proxy-headers --forwarded-allow-ips "*"
+    # Keep Uvicorn from interpreting caller-controlled forwarded headers.
+    # The app trusts Render's Cloudflare-overwritten CF-Connecting-IP instead.
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT --no-proxy-headers
     healthCheckPath: /health
     buildFilter:
       paths:
@@ -46,6 +46,8 @@ services:
         value: "true"
       - key: API_DOCS_ENABLED
         value: "false"
+      - key: TRUSTED_PROXY_MODE
+        value: "render"
       # AI Coach (ADR-021): "false" switches it off (saves Gemini quota).
       - key: COACH_ENABLED
         value: "true"

@@ -5,6 +5,7 @@ set in the service's environment. Nothing here has a localhost default:
 without ALLOWED_ORIGINS no browser origin may call the API.
 """
 
+import ipaddress
 import os
 
 from dotenv import load_dotenv
@@ -36,6 +37,29 @@ def _origins(raw: str) -> list[str]:
     return [o.strip().rstrip("/") for o in raw.split(",") if o.strip()]
 
 
+def _trusted_proxy_mode(raw: str) -> str:
+    mode = raw.strip().lower() or "none"
+    if mode not in {"none", "render", "cidrs"}:
+        raise RuntimeError("TRUSTED_PROXY_MODE must be none, render or cidrs")
+    return mode
+
+
+def _proxy_networks(raw: str) -> tuple[ipaddress.IPv4Network | ipaddress.IPv6Network, ...]:
+    networks = []
+    for value in raw.split(","):
+        value = value.strip()
+        if not value:
+            continue
+        try:
+            network = ipaddress.ip_network(value, strict=False)
+        except ValueError:
+            raise RuntimeError("TRUSTED_PROXY_CIDRS must contain valid IPv4 or IPv6 CIDRs") from None
+        if network.prefixlen == 0:
+            raise RuntimeError("TRUSTED_PROXY_CIDRS cannot include a global /0 network")
+        networks.append(network)
+    return tuple(networks)
+
+
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "").strip()
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "").strip() or "gemini-2.5-flash-lite"
 GEMINI_TIMEOUT_SECONDS = _int("GEMINI_TIMEOUT_SECONDS", 30)
@@ -48,6 +72,20 @@ LINK_CHECK_ENABLED = _bool("LINK_CHECK_ENABLED", True)
 
 # Comma-separated frontend origins, e.g. "https://pathwayai.onrender.com".
 ALLOWED_ORIGINS = _origins(os.getenv("ALLOWED_ORIGINS", ""))
+
+# Client IP forwarding is disabled unless the deployment explicitly identifies
+# its proxy topology. Render's managed edge uses CF-Connecting-IP; other
+# deployments must list the proxy networks whose X-Forwarded-For chains they
+# operate.
+TRUSTED_PROXY_MODE = _trusted_proxy_mode(os.getenv("TRUSTED_PROXY_MODE", "none"))
+TRUSTED_PROXY_CIDRS = _proxy_networks(os.getenv("TRUSTED_PROXY_CIDRS", ""))
+RENDER_SERVICE_ID = os.getenv("RENDER_SERVICE_ID", "").strip()
+if TRUSTED_PROXY_MODE == "cidrs" and not TRUSTED_PROXY_CIDRS:
+    raise RuntimeError("TRUSTED_PROXY_CIDRS is required when TRUSTED_PROXY_MODE=cidrs")
+if TRUSTED_PROXY_MODE != "cidrs" and TRUSTED_PROXY_CIDRS:
+    raise RuntimeError("TRUSTED_PROXY_CIDRS can only be set when TRUSTED_PROXY_MODE=cidrs")
+if TRUSTED_PROXY_MODE == "render" and not RENDER_SERVICE_ID:
+    raise RuntimeError("TRUSTED_PROXY_MODE=render requires Render's RENDER_SERVICE_ID")
 
 # Rate limits for the AI endpoints (each call spends Gemini quota; each
 # roadmap also spends up to 5 YouTube searches).

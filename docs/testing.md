@@ -1,7 +1,7 @@
 # Testing
 
 ## Current state
-- **Backend: 526 pytest tests** (523 before 2026-10-09; +3 API docs exposure checks) in `backend/tests/`, run with `cd backend && pip install -r requirements-dev.txt && python -m pytest -q` (no network: Gemini is a scripted fake, no keys needed).
+- **Backend: 551 pytest tests** (526 before proxy-IP hardening; +25 proxy-IP regression checks) in `backend/tests/`, run with `cd backend && pip install -r requirements-dev.txt && python -m pytest -q` (no network: Gemini is a scripted fake, no keys needed).
   - `test_ai_output.py` (34): JSON extraction (fences, prose, trailing commas, truncation), defaults for missing fields, dropped bad items, score normalization, limits, content-free errors.
   - `test_llm.py` (16): retry policy (unusable reply, 5xx, timeouts, per-minute vs daily 429, 400), and logs that describe failures without reply content.
   - `test_api.py` (13): `/health`, API docs disabled by default (`/docs`, `/redoc`, `/openapi.json`), response shape, user-friendly 502/503 messages with CORS headers, `Retry-After`, 422 before any Gemini call, rate limit, disallowed origin.

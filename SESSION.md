@@ -4,19 +4,19 @@
 
 ---
 
-## Current session — 2026-10-09 · Production API docs hardening
+## Current session — 2026-10-09 · Trusted proxy IP hardening
 
 ### Summary
-- Verified `main`, `origin`, the 95-commit pre-session divergence, and the existing untracked local tooling files. The changes are local only; nothing was pushed or deployed.
-- Baseline: backend 523 passed, frontend 149 passed, lint passed, build passed, `npm audit --offline` found 0 vulnerabilities. The backend's default Python lacked pytest, so tests were run with `backend/.venv`. Vitest/Vite needed an elevated run after sandbox `spawn EPERM`.
-- Completed `API_DOCS_ENABLED`: `/docs`, `/redoc` and `/openapi.json` are disabled by default and explicitly off in Render; local development can opt in. Added 3 backend regression cases and updated deployment/project docs.
-- Final checks: backend 526 passed (one known Starlette/httpx deprecation warning), frontend 149 passed, lint passed, build passed (existing large-chunk warning), npm audit 0 vulnerabilities. Manually confirmed docs return 200 with the local opt-in enabled.
-- `pip-audit` was unavailable in the environment. Database SQL checks were not run against the production Supabase project. Security review confirmed this change only affects documentation route registration; auth, RLS, SSRF, AI, upload, validation, rate limits, secrets, logging and user data paths are unchanged.
-- Local code commit: `b8b450b fix(api): disable interactive docs in production`; followed by a documentation-sync commit. Final branch divergence: 97 commits ahead of `origin/main`.
+- Verified `main`, `origin`, the local-only commit history, and pre-existing untracked tooling files. No push, deployment, production settings or database changes were made.
+- Hardened rate-limit client-IP extraction: Uvicorn proxy-header rewriting is disabled. Default `none` mode uses the socket peer; Render mode accepts one valid `CF-Connecting-IP` only when Render's service identity is present; generic `cidrs` mode honors one valid XFF chain only from an explicitly trusted socket-peer CIDR and walks it right-to-left. Duplicate, malformed, oversized and excessive-hop chains fall back to the peer. IPv4, IPv6 and IPv4-mapped IPv6 are normalized; `/0` proxy networks are rejected.
+- Added 25 regression checks for proxy modes, Render header behavior, one/multiple hops, spoofing, malformed/duplicate headers, IPv4/IPv6/localhost/direct clients, and rate-limit bypass attempts. Documented local, Render and future-host configuration in `docs/deployment.md` and ADR-023.
+- Final checks: backend 551 passed (one existing Starlette/httpx deprecation warning); frontend lint passed; build passed with the existing large-chunk warning; `npm audit` found 0 vulnerabilities. `pip-audit` is unavailable. Frontend tests and database checks were not requested or run.
+- A first pytest invocation from the repository root hit an existing cwd-relative fixture path; rerunning from `backend/` passed all tests. Frontend checks passed from `frontend/`.
+- Completed this change as one descriptive local commit; no push or deployment.
+- Render picks up `TRUSTED_PROXY_MODE=render` from `render.yaml` on a future approved deploy. Local development stays at `none`; future providers need exact proxy CIDRs and Uvicorn proxy rewriting disabled.
 
 ### Remaining work and next task
-- Highest-priority code hardening from `CODEX_HANDOFF.md`: constrain trusted forwarded-IP hops so spoofed `X-Forwarded-For` cannot evade per-IP limits.
-- Then address stale counts/descriptions across project docs and the owner-side launch tasks. No production settings, database, push or deployment was touched.
+- No additional proxy work is known. Continue with owner review and owner-side launch tasks; push or deploy only on explicit approval.
 
 ## History
 

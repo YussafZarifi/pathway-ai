@@ -138,6 +138,7 @@ ADR-001 to ADR-008 were **reconstructed on 2026-09-24** from the existing code d
 - **Alternatives considered:** keep `http://127.0.0.1:8000` as a dev fallback in `api.js` (rejected: a missing variable would silently ship a broken production build); slowapi (rejected for now, see above); Redis-backed limits (deferred: one free instance doesn't need shared state); a Dockerfile (deferred: Render's native Python runtime is simpler until there is more to package); enumerating every quiz option in the schema (rejected: couples backend to UI copy).
 - **Consequences:** the project can be deployed by applying the Blueprint and entering four values. Local dev needs one extra step (`cp .env.example .env.local`). Rate-limit state resets on every deploy/restart and isn't shared between instances; a client forging `X-Forwarded-For` may get a fresh per-IP bucket, but the global cap still bounds spend. Invalid requests count toward the limits. The free plan sleeps, so the frontend timeout is 90 s. Response validation (N-8), tests/CI (F-2–F-4) and error tracking (F-11) remain before a public launch.
 - **Status:** Accepted.
+- **Amendment (2026-10-09, ADR-023):** Uvicorn no longer rewrites the socket peer from forwarded headers. Local mode ignores forwarding headers; Render uses its Cloudflare-overwritten `CF-Connecting-IP`; other hosts must configure exact trusted proxy CIDRs before XFF is honored. This replaces ADR-014's original wildcard proxy trust.
 
 ## ADR-015 — Validated AI output: JSON mode + response schema, per-item validation, one retry, content-free diagnostics
 - **Date:** 2026-09-27
@@ -328,6 +329,14 @@ ADR-001 to ADR-008 were **reconstructed on 2026-09-24** from the existing code d
 
 ## Template
 ```
+## ADR-023 — Trust client IP forwarding only across configured proxy boundaries
+- **Date:** 2026-10-09
+- **Context:** Uvicorn was started with `--forwarded-allow-ips "*"`, allowing any peer to choose its per-IP rate-limit bucket via `X-Forwarded-For`. Render's managed Cloudflare edge appends to XFF, so caller-supplied entries can remain in the chain; trusting the header directly is unsafe.
+- **Decision:** Disable Uvicorn proxy-header rewriting with `--no-proxy-headers`; resolve IPs from the raw socket peer in `rate_limit.py`. `TRUSTED_PROXY_MODE` is `none` (default; ignore forwarding), `render` (requires Render's `RENDER_SERVICE_ID`; trust one valid `CF-Connecting-IP` value only), or `cidrs` (requires explicit `TRUSTED_PROXY_CIDRS`; honor XFF only when the socket peer belongs to those CIDRs, walking right-to-left and skipping configured proxy hops). IPv4, IPv6 and IPv4-mapped IPv6 are normalized. Duplicate or malformed forwarded fields fall back to the socket peer.
+- **Alternatives considered:** trust every XFF value (rejected: caller-controlled values can evade limits); a fixed proxy-hop count (rejected: cannot authenticate the immediate peer and chain length can vary); trust Cloudflare headers on every host (rejected: other deployments may not overwrite them).
+- **Consequences:** local development requires no proxy configuration. Render's Blueprint explicitly selects `render`; future platforms must supply exact provider proxy CIDRs or a provider-authenticated mode. The app must run with Uvicorn proxy rewriting disabled. Rate limits remain per process as before.
+- **Status:** Accepted.
+
 ## ADR-NNN — Title
 - **Date:** YYYY-MM-DD
 - **Context:** what forces are at play

@@ -123,7 +123,7 @@ pip install -r requirements.txt
 ```
 Copy `backend/.env.example` to `backend/.env` and set `GEMINI_API_KEY` (the example already allows the Vite dev origins in `ALLOWED_ORIGINS`). Run:
 ```bash
-uvicorn main:app --reload --port 8000
+uvicorn main:app --reload --port 8000 --no-proxy-headers
 ```
 
 ### 2. Frontend
@@ -141,6 +141,7 @@ Nothing is hard-coded: every URL and key comes from these (full list and default
 |---|---|---|---|
 | `GEMINI_API_KEY` | `backend/.env` | Yes | Google Gemini API key |
 | `ALLOWED_ORIGINS` | `backend/.env` | Yes | Comma-separated frontend origins allowed by CORS |
+| `TRUSTED_PROXY_MODE`, `TRUSTED_PROXY_CIDRS` | `backend/.env` | No | Local default `none`; use `cidrs` with explicit proxy CIDRs on other hosts. Render uses `render` in its Blueprint |
 | `YOUTUBE_API_KEY` | `backend/.env` | No | Real YouTube videos per roadmap step (otherwise a search link) |
 | `RATE_LIMIT_PER_MINUTE`, `RATE_LIMIT_PER_DAY`, `GLOBAL_AI_LIMIT_PER_DAY` | `backend/.env` | No | AI endpoint rate limits (defaults 8 / 50 / 500) |
 | `VITE_API_URL` | `frontend/.env.local` | Yes | Backend base URL; `npm run build` fails without it |

@@ -11,6 +11,7 @@ Key Value) before running more than one. Memory is bounded: only allowed
 requests are stored, and the global daily cap limits how many there are.
 """
 
+import ipaddress
 import logging
 import math
 import threading
@@ -163,11 +164,93 @@ ACCOUNT_MESSAGES = {
 def _enforce(active: RateLimiter, request: Request, messages: dict, label: str) -> None:
     """Raise 429 when the caller is over a limit.
 
-    The client IP comes from request.client, which Uvicorn fills from
-    X-Forwarded-For when started with --proxy-headers (see render.yaml).
+    Use the socket peer by default. Forwarded headers are interpreted only
+    when an explicit proxy mode is configured and, for CIDR mode, that peer
+    belongs to a trusted proxy network.
     """
-    ip = request.client.host if request.client else "unknown"
+    ip = client_ip(request)
     _raise_if_limited(active.check(ip), messages, label)
+
+
+def _parse_ip(value: str) -> ipaddress.IPv4Address | ipaddress.IPv6Address | None:
+    value = value.strip()
+    if not value or "%" in value:
+        return None
+    try:
+        address = ipaddress.ip_address(value)
+    except ValueError:
+        return None
+    if isinstance(address, ipaddress.IPv6Address) and address.ipv4_mapped:
+        return address.ipv4_mapped
+    return address
+
+
+def _header_values(request: Request, name: str) -> list[str]:
+    key = name.lower().encode("ascii")
+    return [value.decode("latin-1") for header, value in request.scope.get("headers", []) if header.lower() == key]
+
+
+def _is_trusted_proxy(address: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
+    for network in config.TRUSTED_PROXY_CIDRS:
+        if address.version == network.version and address in network:
+            return True
+        if isinstance(address, ipaddress.IPv4Address) and isinstance(network, ipaddress.IPv6Network):
+            mapped = network.network_address.ipv4_mapped
+            if mapped and network.prefixlen >= 96:
+                mapped_network = ipaddress.IPv4Network((mapped, network.prefixlen - 96), strict=False)
+                if address in mapped_network:
+                    return True
+    return False
+
+
+def client_ip(request: Request) -> str:
+    """Resolve the rate-limit key without trusting caller-controlled headers.
+
+    ``none`` uses the direct socket peer. ``render`` trusts only Render's
+    Cloudflare-overwritten CF-Connecting-IP header. ``cidrs`` walks a single
+    X-Forwarded-For chain from the socket outward, skipping only explicitly
+    trusted proxy addresses. Invalid or duplicate header values fall back to
+    the socket peer, which is conservative against spoofing.
+    """
+    peer = _parse_ip(request.client.host) if request.client else None
+    if peer is None:
+        return "unknown"
+
+    mode = config.TRUSTED_PROXY_MODE
+    if mode == "none":
+        return str(peer)
+
+    if mode == "render":
+        if not config.RENDER_SERVICE_ID:
+            return str(peer)
+        values = _header_values(request, "cf-connecting-ip")
+        if len(values) != 1:
+            return str(peer)
+        forwarded = _parse_ip(values[0])
+        return str(forwarded) if forwarded is not None else str(peer)
+
+    if mode != "cidrs" or not _is_trusted_proxy(peer):
+        return str(peer)
+
+    values = _header_values(request, "x-forwarded-for")
+    if len(values) != 1:
+        return str(peer)
+    if len(values[0]) > 4096:
+        return str(peer)
+    forwarded_chain = values[0].split(",")
+    if not forwarded_chain or len(forwarded_chain) > 32:
+        return str(peer)
+    addresses = [_parse_ip(value) for value in forwarded_chain]
+    if not addresses or any(address is None for address in addresses):
+        return str(peer)
+
+    # Proxies append to X-Forwarded-For. Starting at our trusted peer and
+    # walking right-to-left, the first address outside trusted proxy networks
+    # is the client (or the closest untrusted hop).
+    for address in reversed(addresses):
+        if not _is_trusted_proxy(address):
+            return str(address)
+    return str(peer)
 
 
 def _raise_if_limited(result: tuple[int, str], messages: dict, label: str) -> None:
