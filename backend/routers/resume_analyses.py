@@ -62,6 +62,7 @@ INPUT_ERRORS = {
     "not_pdf": (422, "This file isn't a valid PDF. Please export your résumé as a PDF and try again."),
     "not_resume": (422, "This PDF doesn't look like a résumé, or its text can't be read. "
                         "Please upload a text-based résumé PDF."),
+    "unreadable": (422, "We couldn't extract enough readable text from this PDF. Please upload a text-based résumé PDF."),
 }
 
 
@@ -159,7 +160,9 @@ def create_analysis(
     started = time.perf_counter()
     size = len(pdf)
     try:
-        result = resume_ai.analyze_resume(pdf, target["career"], target["skills"], target["steps"])
+        result = resume_ai.analyze_resume(
+            pdf, target["career"], target["skills"], target.get("roadmap_steps") or target["steps"]
+        )
     except resume_ai.ResumeInputError as e:
         logger.info("Résumé rejected: %s (%d bytes)", e.kind, size)
         status, detail = INPUT_ERRORS[e.kind]

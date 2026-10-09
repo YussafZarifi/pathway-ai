@@ -327,6 +327,15 @@ ADR-001 to ADR-008 were **reconstructed on 2026-09-24** from the existing code d
 
 ---
 
+## ADR-024 — Evidence-based Resume Analyzer scoring
+- **Date:** 2026-10-09
+- **Context:** The existing résumé review returned qualitative feedback only. The owner requested career-specific scoring, ATS and roadmap comparisons, and recommendations whose point gains can be traced to evidence rather than a number invented by Gemini.
+- **Decision:** Keep the signed-in upload endpoint and JSONB storage contract. Add an additive `analysis.score_report` object. Select one of eight explicit career-family rubrics (plus a general technology rubric); each category has fixed weights summing to 100, and each category divides its points across named criteria. Gemini only extracts binary findings, short page-numbered excerpts, concise notes, skill-to-roadmap links, and recommendations. The backend validates every criterion exactly once, checks each positive quote against the stated extracted PDF page, then computes all category, ATS, overall, readiness, and recommendation point values. A missing criterion receives zero because the report found no evidence; it does not assert that the person lacks that ability.
+- **Storage and privacy:** pypdf extracts selectable text in memory with file, page, stream, and total-text bounds. The PDF and full extracted text are not saved. Only the bounded report, including short verified excerpts, is stored in the existing analysis JSONB field. Contact values are hidden by deterministic document checks; AI output still passes strict shape and contact-detail validation. Old saved analyses without `score_report` keep their qualitative report view.
+- **Alternatives considered:** Asking Gemini for a score (rejected: not reproducible or auditable); changing the database or endpoint shape (rejected: additive JSON is sufficient); presenting hiring probability (rejected: résumé evidence coverage cannot predict hiring outcomes).
+- **Consequences:** The existing response has an additive field; clients that ignore it remain compatible. New reviews consume more model output and require extractable text. Rubric weights and equal-per-criterion category splits are product-defined heuristics, not hiring standards; readiness percentages are coverage indexes, not hiring odds. Short evidence excerpts are retained to make point awards auditable.
+- **Status:** Accepted and implemented.
+
 ## Template
 ```
 ## ADR-023 — Trust client IP forwarding only across configured proxy boundaries

@@ -20,6 +20,7 @@ openai==2.14.0
 psycopg-binary==3.3.6
 psycopg-pool==3.3.3
 psycopg==3.3.6
+pypdf==6.20.0
 pyasn1==0.6.4
 pyasn1_modules==0.4.2
 pycparser==3.0

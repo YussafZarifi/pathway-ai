@@ -132,7 +132,8 @@ describe("/resume availability", () => {
     signIn();
     renderPage();
     expect(await screen.findByText("Data Analyst")).toBeTruthy();
-    expect(screen.getByText(/never stores the file, its text or its name/)).toBeTruthy();
+    expect(screen.getByText(/does not store the original PDF, its full text or its name/)).toBeTruthy();
+    expect(screen.getByText(/Every score point is tied to resume evidence/)).toBeTruthy();
     expect(await screen.findByText(/No reviews yet/)).toBeTruthy();
   });
 });

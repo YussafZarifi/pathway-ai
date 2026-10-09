@@ -4,17 +4,22 @@
 
 ---
 
-## Current session — 2026-10-09 · Resume Analyzer and AI Coach UI polish
+## Current session — 2026-10-09 · M3-X evidence-based Resume Analyzer
 
 ### Summary
-- Reworked both signed-in career tools into a shared, responsive feature experience aligned with PathwayAI's existing dark palette and accent system. Resume Analyzer now has an accessible PDF drop zone, real upload progress, clear privacy guidance, a structured qualitative report, and report-style history. AI Coach now shares the visual system across its thread rail, welcome prompts, and chat surface; existing suggested-action confirmations remain intact.
-- Added upload-progress transport only for the raw PDF request; backend endpoints, payloads, authentication, storage, and business rules are unchanged. Added regression coverage for raw upload progress and drag-and-drop.
-- Frontend suite: 151 tests passed. Lint and production build passed; build retains the existing large-chunk warning. No push or deployment.
+- Replaced invented-score expectations with eight explicit career-family rubrics. Gemini now returns only binary findings, page-cited excerpts, notes, roadmap links and recommendations; the backend verifies every positive excerpt against extracted PDF text and calculates all weighted points, ATS/readiness coverage and missing-criterion point gains.
+- Added bounded in-memory PDF text extraction with pypdf. The original PDF and full text remain transient; the existing JSONB analysis stores the structured report and short verified excerpts. The API response is additive; old history without score_report still renders.
+- Redesigned the report as a responsive evidence dashboard with score gauge, radar, rubric/category evidence, ATS/readiness coverage, roadmap progress, strengths, gaps and ranked improvements. Updated privacy copy and ADR-024 plus API/AI/frontend/testing docs.
+- Backend: 536 passed. Frontend: 152 passed. Lint passed. Production build passed with the existing large-chunk warning. No dependency audit run. No push or deployment.
 
 ### Remaining work and next task
-- Review the local UI polish commit, then continue with owner review and owner-side launch actions. Push or deploy only with explicit approval.
+- Commit this completed M3-X work locally, then continue with owner review and owner-side launch actions. Push or deploy only with explicit approval.
 
 ## History
+
+### 2026-10-09 · Resume Analyzer and AI Coach UI polish
+- Reworked the signed-in tools with a shared responsive style: accessible drag-and-drop upload, real upload progress, privacy and loading states, report-style history, and polished AI Coach conversation surfaces. API and business logic were unchanged for this UI-only pass.
+- Frontend suite: 151 tests passed; lint and production build passed. Local commit only; no push or deployment.
 
 ### 2026-10-09 · Trusted proxy IP hardening
 - Hardened forwarded-address handling for direct/local, Render, and explicitly configured CIDR proxy modes; added 25 regression checks and documented configuration. Backend 551 passed; frontend lint/build and npm audit passed. Local commit only; no push or deployment.

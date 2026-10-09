@@ -25,41 +25,26 @@ from conftest import SECRET
 from generation import AI_BUSY, AI_QUOTA, AI_UNAVAILABLE
 from repositories.resume_analyses import InMemoryResumeAnalysisRepository
 from routers import resume_analyses as resume_router
+from resume_fixtures import CAREER, RESUME_PAGES, SKILLS, STEPS, make_pdf, reply
 
 USER = AuthUser(id="00000000-0000-4000-8000-00000000000a", email="a@example.com")
 OTHER = AuthUser(id="00000000-0000-4000-8000-00000000000b", email="b@example.com")
 ROADMAP_ID = "00000000-0000-4000-8000-0000000000a2"
 TARGET = {
     "roadmap_id": ROADMAP_ID,
-    "career": "Data Analyst",
-    "skills": ["SQL", "Tableau"],
-    "steps": ["SQL foundations", "Python for data", "Dashboards"],
+    "career": CAREER,
+    "skills": SKILLS,
+    "steps": STEPS,
+    "roadmap_steps": [
+        {"position": 1, "title": STEPS[0], "description": "Use SQL to query data.", "tasks": [], "completed": True},
+        {"position": 2, "title": STEPS[1], "description": "Use Python to analyze data.", "tasks": [], "completed": False},
+        {"position": 3, "title": STEPS[2], "description": "Build dashboards.", "tasks": [], "completed": False},
+    ],
 }
-ANALYSIS_FIELDS = {"summary", "matched_skills", "missing_skills", "strengths", "gaps", "suggestions"}
+ANALYSIS_FIELDS = {"summary", "matched_skills", "missing_skills", "strengths", "gaps", "suggestions", "score_report"}
 URL = "/api/resume-analyses"
 FILENAME = f"jane-doe-{SECRET}.pdf"
-PDF_SECRET = b"RESUME-CONTENT-" + SECRET.encode()
-
-
-def make_pdf(size=4096):
-    head = b"%PDF-1.7\n" + PDF_SECRET + b"\n"
-    tail = b"\n%%EOF\n"
-    return head + b"0" * max(0, size - len(head) - len(tail)) + tail
-
-
-def reply(**overrides):
-    data = {
-        "is_resume": True,
-        "summary": "Your résumé shows solid SQL work.",
-        "matched_skills": ["SQL"],
-        "missing_skills": ["Tableau"],
-        "strengths": ["You quantify your impact."],
-        "gaps": [{"skill": "Tableau", "why": "Dashboards matter.", "how_to_close": "Build one.",
-                  "related_step": 3}],
-        "suggestions": [{"section": "projects", "text": "Lead with the question each project answered."}],
-    }
-    data.update(overrides)
-    return data
+PDF_SECRET = b"RESUME-CONTENT-private-fixture-marker"
 
 
 def pdf_headers(**extra):
@@ -155,20 +140,24 @@ def test_analysis_is_saved_and_returned(client, repo, fake_gemini):
     assert models.calls == 1
     pdf_part, text = models.prompts[0]
     assert pdf_part.inline_data.data == make_pdf()  # the upload, unchanged, sent inline
-    assert "Target career: Data Analyst" in text and "3. Dashboards" in text and "SQL, Tableau" in text
+    assert "Data Analyst" in text and "Dashboards with Tableau" in text
+    assert "SQL" in text and "Tableau" in text
 
 
 def test_each_user_gets_their_own_target_and_rows(client, repo, user_box, fake_gemini):
-    repo.targets[OTHER.id] = dict(TARGET, roadmap_id="00000000-0000-4000-8000-0000000000b2",
-                                  career="Web Developer", steps=["HTML"])
-    models = fake_gemini(reply(), reply(gaps=[]))
+    repo.targets[OTHER.id] = dict(
+        TARGET, roadmap_id="00000000-0000-4000-8000-0000000000b2", career="Web Developer",
+        skills=["HTML"], steps=["HTML"],
+        roadmap_steps=[{"position": 1, "title": "HTML", "completed": False}],
+    )
+    models = fake_gemini(reply(), reply(career="Web Developer", skills=["HTML"], steps=["HTML"]))
     first = post(client).json()
     user_box["user"] = OTHER
     second = post(client).json()
     assert repo.analyses[first["id"]]["user_id"] == USER.id
     assert repo.analyses[second["id"]]["user_id"] == OTHER.id
     assert second["career"] == "Web Developer"
-    assert "1. HTML" in models.prompts[1][1]
+    assert '\"title\": \"HTML\"' in models.prompts[1][1]
 
 
 def test_history_is_kept(client, repo, fake_gemini):
@@ -381,7 +370,7 @@ def test_other_routes_keep_the_16_kb_limit(client):
 
 @pytest.mark.parametrize("data, kind", [
     (b"", "too_small"),
-    (make_pdf(1000), "too_small"),
+    (b"%PDF-1.7\n" + b"0" * 980 + b"%%EOF\n", "too_small"),
     (b"PK\x03\x04" + make_pdf()[4:], "not_pdf"),
     (make_pdf().replace(b"%%EOF", b"%%END"), "not_pdf"),
 ], ids=["empty", "small", "zip", "truncated"])
@@ -393,7 +382,7 @@ def test_invalid_pdfs_are_422_and_not_sent_to_gemini(client, repo, fake_gemini, 
 
 
 def test_a_pdf_that_is_not_a_resume_is_422_and_not_saved(client, repo, fake_gemini):
-    fake_gemini(reply(is_resume=False, summary="Not a résumé.", gaps=[]))
+    fake_gemini(reply(is_resume=False, summary="Not a résumé.", evaluations=[], recommendations=[], skill_roadmap=[]))
     r = post(client)
     assert (r.status_code, r.json()["detail"]) == resume_router.INPUT_ERRORS["not_resume"]
     assert repo.analyses == {}
@@ -406,8 +395,8 @@ def test_a_pdf_that_is_not_a_resume_is_422_and_not_saved(client, repo, fake_gemi
     ([gemini_error(503, "UNAVAILABLE")] * 2, 502, resume_router.ANALYSIS_FAILED),
     ([httpx.ReadTimeout("t"), httpx.ReadTimeout("t")], 502, resume_router.ANALYSIS_FAILED),
     (["not json", reply(score=80)], 502, resume_router.ANALYSIS_FAILED),
-    ([reply(summary=""), reply(gaps=[{"skill": "x"}])], 502, resume_router.ANALYSIS_FAILED),
-    ([reply(strengths=["Mail me at x@example.com"])] * 2, 502, resume_router.ANALYSIS_FAILED),
+    ([reply(summary=""), reply(evaluations=[])], 502, resume_router.ANALYSIS_FAILED),
+    ([reply(summary="Mail me at x@example.com")] * 2, 502, resume_router.ANALYSIS_FAILED),
     ([gemini_error(429, "RESOURCE_EXHAUSTED", [
         {"violations": [{"quotaId": "GenerateRequestsPerDayPerProjectPerModel-FreeTier"}]}])], 503, AI_QUOTA),
     ([gemini_error(429, "RESOURCE_EXHAUSTED", [{"retryDelay": "40s"}])], 503, AI_BUSY),
@@ -469,7 +458,7 @@ def test_no_file_content_or_name_in_logs_responses_or_saved_rows(client, repo, f
         fake_gemini(reply())
         repo.fail_next = psycopg.errors.CheckViolation(SECRET)
     else:
-        fake_gemini(reply(is_resume=False, gaps=[]))
+        fake_gemini(reply(is_resume=False, evaluations=[], recommendations=[], skill_roadmap=[]))
     r = post(client, data=data)
     assert _leaks(caplog.text) == []
     assert _leaks(r.text) == []

@@ -26,7 +26,7 @@ ANALYSIS_COLUMNS = "id, roadmap_id, career, analysis, prompt_version, model, cre
 class ResumeAnalysisRepository(Protocol):
     def active_target(self, user_id: str) -> dict | None:
         """{roadmap_id, career, skills, steps} from the user's active roadmap
-        (skills from its career card, step titles in order), or None."""
+        (skills, step titles, descriptions, tasks and completion state), or None."""
 
     def create(self, user_id: str, *, roadmap_id: str | None, career: str, analysis: dict,
                prompt_version: str, model: str) -> dict:
@@ -55,9 +55,14 @@ class PostgresResumeAnalysisRepository:
         with db.transaction(user_id) as conn:
             row = conn.execute(
                 "select r.id, r.career, r.career_data, "
-                "coalesce(array_agg(s.title order by s.position) filter (where s.id is not null), '{}') as steps "
+                "coalesce(array_agg(s.title order by s.position) filter (where s.id is not null), '{}') as steps, "
+                "coalesce(json_agg(json_build_object("
+                "'position', s.position, 'title', s.title, 'description', s.description, "
+                "'tasks', s.tasks, 'completed', (p.step_id is not null)) order by s.position) "
+                "filter (where s.id is not null), '[]'::json) as roadmap_steps "
                 "from public.roadmaps r "
                 "left join public.roadmap_steps s on s.roadmap_id = r.id and s.user_id = r.user_id "
+                "left join public.step_progress p on p.step_id = s.id and p.user_id = s.user_id "
                 "where r.user_id = %s and r.status = 'active' "
                 "group by r.id",
                 (user_id,),
@@ -69,6 +74,7 @@ class PostgresResumeAnalysisRepository:
             "career": row["career"],
             "skills": _skills(row["career_data"]),
             "steps": list(row["steps"]),
+            "roadmap_steps": row["roadmap_steps"],
         }
 
     def create(self, user_id, *, roadmap_id, career, analysis, prompt_version, model):

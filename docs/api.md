@@ -238,7 +238,7 @@ Analyze a résumé PDF against the signed-in user's **current roadmap** (its car
 
 - **Request:** `Authorization: Bearer <access token>`, `Content-Type: application/pdf`, body = the raw PDF (not multipart), 1 KB–2 MB.
 - **Check order** (all before any of the body is read; an upload declared over 2 MB is refused even earlier, by the body-limit middleware): token → database configured → feature switch → Content-Type → per-user rate limit → active roadmap. Then the body is read (counted while it arrives), checked (`%PDF-` signature, `%%EOF` at the end), sent to Gemini inline and the strictly validated analysis is saved in one insert.
-- **Privacy:** the PDF exists only in the request's memory. Neither the file, its text, its file name (a `Content-Disposition` header is ignored) nor a hash of it is stored or logged; logs record outcome, size and time.
+- **Privacy:** the PDF and extracted full text exist only in request memory. Neither the file, its full text, its file name (a `Content-Disposition` header is ignored) nor a hash is stored or logged. The saved report contains short, page-verified excerpts so each awarded criterion can be audited; contact values are never copied into the report. Logs record outcome, size and time.
 
 **201:**
 ```json
@@ -249,12 +249,27 @@ Analyze a résumé PDF against the signed-in user's **current roadmap** (its car
     "matched_skills": ["SQL"], "missing_skills": ["Tableau"],
     "strengths": ["…"],
     "gaps": [{"skill": "Tableau", "why": "…", "how_to_close": "…", "related_step": 3}],
-    "suggestions": [{"section": "projects", "text": "…"}]
+    "suggestions": [{"section": "projects", "text": "…"}],
+    "score_report": {
+      "overall": 76,
+      "ats": {"score": 75, "earned": 3.75, "weight": 5},
+      "rubric": {"family": "data_science", "label": "Data science & analytics"},
+      "confidence": {"level": "medium", "reason": "…"},
+      "readiness": {"internship": 82, "junior": 61, "mid_level": 28},
+      "categories": [{"id": "skills", "label": "Relevant technical skills", "weight": 28,
+        "earned": 21, "score": 75, "criteria": [{"id": "skill_1", "label": "SQL",
+          "found": true, "points": 14, "max_points": 14, "note": "…",
+          "evidence": [{"source": "resume_text", "page": 1, "quote": "…"}]}]}],
+      "recommendations": [{"title": "…", "action": "…", "criterion_ids": ["skill_2"],
+        "potential_points": 14}],
+      "roadmap": {"steps": [{"position": 1, "title": "…", "status": "completed"}],
+        "skills": [{"skill": "SQL", "found": true, "evidence": [], "roadmap_steps": [1]}]}
+    }
   },
-  "prompt_version": "r1", "model": "gemini-2.5-flash-lite", "created_at": "2026-10-05T23:35:20Z"
+  "prompt_version": "r2", "model": "gemini-2.5-flash-lite", "created_at": "2026-10-09T23:35:20Z"
 }
 ```
-`related_step` is the 1-based step number in the roadmap (`roadmap_steps.position + 1`) or null; `section` is one of summary, experience, projects, skills, education, formatting, other. No score of any kind. The browser lists and deletes analyses directly through Supabase (RLS); there is no GET or DELETE route.
+`related_step` is the 1-based step number in the roadmap or null; `section` is one of summary, experience, projects, skills, education, formatting, other. The additive `score_report` is calculated by the backend from binary findings and fixed career-family rubric weights. Positive findings include a short excerpt verified against its PDF page; missing findings include a reason and earn zero points. Recommendation gains equal the points available for their linked missing criteria; they are not hiring predictions and may overlap. Previous saved analyses without this field remain valid and render as qualitative reviews. The browser lists and deletes analyses directly through Supabase (RLS); there is no GET or DELETE route.
 
 | Status | When |
 |---|---|
@@ -264,7 +279,7 @@ Analyze a résumé PDF against the signed-in user's **current roadmap** (its car
 | 429 | per-user limit: 3/hour, 10/day; global 100/day (`RESUME_LIMIT_*`); `Retry-After` |
 | 409 | no active roadmap ("Create a roadmap first…") |
 | 413 | body over 2 MB (declared or counted while streaming) |
-| 422 | under 1 KB, not a valid PDF, or Gemini says it isn't a readable résumé |
+| 422 | under 1 KB, not a valid or readable text PDF, or Gemini says it isn't a résumé |
 | 502 | Gemini failed or its reply failed strict validation twice ("We couldn't analyze your résumé right now…") |
 
 Every rejected request saves nothing.

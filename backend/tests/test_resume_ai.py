@@ -1,6 +1,4 @@
-"""Résumé analysis AI layer (M3-3, ADR-020): PDF checks, strict reply
-validation, Gemini failure handling and privacy (no résumé content in logs,
-errors or the saved analysis)."""
+"""Evidence extraction, quote verification, score math and privacy tests."""
 
 import json
 import logging
@@ -13,60 +11,19 @@ import llm
 import resume_ai
 from ai_output import AIOutputError
 from conftest import SECRET
-from prompts import RESUME_SYSTEM_INSTRUCTION, build_resume_prompt
-from resume_ai import ResumeInputError, analyze_resume, check_pdf, parse_resume_reply
-
-CAREER = "Data Analyst"
-SKILLS = ["SQL", "Python", "Tableau", "Statistics"]
-STEPS = ["SQL foundations", "Python for data", "Dashboards with Tableau"]
-ANALYSIS_FIELDS = {"summary", "matched_skills", "missing_skills", "strengths", "gaps", "suggestions"}
-
-# Planted in the PDF; must never leave this test except inside the Gemini request.
-PDF_SECRET = b"RESUME-CONTENT-" + SECRET.encode()
+from prompts import RESUME_SYSTEM_INSTRUCTION, build_resume_evidence_prompt
+from resume_ai import ResumeInputError, analyze_resume, check_pdf, extract_resume_pages, parse_resume_reply
+from resume_scoring import rubric_for
+from resume_fixtures import CAREER, RESUME_PAGES, SKILLS, STEPS, make_pdf, reply
 
 
-def make_pdf(size=4096, body=PDF_SECRET):
-    head = b"%PDF-1.7\n" + body + b"\n"
-    tail = b"\n%%EOF\n"
-    return head + b"0" * max(0, size - len(head) - len(tail)) + tail
+def rubric():
+    return rubric_for(CAREER, SKILLS)
 
 
-def reply(**overrides):
-    data = {
-        "is_resume": True,
-        "summary": "Your résumé shows solid SQL work but little visualization.",
-        "matched_skills": ["SQL", "Excel"],
-        "missing_skills": ["Tableau", "Statistics"],
-        "strengths": ["You quantify the impact of your reporting work."],
-        "gaps": [
-            {
-                "skill": "Tableau",
-                "why": "Most analyst roles expect dashboards.",
-                "how_to_close": "Publish one Tableau Public dashboard from a real dataset.",
-                "related_step": 3,
-            },
-            {
-                "skill": "Statistics",
-                "why": "Interviews test basic hypothesis testing.",
-                "how_to_close": "Add a project that uses an A/B test.",
-                "related_step": None,
-            },
-        ],
-        "suggestions": [{"section": "projects", "text": "Lead each project with the question it answered."}],
-    }
-    data.update(overrides)
-    return data
-
-
-def gap(**overrides):
-    item = dict(reply()["gaps"][0])
-    item.update(overrides)
-    return item
-
-
-def parse(data, step_count=len(STEPS)):
-    text = data if isinstance(data, str) else json.dumps(data)
-    return parse_resume_reply(text, step_count)
+def parse(data=None, pages=None, steps=STEPS):
+    data = reply() if data is None else data
+    return parse_resume_reply(json.dumps(data), rubric(), RESUME_PAGES if pages is None else pages, len(steps))
 
 
 def run():
@@ -79,395 +36,355 @@ def gemini_error(code, status, details=()):
     )
 
 
-# --- Valid analysis --------------------------------------------------------
-
-def test_valid_analysis_is_returned_ready_to_save(fake_gemini):
+def test_success_returns_legacy_fields_plus_server_computed_score_report(fake_gemini):
     models = fake_gemini(reply())
     result = run()
     assert set(result) == {"analysis", "career", "prompt_version", "model"}
-    assert set(result["analysis"]) == ANALYSIS_FIELDS  # ADR-020's fields, no is_resume
-    assert result["career"] == CAREER
-    assert result["prompt_version"] == resume_ai.PROMPT_VERSION
+    analysis = result["analysis"]
+    assert {"summary", "matched_skills", "missing_skills", "strengths", "gaps", "suggestions"} <= set(analysis)
+    assert "score_report" in analysis
+    assert analysis["score_report"]["overall"] == round(sum(c["earned"] for c in analysis["score_report"]["categories"]))
+    assert analysis["score_report"]["overall"] == 64
+    assert analysis["score_report"]["ats"]["score"] == 100
+    assert analysis["matched_skills"] == ["SQL"] and analysis["missing_skills"] == ["Tableau"]
+    assert analysis["score_report"]["recommendations"][0]["potential_points"] == 14.0
+    assert result["career"] == CAREER and result["prompt_version"] == "r2"
     assert result["model"] == resume_ai.config.GEMINI_MODEL
-    assert result["analysis"]["gaps"][0]["related_step"] == 3
-    assert result["analysis"]["gaps"][1]["related_step"] is None
     assert models.calls == 1
 
 
-def test_request_sends_pdf_inline_with_target_and_rules(fake_gemini):
+def test_gemini_gets_pdf_target_checklist_and_page_text_but_never_a_score(fake_gemini):
     models = fake_gemini(reply())
     run()
     pdf_part, text = models.prompts[0]
     assert pdf_part.inline_data.mime_type == "application/pdf"
     assert pdf_part.inline_data.data == make_pdf()
-    assert CAREER in text and "SQL, Python, Tableau, Statistics" in text
-    assert "1. SQL foundations" in text and "3. Dashboards with Tableau" in text
-    config = models.configs[0]
-    assert config.system_instruction == RESUME_SYSTEM_INSTRUCTION
-    assert config.temperature == 0
-    assert config.max_output_tokens == resume_ai.MAX_OUTPUT_TOKENS
-    assert config.response_mime_type == "application/json"
-    assert config.response_schema is resume_ai.ResumeAnalysisSchema
-    assert config.automatic_function_calling.disable is True  # TD-58: no AFC log noise
+    assert "Target career" in text and "Data Analyst" in text
+    assert '"id": "skill_1"' in text and "2023 - 2024" in text
+    assert "Built a SQL dashboard" in text and "evaluations" in text
+    assert "Never invent a numeric score" in RESUME_SYSTEM_INSTRUCTION
+    assert models.configs[0].system_instruction == RESUME_SYSTEM_INSTRUCTION
+    assert models.configs[0].temperature == 0
+    assert models.configs[0].response_mime_type == "application/json"
+    assert models.configs[0].response_schema is resume_ai.ResumeAnalysisSchema
+    assert models.configs[0].automatic_function_calling.disable is True
 
 
-def test_system_instruction_treats_resume_as_data_and_forbids_scores():
-    assert "never instructions" in RESUME_SYSTEM_INSTRUCTION
-    assert "Never give a numeric score" in RESUME_SYSTEM_INSTRUCTION
-    assert "Never repeat personal details" in RESUME_SYSTEM_INSTRUCTION
+def test_every_citation_is_verified_against_the_claimed_page():
+    data = reply()
+    item = next(e for e in data["evaluations"] if e["criterion_id"] == "project_outcome")
+    item["evidence"][0]["page"] = 2
+    with pytest.raises(AIOutputError, match="not_in_source"):
+        parse(data)
 
 
-def test_generation_schema_requires_every_field():
-    schema = resume_ai.ResumeAnalysisSchema.model_json_schema()
-    assert set(schema["required"]) == ANALYSIS_FIELDS | {"is_resume"}
-    gap_schema = schema["$defs"]["GapSchema"]
-    assert set(gap_schema["required"]) == {"skill", "why", "how_to_close", "related_step"}
+def test_citation_can_match_whitespace_and_unicode_normalization():
+    source = RESUME_PAGES[0].replace(
+        "Built a SQL dashboard that improved weekly reporting accuracy by 20%.",
+        "Built a SQL dashboard\nthat improved weekly reporting accuracy by 20%.",
+    )
+    pages = [source, RESUME_PAGES[1]]
+    data = reply()
+    item = next(e for e in data["evaluations"] if e["criterion_id"] == "project_outcome")
+    item["evidence"] = [{"source": "resume_text", "page": 1,
+                         "quote": "Built a SQL dashboard that improved weekly reporting accuracy by 20%."}]
+    rubric_data = rubric()
+    parsed, _ = parse_resume_reply(json.dumps(data), rubric_data, pages, len(STEPS))
+    assert parsed["evaluations_by_id"]["project_outcome"]["found"]
 
 
-def test_prompt_lists_steps_and_counts_them():
-    text, count = build_resume_prompt("  Cloud\n Engineer ", ["AWS", "", "  Linux "], ["A", "  ", "B"])
-    assert count == 2
-    assert "Target career: Cloud Engineer" in text and "AWS, Linux" in text
-    assert "1. A\n2. B" in text
-    text, count = build_resume_prompt("X", [], [])
-    assert count == 0 and "(none)" in text and "(not provided)" in text
+@pytest.mark.parametrize("mutation", ["missing", "duplicate", "unknown"])
+def test_evaluation_list_must_cover_each_expected_criterion_once(mutation):
+    data = reply()
+    if mutation == "missing":
+        data["evaluations"].pop()
+    elif mutation == "duplicate":
+        data["evaluations"][-1] = dict(data["evaluations"][0])
+    else:
+        data["evaluations"][0]["criterion_id"] = "imaginary"
+    with pytest.raises(AIOutputError, match="criterion_set_mismatch"):
+        parse(data)
 
 
-def test_surrounding_whitespace_in_text_fields_is_trimmed():
-    result, _ = parse(reply(summary="  Clear and specific.  ", matched_skills=[" SQL "]))
-    assert result["summary"] == "Clear and specific."
-    assert result["matched_skills"] == ["SQL"]
+def test_found_evaluation_requires_source_quote_and_missing_one_cannot_have_it():
+    data = reply()
+    found = next(e for e in data["evaluations"] if e["found"])
+    found["evidence"] = []
+    with pytest.raises(AIOutputError, match="evidence:required"):
+        parse(data)
+    data = reply()
+    missing = next(e for e in data["evaluations"] if not e["found"])
+    missing["evidence"] = [{"source": "resume_text", "page": 1, "quote": "SQL, Python"}]
+    with pytest.raises(AIOutputError, match="evidence:unexpected"):
+        parse(data)
 
 
-def test_empty_lists_are_valid():
-    result, _ = parse(reply(matched_skills=[], missing_skills=[], strengths=[], gaps=[], suggestions=[]))
-    assert result["gaps"] == []
+def test_unknown_score_fields_and_malformed_json_are_rejected():
+    data = reply()
+    data["score"] = 88
+    with pytest.raises(AIOutputError):
+        parse(data)
+    for malformed in ("not json", '{"a":1,"a":2}', json.dumps(reply())[:-1]):
+        with pytest.raises(AIOutputError):
+            parse_resume_reply(malformed, rubric(), RESUME_PAGES, len(STEPS))
 
 
-def test_not_a_resume_is_reported_and_not_retried(fake_gemini):
-    models = fake_gemini(reply(is_resume=False, summary="This PDF is not a résumé.", gaps=[]))
-    with pytest.raises(ResumeInputError) as err:
+def test_non_resume_cannot_return_findings(fake_gemini):
+    data = reply(is_resume=False, summary="This does not appear to be a résumé.", evaluations=[],
+                 recommendations=[], skill_roadmap=[])
+    models = fake_gemini(data)
+    with pytest.raises(ResumeInputError) as error:
         run()
-    assert err.value.kind == "not_resume"
+    assert error.value.kind == "not_resume" and models.calls == 1
+
+
+def test_unreadable_upload_is_rejected_before_gemini(fake_gemini):
+    models = fake_gemini(reply())
+    with pytest.raises(ResumeInputError) as error:
+        analyze_resume(make_pdf(pages=["x" * 40]), CAREER, SKILLS, STEPS)
+    assert error.value.kind == "unreadable" and models.calls == 0
+
+
+def test_pdf_pages_and_text_are_extracted_only_for_this_request():
+    pages = extract_resume_pages(make_pdf())
+    assert len(pages) == 2
+    assert "Built a SQL dashboard" in pages[0]
+    assert "Additional projects" in pages[1]
+
+
+def test_pdf_over_page_limit_is_rejected():
+    models = None
+    with pytest.raises(ResumeInputError) as error:
+        analyze_resume(make_pdf(pages=["resume evidence " * 30] * (resume_ai.MAX_PDF_PAGES + 1)), CAREER, SKILLS, STEPS)
+    assert error.value.kind == "unreadable"
+
+
+def test_pdf_size_bounds_and_signature_are_checked_before_parsing():
+    check_pdf(make_pdf(size=resume_ai.MIN_PDF_BYTES))
+    check_pdf(make_pdf(size=resume_ai.MAX_PDF_BYTES))
+    for data, kind in [
+        (b"", "too_small"), (b"%PDF-x" + b"a" * 1018, "not_pdf"),
+        (make_pdf(size=resume_ai.MAX_PDF_BYTES + 1), "too_large"),
+        (b"PK\x03\x04" + make_pdf()[4:], "not_pdf"),
+        (make_pdf().replace(b"%%EOF", b"%%END"), "not_pdf"),
+    ]:
+        with pytest.raises(ResumeInputError) as error:
+            check_pdf(data)
+        assert error.value.kind == kind
+
+
+def test_recommendations_must_point_only_to_missing_rubric_criteria():
+    data = reply()
+    data["recommendations"][0]["criterion_ids"] = ["project_outcome"]
+    with pytest.raises(AIOutputError, match="not_missing"):
+        parse(data)
+    data = reply()
+    data["recommendations"][0]["criterion_ids"] = ["not_a_criterion"]
+    with pytest.raises(AIOutputError, match="unknown"):
+        parse(data)
+
+
+def test_roadmap_skill_links_must_use_real_skill_ids_and_steps():
+    data = reply()
+    data["skill_roadmap"][0]["step_positions"] = [len(STEPS) + 1]
+    with pytest.raises(AIOutputError, match="out_of_range"):
+        parse(data)
+    data = reply()
+    data["skill_roadmap"][0]["skill_id"] = "other"
+    with pytest.raises(AIOutputError, match="skill_set_mismatch"):
+        parse(data)
+
+
+@pytest.mark.parametrize("field", ["summary", "note", "quote", "recommendation"])
+def test_private_contact_details_are_never_returned_or_saved(field):
+    data = reply()
+    if field == "summary":
+        data["summary"] = "Contact jane@example.com for details."
+    elif field == "note":
+        data["evaluations"][0]["note"] = "Contact jane@example.com."
+    elif field == "quote":
+        data["evaluations"][0]["evidence"][0]["quote"] = "Email jane@example.com"
+    else:
+        data["recommendations"][0]["action"] = "Call 555-123-4567."
+    with pytest.raises(AIOutputError) as error:
+        parse(data)
+    assert error.value.kind == "personal_data"
+    assert "jane@example.com" not in str(error.value)
+
+
+def test_contact_detection_is_redacted_and_pdf_text_is_not_saved(fake_gemini):
+    models = fake_gemini(reply())
+    result = run()
+    report = result["analysis"]["score_report"]
+    contact = next(c for c in report["categories"] if c["id"] == "ats")["criteria"][0]
+    assert contact["found"] is True
+    assert "hidden" in contact["note"]
+    saved = json.dumps(result, ensure_ascii=False)
+    assert "jane.resume@example.com" not in saved
+    assert "Built a SQL dashboard" in saved  # only the verified excerpt is retained
     assert models.calls == 1
 
 
-# --- Malformed output (no repair) -------------------------------------------
+def test_result_size_limit_prevents_oversized_persisted_report(monkeypatch, fake_gemini):
+    monkeypatch.setattr(resume_ai, "MAX_ANALYSIS_BYTES", 300)
+    fake_gemini(reply())
+    with pytest.raises(AIOutputError) as error:
+        run()
+    assert error.value.kind == "too_large"
 
-@pytest.mark.parametrize("text, kind", [
-    ("", "empty"),
-    ("   ", "empty"),
-    ("not json", "invalid_json"),
-    ("```json\n" + json.dumps(reply()) + "\n```", "invalid_json"),  # fenced: not unwrapped
-    ("Here you go: " + json.dumps(reply()), "invalid_json"),  # prose: not searched for braces
-    (json.dumps(reply())[:-1] + ",}", "invalid_json"),  # trailing comma: not repaired
-    (json.dumps(reply())[:-40], "invalid_json"),  # truncated
-    ("[1, 2]", "not_object"),
-    ('"text"', "not_object"),
-    ('{"summary": "a", "summary": "b"}', "invalid_json"),  # duplicate keys
+
+@pytest.mark.parametrize("first,second", [
+    ("not json", reply()),
+    (reply(score=87), reply()),
 ])
-def test_malformed_replies_are_rejected(text, kind):
-    with pytest.raises(AIOutputError) as err:
-        parse(text)
-    assert err.value.kind == kind
-
-
-# --- Missing required fields ------------------------------------------------
-
-@pytest.mark.parametrize("field", sorted(ANALYSIS_FIELDS | {"is_resume"}))
-def test_missing_top_level_field_is_rejected(field):
-    data = reply()
-    del data[field]
-    with pytest.raises(AIOutputError) as err:
-        parse(data)
-    assert (err.value.kind, err.value.detail) == ("schema", f"{field}:missing")
-
-
-@pytest.mark.parametrize("field", ["skill", "why", "how_to_close", "related_step"])
-def test_missing_gap_field_is_rejected(field):
-    item = gap()
-    del item[field]
-    with pytest.raises(AIOutputError) as err:
-        parse(reply(gaps=[item]))
-    assert err.value.detail == f"gaps.0.{field}:missing"
-
-
-@pytest.mark.parametrize("field", ["section", "text"])
-def test_missing_suggestion_field_is_rejected(field):
-    item = {"section": "skills", "text": "Group skills by area."}
-    del item[field]
-    with pytest.raises(AIOutputError) as err:
-        parse(reply(suggestions=[item]))
-    assert err.value.detail == f"suggestions.0.{field}:missing"
-
-
-# --- Schema validation failures ----------------------------------------------
-
-@pytest.mark.parametrize("overrides", [
-    {"summary": ""},
-    {"summary": "   "},
-    {"summary": 5},
-    {"summary": None},
-    {"is_resume": "true"},
-    {"is_resume": 1},
-    {"matched_skills": "SQL"},
-    {"matched_skills": ["SQL", 3]},
-    {"missing_skills": [""]},
-    {"strengths": [None]},
-    {"gaps": {"skill": "x"}},
-    {"gaps": ["Tableau"]},
-    {"suggestions": [{"section": "hobbies", "text": "Add hobbies."}]},
-    {"suggestions": [{"section": "skills", "text": ""}]},
-])
-def test_wrong_types_and_values_are_rejected(overrides):
-    with pytest.raises(AIOutputError) as err:
-        parse(reply(**overrides))
-    assert err.value.kind == "schema"
-
-
-@pytest.mark.parametrize("value", ["2", 2.0, 2.5, True, [2]])
-def test_related_step_must_be_an_integer_or_null(value):
-    with pytest.raises(AIOutputError) as err:
-        parse(reply(gaps=[gap(related_step=value)]))
-    assert err.value.kind == "schema"
-
-
-@pytest.mark.parametrize("value, step_count", [(0, 3), (4, 3), (-1, 3), (1, 0)])
-def test_related_step_out_of_range_is_rejected(value, step_count):
-    with pytest.raises(AIOutputError) as err:
-        parse(reply(gaps=[gap(related_step=value)]), step_count)
-    assert err.value.detail == "gaps.0.related_step:out_of_range"
-
-
-def test_related_step_bounds_are_inclusive():
-    parse(reply(gaps=[gap(related_step=1), gap(related_step=3)]))
-
-
-def test_unexpected_fields_are_rejected_without_echoing_their_names():
-    data = reply(score=87)
-    data[SECRET] = "x"
-    with pytest.raises(AIOutputError) as err:
-        parse(data)
-    assert err.value.kind == "schema" and "extra_forbidden" in err.value.detail
-    assert SECRET not in str(err.value) and "score" not in err.value.detail
-
-
-def test_unexpected_nested_field_is_rejected():
-    with pytest.raises(AIOutputError) as err:
-        parse(reply(gaps=[gap(priority="high")]))
-    assert err.value.detail == "gaps.0.?:extra_forbidden"
-
-
-def test_control_characters_are_rejected():
-    with pytest.raises(AIOutputError):
-        parse(reply(summary="Fine\x00text"))
-    parse(reply(summary="Two lines\nare fine"))
-
-
-@pytest.mark.parametrize("text", [
-    "Email me at jane.doe@example.com",
-    "Call 555-123-4567 today",
-    "Reach (555) 123-4567",
-])
-def test_personal_contact_details_are_rejected(text):
-    with pytest.raises(AIOutputError) as err:
-        parse(reply(strengths=[text]))
-    assert (err.value.kind, err.value.detail) == ("personal_data", "strengths.0")
-    assert text not in str(err.value)
-
-
-def test_dates_and_numbers_are_not_mistaken_for_phone_numbers():
-    parse(reply(strengths=["You led projects from 2015-2019 2019-2023 for 1000-2000 users with Python 3.12."]))
-
-
-# --- Oversized output ---------------------------------------------------------
-
-@pytest.mark.parametrize("overrides", [
-    {"summary": "x" * 601},
-    {"strengths": ["x" * 301]},
-    {"matched_skills": ["x" * 61]},
-    {"matched_skills": ["s"] * 16},
-    {"missing_skills": ["s"] * 16},
-    {"strengths": ["s"] * 6},
-    {"gaps": [gap()] * 6},
-    {"suggestions": [{"section": "other", "text": "t"}] * 7},
-])
-def test_over_limit_fields_and_lists_are_rejected_not_truncated(overrides):
-    with pytest.raises(AIOutputError) as err:
-        parse(reply(**overrides))
-    assert err.value.kind == "schema"
-
-
-def test_oversized_reply_is_rejected_before_parsing():
-    text = json.dumps(reply(summary="x" * (resume_ai.MAX_REPLY_CHARS + 1)))
-    with pytest.raises(AIOutputError) as err:
-        parse(text)
-    assert err.value.kind == "too_large"
-
-
-def test_analysis_over_the_database_limit_is_rejected(monkeypatch):
-    monkeypatch.setattr(resume_ai, "MAX_ANALYSIS_BYTES", 200)
-    with pytest.raises(AIOutputError) as err:
-        parse(reply())
-    assert err.value.kind == "too_large"
-
-
-def test_largest_valid_analysis_fits_the_database_limit():
-    big = reply(
-        summary="é" * 600,
-        matched_skills=["é" * 60] * 15,
-        missing_skills=["é" * 60] * 15,
-        strengths=["é" * 300] * 5,
-        gaps=[gap(skill="é" * 60, why="é" * 300, how_to_close="é" * 300)] * 5,
-        suggestions=[{"section": "other", "text": "é" * 300}] * 6,
-    )
-    text = json.dumps(big, ensure_ascii=False)
-    if len(text) <= resume_ai.MAX_REPLY_CHARS:
-        with pytest.raises(AIOutputError) as err:  # 2-byte characters: over 16,000 bytes
-            parse(text)
-        assert err.value.kind == "too_large"
-    ascii_big = json.loads(json.dumps(big).replace("\\u00e9", "e"))
-    result, _ = parse(ascii_big)
-    assert len(json.dumps(result).encode()) <= resume_ai.MAX_ANALYSIS_BYTES
-
-
-# --- Invalid PDFs (checked before Gemini) ---------------------------------------
-
-@pytest.mark.parametrize("data, kind", [
-    (b"", "too_small"),
-    (make_pdf(size=1023), "too_small"),
-    (make_pdf(size=resume_ai.MAX_PDF_BYTES + 1), "too_large"),
-    (b"PK\x03\x04" + make_pdf()[4:], "not_pdf"),  # a ZIP/DOCX signature
-    (b"\n" + make_pdf(), "not_pdf"),
-    (make_pdf().replace(b"%%EOF", b"%%END"), "not_pdf"),  # truncated upload
-    (make_pdf() + b"0" * 2048, "not_pdf"),  # %%EOF not near the end
-    ("%PDF-1.7 a string", "not_pdf"),
-    (None, "not_pdf"),
-], ids=["empty", "1023 bytes", "over 2 MB", "zip signature", "leading byte", "no EOF", "EOF not at end",
-        "str", "None"])
-def test_invalid_pdfs_are_rejected_before_gemini(fake_gemini, data, kind):
-    models = fake_gemini(reply())
-    with pytest.raises(ResumeInputError) as err:
-        analyze_resume(data, CAREER, SKILLS, STEPS)
-    assert err.value.kind == kind
-    assert models.calls == 0
-
-
-def test_pdf_size_bounds_are_inclusive():
-    check_pdf(make_pdf(size=resume_ai.MIN_PDF_BYTES))
-    check_pdf(make_pdf(size=resume_ai.MAX_PDF_BYTES))
-
-
-# --- Gemini failures and timeouts ------------------------------------------------
-
-def test_invalid_reply_is_retried_once_then_succeeds(fake_gemini):
-    models = fake_gemini(reply(score=90), reply())
-    assert run()["analysis"]["summary"]
+def test_invalid_evidence_reply_retries_once_then_returns_verified_result(fake_gemini, first, second):
+    models = fake_gemini(first, second)
+    assert run()["analysis"]["score_report"]["overall"] >= 0
     assert models.calls == 2
 
 
-@pytest.mark.parametrize("bad", ["not json", reply(summary=""), reply(gaps=[gap(related_step=9)])])
-def test_two_invalid_replies_fail(fake_gemini, bad):
+@pytest.mark.parametrize("bad", ["not json", reply(evaluations=[]), reply(score=90)])
+def test_two_invalid_replies_fail_closed(bad, fake_gemini):
     models = fake_gemini(bad, bad)
-    with pytest.raises(llm.AIServiceError) as err:
+    with pytest.raises(llm.AIServiceError) as error:
         run()
-    assert (err.value.kind, models.calls) == ("failed", 2)
+    assert error.value.kind == "failed" and models.calls == 2
 
 
-def test_gemini_rejecting_the_request_is_not_retried(fake_gemini):
-    models = fake_gemini(gemini_error(400, "INVALID_ARGUMENT"), reply())
-    with pytest.raises(llm.AIServiceError) as err:
-        run()
-    assert (err.value.kind, models.calls) == ("failed", 1)
-
-
-def test_gemini_server_errors_fail_after_one_retry(fake_gemini):
+def test_gemini_errors_timeouts_and_no_key_keep_existing_error_behavior(fake_gemini, monkeypatch):
     models = fake_gemini(gemini_error(503, "UNAVAILABLE"), gemini_error(500, "INTERNAL"))
-    with pytest.raises(llm.AIServiceError) as err:
+    with pytest.raises(llm.AIServiceError) as error:
         run()
-    assert (err.value.kind, models.calls) == ("failed", 2)
+    assert error.value.kind == "failed" and models.calls == 2
+    models = fake_gemini(httpx.ReadTimeout("timeout"), reply())
+    assert run()["analysis"] and models.calls == 2
+    monkeypatch.setattr(llm, "client", None)
+    with pytest.raises(llm.AIServiceError) as error:
+        run()
+    assert error.value.kind == "unavailable"
 
 
-def test_daily_quota_is_reported(fake_gemini):
+def test_no_resume_or_ai_reply_content_in_logs_or_errors(fake_gemini, caplog):
+    caplog.set_level(logging.DEBUG)
+    private = "ONLY-IN-UPLOAD-" + SECRET
+    pages = [RESUME_PAGES[0] + "\n" + private]
+    data = reply()
+    data["evaluations"] = [item for item in data["evaluations"] if item["criterion_id"] != "skill_2"]
+    fake_gemini(data, data)
+    with pytest.raises(llm.AIServiceError):
+        analyze_resume(make_pdf(pages=pages), CAREER, SKILLS, STEPS)
+    assert SECRET not in caplog.text and private not in caplog.text
+    assert "ONLY-IN-UPLOAD" not in caplog.text and "%PDF" not in caplog.text
+
+
+def test_success_logs_only_safe_diagnostics(fake_gemini, caplog):
+    caplog.set_level(logging.DEBUG)
+    fake_gemini(reply())
+    result = run()
+    assert "resume attempt 1: ok" in caplog.text
+    assert SECRET not in caplog.text and "jane.resume@example.com" not in caplog.text
+    assert result["analysis"]["score_report"]["confidence"]["level"] == "medium"
+
+
+@pytest.mark.parametrize("raw,kind", [
+    ("", "empty"), ("   ", "empty"), ("not json", "invalid_json"),
+    ("fenced json", "invalid_json"), ("Here is the report {}", "invalid_json"),
+    ('{"a":1,"a":2}', "invalid_json"), ("[1,2]", "not_object"), ('"text"', "not_object"),
+])
+def test_strict_reply_parser_does_not_repair_or_search_malformed_output(raw, kind):
+    with pytest.raises(AIOutputError) as error:
+        parse_resume_reply(raw, rubric(), RESUME_PAGES, len(STEPS))
+    assert error.value.kind == kind
+
+
+@pytest.mark.parametrize("field", ["is_resume", "summary", "evaluations", "recommendations", "skill_roadmap"])
+def test_each_required_top_level_reply_field_is_mandatory(field):
+    data = reply()
+    del data[field]
+    with pytest.raises(AIOutputError):
+        parse(data)
+
+
+@pytest.mark.parametrize("mutation", [
+    lambda data: data.update(summary=None),
+    lambda data: data.update(summary=5),
+    lambda data: data.update(is_resume="true"),
+    lambda data: data.update(evaluations="items"),
+    lambda data: data["evaluations"][0].update(found=1),
+    lambda data: data["evaluations"][0].update(note=""),
+    lambda data: data["evaluations"][0].update(evidence="quote"),
+    lambda data: data["evaluations"][0].update(extra_field="x"),
+    lambda data: data["recommendations"][0].update(criterion_ids="skill_1"),
+    lambda data: data["skill_roadmap"][0].update(step_positions=["1"]),
+])
+def test_wrong_types_and_unexpected_nested_fields_fail_closed(mutation):
+    data = reply()
+    mutation(data)
+    with pytest.raises(AIOutputError):
+        parse(data)
+
+
+@pytest.mark.parametrize("mutation", [
+    lambda data: data.update(summary="x" * 351),
+    lambda data: data["evaluations"][0].update(note="x" * 121),
+    lambda data: data["evaluations"][0]["evidence"][0].update(quote="SQL"),
+    lambda data: data["evaluations"][0]["evidence"][0].update(quote="x" * 161),
+    lambda data: data.update(recommendations=[data["recommendations"][0]] * 6),
+    lambda data: data["recommendations"][0].update(criterion_ids=["project_demo"] * 5),
+    lambda data: data.update(skill_roadmap=[data["skill_roadmap"][0]] * 9),
+    lambda data: data["skill_roadmap"][0].update(step_positions=[1] * 6),
+])
+def test_reply_field_and_list_limits_are_rejected_not_truncated(mutation):
+    data = reply()
+    mutation(data)
+    with pytest.raises(AIOutputError):
+        parse(data)
+
+
+def test_empty_recommendations_are_valid_and_do_not_create_fake_priority_steps(fake_gemini):
+    result, _ = parse(reply(recommendations=[]))
+    assert result["recommendations"] == []
+    fake_gemini(reply(recommendations=[]))
+    assert analyze_resume(make_pdf(), CAREER, SKILLS, STEPS)["analysis"]["score_report"]["recommendations"] == []
+
+
+def test_reply_size_limit_is_checked_before_json_parsing():
+    with pytest.raises(AIOutputError) as error:
+        parse_resume_reply("x" * (resume_ai.MAX_REPLY_CHARS + 1), rubric(), RESUME_PAGES, len(STEPS))
+    assert error.value.kind == "too_large"
+
+
+@pytest.mark.parametrize("data,kind", [
+    (b"", "too_small"), (b"%PDF-x" + b" " * 1018, "not_pdf"),
+    (b"PK" + make_pdf()[2:], "not_pdf"), (b" " + make_pdf(), "not_pdf"),
+    (make_pdf().replace(b"%%EOF", b"%%END"), "not_pdf"),
+    (make_pdf() + b" " * 2048, "not_pdf"), (None, "not_pdf"),
+])
+def test_invalid_pdf_edges_are_rejected_before_the_model_call(fake_gemini, data, kind):
+    models = fake_gemini(reply())
+    with pytest.raises(ResumeInputError) as error:
+        analyze_resume(data, CAREER, SKILLS, STEPS)
+    assert error.value.kind == kind and models.calls == 0
+
+
+def test_gemini_client_rejection_is_not_retried_and_has_no_provider_message(fake_gemini):
+    models = fake_gemini(gemini_error(400, "INVALID_ARGUMENT"), reply())
+    with pytest.raises(llm.AIServiceError) as error:
+        run()
+    assert error.value.kind == "failed" and models.calls == 1
+    assert "INVALID_ARGUMENT" not in str(error.value)
+
+
+def test_daily_quota_keeps_existing_user_safe_error_kind(fake_gemini):
     models = fake_gemini(gemini_error(429, "RESOURCE_EXHAUSTED", [
         {"violations": [{"quotaId": "GenerateRequestsPerDayPerProjectPerModel-FreeTier"}]},
     ]))
-    with pytest.raises(llm.AIServiceError) as err:
+    with pytest.raises(llm.AIServiceError) as error:
         run()
-    assert (err.value.kind, models.calls) == ("quota", 1)
+    assert error.value.kind == "quota" and models.calls == 1
 
 
-def test_missing_key_means_unavailable(monkeypatch):
-    monkeypatch.setattr(llm, "client", None)
-    with pytest.raises(llm.AIServiceError) as err:
-        run()
-    assert err.value.kind == "unavailable"
+def test_years_versions_and_large_counts_are_not_false_contact_details():
+    from strict_ai import contains_contact_details
 
-
-@pytest.mark.parametrize("timeout", [httpx.ReadTimeout("timed out"), TimeoutError("timed out")])
-def test_a_timeout_is_retried_once(fake_gemini, timeout):
-    models = fake_gemini(timeout, reply())
-    assert run()["analysis"]
-    assert models.calls == 2
-
-
-def test_two_timeouts_fail(fake_gemini):
-    models = fake_gemini(httpx.ReadTimeout("timed out"), httpx.WriteTimeout("timed out"))
-    with pytest.raises(llm.AIServiceError) as err:
-        run()
-    assert (err.value.kind, models.calls) == ("failed", 2)
-
-
-def test_unexpected_client_error_fails_without_its_message(fake_gemini, caplog):
-    caplog.set_level(logging.INFO)
-    models = fake_gemini(ValueError(f"bad part {SECRET}"), reply())
-    with pytest.raises(llm.AIServiceError) as err:
-        run()
-    assert (err.value.kind, models.calls) == ("failed", 1)
-    assert "unexpected ValueError" in caplog.text
-    assert SECRET not in caplog.text
-    assert err.value.__suppress_context__
-
-
-# --- Privacy ------------------------------------------------------------------------
-
-def _all_text(caplog, *values):
-    return caplog.text + "".join(str(v) for v in values)
-
-
-def test_no_resume_or_reply_content_in_logs_or_errors(fake_gemini, caplog):
-    caplog.set_level(logging.DEBUG)
-    leaky = reply(summary=f"{SECRET} says hi", strengths=[f"{SECRET} at x@example.com"])
-    fake_gemini(json.dumps(leaky)[:-5], leaky)  # invalid JSON, then personal data
-    with pytest.raises(llm.AIServiceError) as err:
-        analyze_resume(make_pdf(), f"{CAREER} {SECRET}", SKILLS, STEPS)
-    text = _all_text(caplog, err.value, repr(err.value), err.value.__context__)
-    assert "kind=invalid_json" in text and "kind=personal_data" in text
-    assert SECRET not in text
-    assert "RESUME-CONTENT" not in text and "%PDF" not in text
-    assert "example.com" not in text
-
-
-def test_success_logs_only_metadata(fake_gemini, caplog):
-    caplog.set_level(logging.DEBUG)
-    fake_gemini(reply(summary=f"Strong résumé {SECRET}."))
-    result = analyze_resume(make_pdf(), CAREER, SKILLS, STEPS)
-    assert "resume attempt 1: ok" in caplog.text
-    assert SECRET not in caplog.text and "RESUME-CONTENT" not in caplog.text
-    assert result["analysis"]["summary"] == f"Strong résumé {SECRET}."
-
-
-def test_saved_analysis_contains_nothing_from_the_file(fake_gemini):
-    fake_gemini(reply())
-    result = run()
-    saved = json.dumps(result, ensure_ascii=False)
-    assert "RESUME-CONTENT" not in saved and "%PDF" not in saved
-    assert set(result["analysis"]) == ANALYSIS_FIELDS
-
-
-def test_input_errors_carry_only_their_kind(fake_gemini):
-    fake_gemini(reply())
-    with pytest.raises(ResumeInputError) as err:
-        analyze_resume(b"%PDF-" + PDF_SECRET, CAREER, SKILLS, STEPS)
-    assert str(err.value) == "too_small"
-    assert err.value.args == ("too_small",)
+    assert not contains_contact_details("2019-2023, 1000-2000 records, Python 3.12")

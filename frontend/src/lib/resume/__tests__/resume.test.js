@@ -61,12 +61,14 @@ describe("normalizeAnalysis", () => {
         summary: "S", matched_skills: ["SQL"], missing_skills: ["Tableau"], strengths: ["Good"],
         gaps: [{ skill: "Tableau", why: "w", how_to_close: "h", related_step: 3 }],
         suggestions: [{ section: "projects", text: "t" }],
+        score_report: { overall: 86, categories: [] },
       },
     });
     expect(item).toMatchObject({
       id: "1", roadmapId: "r", career: "Data Analyst", summary: "S",
       matchedSkills: ["SQL"], gaps: [{ skill: "Tableau", howToClose: "h", relatedStep: 3 }],
       suggestions: [{ section: "projects", text: "t" }],
+      scoreReport: { overall: 86, categories: [] },
     });
     expect(item.createdAt).toBe(Date.parse("2026-10-07T12:00:00Z"));
   });
@@ -80,6 +82,7 @@ describe("normalizeAnalysis", () => {
     expect(item.gaps).toEqual([{ skill: "X", why: "", howToClose: "", relatedStep: null }]);
     expect(item.suggestions).toEqual([{ section: "other", text: "t" }]);
     expect(item.roadmapId).toBeNull();
+    expect(item.scoreReport).toBeNull();
   });
 });
 

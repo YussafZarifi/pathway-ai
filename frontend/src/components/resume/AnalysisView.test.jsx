@@ -11,16 +11,39 @@ const ANALYSIS = {
   suggestions: [{ section: "projects", text: "Lead with the question." }],
 };
 
+const SCORE_REPORT = {
+  overall: 76,
+  ats: { score: 75, earned: 3.8, weight: 5 },
+  rubric: { family: "data_science", label: "Data science & analytics" },
+  confidence: { level: "High", reason: "Cited text was checked against each PDF page." },
+  readiness: { internship: 82, junior: 61, mid_level: 28 },
+  categories: [{
+    id: "skills", label: "Relevant technical skills", score: 50, earned: 15, weight: 30,
+    criteria: [
+      { id: "skill_1", label: "SQL", found: true, points: 15, max_points: 15, note: "Evidence found.", evidence: [{ page: 1, quote: "Used SQL for reporting." }] },
+      { id: "skill_2", label: "Tableau", found: false, points: 0, max_points: 15, note: "No Tableau evidence was found.", evidence: [] },
+    ],
+  }, {
+    id: "ats", label: "ATS optimization", score: 75, earned: 3.8, weight: 5,
+    criteria: [{ id: "text_parseability", label: "Selectable text", found: true, points: 1.3, max_points: 1.3, note: "Text extracted.", evidence: [] }],
+  }],
+  roadmap: {
+    steps: [{ position: 1, title: "SQL foundations", status: "completed" }, { position: 2, title: "Tableau dashboards", status: "in_progress" }],
+    skills: [{ skill: "SQL", found: true, evidence: [], roadmap_steps: [1] }, { skill: "Tableau", found: false, evidence: [], roadmap_steps: [2] }],
+  },
+  recommendations: [{ title: "Add a Tableau project", action: "Build and document a dashboard.", potential_points: 15, criterion_ids: ["skill_2"] }],
+};
+
 function view(props) {
   return render(<MemoryRouter><AnalysisView analysis={ANALYSIS} {...props} /></MemoryRouter>);
 }
 
 describe("AnalysisView", () => {
-  it("labels the review as AI feedback and shows no score", () => {
+  it("keeps previous qualitative reports readable without inventing a score", () => {
     const { container } = view({});
-    expect(screen.getByText("AI-generated review")).toBeTruthy();
+    expect(screen.getByText("Previous review")).toBeTruthy();
     expect(container.textContent).not.toMatch(/\d+\s*(%|\/\s*100)|score/i);
-    expect(screen.getByText("No specific skills called out in this category.")).toBeTruthy(); // empty missing skills
+    expect(screen.getByText("This earlier review predates the evidence-based scoring rubric.")).toBeTruthy();
   });
 
   it("links a gap to the dashboard step for the current roadmap", () => {
@@ -42,5 +65,21 @@ describe("AnalysisView", () => {
     );
     expect(container.querySelector("img")).toBeNull();
     expect(container.textContent).toContain("<img src=x onerror=alert(1)>");
+  });
+
+  it("renders only backend score fields with cited evidence and visible missing-evidence reasons", () => {
+    const { container } = render(
+      <MemoryRouter><AnalysisView analysis={{ ...ANALYSIS, scoreReport: SCORE_REPORT }} currentRoadmapId="r1" /></MemoryRouter>
+    );
+    expect(screen.getByRole("img", { name: "Resume evidence score: 76 out of 100" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Skill match" })).toBeTruthy();
+    expect(screen.getAllByText("Evidence found").length).toBe(2);
+    expect(screen.getAllByText("Not evidenced yet").length).toBe(2);
+    expect(screen.getByText("Used SQL for reporting.")).toBeTruthy();
+    expect(screen.getAllByText("No Tableau evidence was found.").length).toBe(2);
+    expect(screen.getByText("Tableau dashboards")).toBeTruthy();
+    expect(screen.getByText("+15")).toBeTruthy();
+    expect(screen.getByText(/not your abilities or your chance of being hired/i)).toBeTruthy();
+    expect(container.querySelector('svg[aria-label^="Category evidence profile"]')).toBeTruthy();
   });
 });

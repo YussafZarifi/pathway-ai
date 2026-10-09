@@ -69,10 +69,10 @@ function PrivacyCard() {
       </div>
       <ul className="resumePrivacyList">
         <li><Shield size={15} aria-hidden="true" /><span>Your PDF is sent to Google Gemini once for this review.</span></li>
-        <li><Lock size={15} aria-hidden="true" /><span>PathwayAI never stores the file, its text or its name.</span></li>
-        <li><BadgeCheck size={15} aria-hidden="true" /><span>Only the written review is saved. Delete it whenever you like.</span></li>
+        <li><Lock size={15} aria-hidden="true" /><span>PathwayAI does not store the original PDF, its full text or its name.</span></li>
+        <li><BadgeCheck size={15} aria-hidden="true" /><span>Your report and short, verified evidence excerpts are saved. Delete them whenever you like.</span></li>
       </ul>
-      <p className="resumeNoScore"><CircleHelp size={14} aria-hidden="true" /> No score—just practical feedback, grounded in your roadmap.</p>
+      <p className="resumeNoScore"><CircleHelp size={14} aria-hidden="true" /> Every score point is tied to resume evidence and your target career rubric.</p>
     </aside>
   );
 }
@@ -186,7 +186,7 @@ function UploadCard({ career, analyzing, error, progress, onAnalyze }) {
       <p id="resumeUploadMessage" className="dashError" role="alert">
         {message}
       </p>
-      <p className="resumeUploadFootnote"><Lock size={13} aria-hidden="true" /> No résumé score. No file storage.</p>
+      <p className="resumeUploadFootnote"><Lock size={13} aria-hidden="true" /> Evidence-based scoring · No original file storage</p>
     </form>
   );
 }

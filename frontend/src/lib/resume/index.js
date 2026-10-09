@@ -85,6 +85,10 @@ export function normalizeAnalysis(row) {
     suggestions: (Array.isArray(a.suggestions) ? a.suggestions : [])
       .filter((s) => s && typeof s.text === "string")
       .map((s) => ({ section: SECTION_LABELS[s.section] ? s.section : "other", text: s.text })),
+    scoreReport: a.score_report && typeof a.score_report === "object"
+      && Array.isArray(a.score_report.categories)
+      ? a.score_report
+      : null,
   };
 }
 

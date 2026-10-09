@@ -65,6 +65,13 @@ The old backend turned the 429 into the same generic 502 as a parse failure. The
 | User text in prompt | Reduced prompt-injection surface: `career_in_mind` (v2, ≤100 chars, JSON-quoted, marked as data), `curious_fields` (v1), `career` |
 | No memory | Every call is stateless; there's no coach |
 
+### Resume Analyzer scoring (M3-X, ADR-024)
+The résumé path is separate from career/roadmap generation. pypdf extracts up to 10 pages and 30,000 characters from a text-based PDF in memory (2 MB upload cap, per-page stream limits); the full text is supplied alongside the original PDF to Gemini. Gemini returns only a strict checklist: one binary finding per rubric criterion, a short source-page excerpt for each positive finding, a short note for each item, skill-to-roadmap links, and recommendations linked to missing criterion IDs. The backend normalizes whitespace/Unicode and verifies every excerpt against its claimed extracted page. Unknown, duplicate, missing, unsupported, out-of-range, or contact-detail content fails closed and follows the normal single retry.
+
+backend/resume_scoring.py selects one of eight career-family rubrics (software engineering, data science, AI/ML, cybersecurity, UI/UX, product management, cloud engineering, DevOps) or a general technology rubric. Fixed category weights total 100. Points are split evenly across named criteria within a category, with hundredth-point remainder distribution so the displayed criterion maximums add back to the category weight. Gemini never sends a score. Python computes category values, total, ATS coverage, readiness coverage, and recommendation point potential. Priority gains only count linked criteria that were not found; a criterion cannot be counted twice. The internship/junior/mid-level percentages are coverage indexes across selected rubric categories, not hiring probabilities.
+
+The full PDF and extracted text are discarded after the request. analysis.score_report is additive within the existing analysis JSON and stores only structured findings and short verified excerpts. This deliberately changes the earlier M3 privacy description: no original file or full text is persisted, but excerpts are retained to make awarded points reviewable. Old rows without score_report continue to render as qualitative reports. See ADR-024 and docs/api.md for the persisted shape and limitations.
+
 ## Planned improvements (🗺️) — in priority order
 
 1. ~~**Structured output.**~~ Done 2026-09-27 (ADR-015). Possible follow-ups: append the validation error to the retry prompt; use the output models as FastAPI `response_model`s.
