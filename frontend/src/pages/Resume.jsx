@@ -1,17 +1,23 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
+  BadgeCheck,
   ChevronDown,
+  CircleHelp,
   FileText,
+  History,
   Lock,
   Map,
   ShieldCheck,
+  Shield,
+  Sparkles,
   Trash2,
   UploadCloud,
   UserRound,
 } from "lucide-react";
 import AppHeader from "../components/AppHeader";
 import Dialog from "../components/Dialog";
+import FeatureHeading from "../components/FeatureHeading";
 import AnalysisView from "../components/resume/AnalysisView";
 import { errorMessage } from "../lib/api";
 import { useAuth } from "../lib/authContext";
@@ -37,15 +43,16 @@ function formatSize(bytes) {
   return bytes >= 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(1)} MB` : `${Math.ceil(bytes / 1024)} KB`;
 }
 
-function StateCard({ icon, title, children, action }) {
+function StateCard({ icon, eyebrow = "RESUME ANALYZER", title, children, action }) {
   return (
-    <section className="dashCard dashEmpty resumeState">
-      <span className="dashEmptyIcon" aria-hidden="true">
+    <section className="dashCard featureState resumeState">
+      <span className="featureStateIcon" aria-hidden="true">
         {icon}
       </span>
-      <h2 className="dashEmptyTitle">{title}</h2>
-      <div className="dashEmptyText">{children}</div>
-      {action}
+      <p className="featureEyebrow">{eyebrow}</p>
+      <h2 className="featureStateTitle">{title}</h2>
+      <div className="featureStateText">{children}</div>
+      {action && <div className="featureStateAction">{action}</div>}
     </section>
   );
 }
@@ -53,29 +60,39 @@ function StateCard({ icon, title, children, action }) {
 function PrivacyCard() {
   return (
     <aside className="dashCard resumePrivacy" aria-labelledby="resumePrivacyTitle">
-      <h2 id="resumePrivacyTitle" className="dashRailTitle">
-        <ShieldCheck size={16} aria-hidden="true" /> What happens to your file
-      </h2>
+      <div className="resumePrivacyHeader">
+        <span className="resumePrivacyIcon"><ShieldCheck size={17} aria-hidden="true" /></span>
+        <div>
+          <p className="featureEyebrow">PRIVATE BY DESIGN</p>
+          <h2 id="resumePrivacyTitle">Your file stays yours</h2>
+        </div>
+      </div>
       <ul className="resumePrivacyList">
-        <li>Your PDF is sent to Google Gemini once, for this review only.</li>
-        <li>PathwayAI never stores the file, its text or its name.</li>
-        <li>Only the written review is saved to your account. You can delete it any time.</li>
-        <li>There&apos;s no score: the review is AI feedback, not a measurement.</li>
+        <li><Shield size={15} aria-hidden="true" /><span>Your PDF is sent to Google Gemini once for this review.</span></li>
+        <li><Lock size={15} aria-hidden="true" /><span>PathwayAI never stores the file, its text or its name.</span></li>
+        <li><BadgeCheck size={15} aria-hidden="true" /><span>Only the written review is saved. Delete it whenever you like.</span></li>
       </ul>
+      <p className="resumeNoScore"><CircleHelp size={14} aria-hidden="true" /> No score—just practical feedback, grounded in your roadmap.</p>
     </aside>
   );
 }
 
 // The upload form: shown only when the API says analysis is available.
-function UploadCard({ career, analyzing, error, onAnalyze }) {
+function UploadCard({ career, analyzing, error, progress, onAnalyze }) {
   const inputRef = useRef(null);
   const [file, setFile] = useState(null);
   const [problem, setProblem] = useState("");
+  const [dragging, setDragging] = useState(false);
 
-  function choose(event) {
-    const next = event.target.files?.[0] || null;
+  function choose(next) {
     setFile(next);
     setProblem(next ? fileProblem(next) : "");
+  }
+
+  function handleDrop(event) {
+    event.preventDefault();
+    setDragging(false);
+    if (!analyzing) choose(event.dataTransfer.files?.[0] || null);
   }
 
   async function submit(event) {
@@ -97,39 +114,79 @@ function UploadCard({ career, analyzing, error, onAnalyze }) {
 
   return (
     <form className="dashCard resumeUpload" onSubmit={submit} aria-busy={analyzing}>
-      <h2 className="dashRailTitle">Review your résumé</h2>
-      <p className="dashMuted resumeTarget">
+      <div className="resumeUploadHeading">
+        <div>
+          <p className="featureEyebrow">YOUR NEXT CAREER STEP</p>
+          <h2>Build a stronger résumé</h2>
+        </div>
+        <span className="resumeUploadStep">01 <span>/ 02</span></span>
+      </div>
+      <p className="resumeTarget">
         Reviewed against your current roadmap: <strong>{career}</strong>
       </p>
 
-      <label className={`resumeDrop ${analyzing ? "resumeDrop--busy" : ""}`}>
-        <UploadCloud size={26} aria-hidden="true" />
-        <span className="resumeDropTitle">{file ? "PDF selected" : "Choose a PDF"}</span>
-        <span className="dashMuted resumeDropHint">
-          {file ? formatSize(file.size) : "Text-based PDF, up to 2 MB"}
-        </span>
+      <label
+        htmlFor="resumePdf"
+        className={`resumeDrop ${dragging ? "is-dragging" : ""} ${file ? "has-file" : ""} ${analyzing ? "resumeDrop--busy" : ""}`}
+        onDragEnter={(event) => { event.preventDefault(); if (!analyzing) setDragging(true); }}
+        onDragOver={(event) => event.preventDefault()}
+        onDragLeave={(event) => {
+          if (!event.currentTarget.contains(event.relatedTarget)) setDragging(false);
+        }}
+        onDrop={handleDrop}
+      >
+        <span className="resumeDropIcon"><UploadCloud size={23} aria-hidden="true" /></span>
+        <span className="resumeDropTitle">{file ? "PDF ready to review" : "Drop your résumé PDF here"}</span>
+        <span className="resumeDropHint">or <span className="resumeBrowse">browse files</span></span>
+        <span className="resumeDropMeta">Text-based PDF · up to 2 MB</span>
         <input
           ref={inputRef}
+          id="resumePdf"
           type="file"
           accept="application/pdf,.pdf"
           className="resumeFileInput"
-          onChange={choose}
+          onChange={(event) => choose(event.target.files?.[0] || null)}
           disabled={analyzing}
           aria-describedby="resumeUploadMessage"
         />
       </label>
+
+      {file && (
+        <div className="resumeSelectedFile">
+          <span className="resumeSelectedIcon"><FileText size={17} aria-hidden="true" /></span>
+          <span className="resumeSelectedCopy"><strong>PDF selected</strong><small>{formatSize(file.size)} · Private upload</small></span>
+          {!analyzing && (
+            <button type="button" className="resumeClearFile" onClick={() => { choose(null); if (inputRef.current) inputRef.current.value = ""; }}>
+              Remove
+            </button>
+          )}
+        </div>
+      )}
+
+      {analyzing && (
+        <div className="resumeProgress" role="status" aria-live="polite">
+          <div className="resumeProgressLabels">
+            <span>{progress.phase === "reviewing" ? "Reviewing your experience" : "Uploading securely"}</span>
+            <strong>{progress.phase === "reviewing" ? "AI review" : `${progress.percent}%`}</strong>
+          </div>
+          <progress max="100" value={progress.phase === "uploading" ? progress.percent : undefined} aria-label={progress.phase === "reviewing" ? "AI review in progress" : "PDF upload progress"} />
+          <span className="resumeProgressHint">{progress.phase === "reviewing" ? "Organizing your personalized report…" : "Your PDF is sent for this review only."}</span>
+        </div>
+      )}
 
       <button
         type="submit"
         className="dashBtn dashBtn--primary resumeSubmit"
         disabled={analyzing || !file || Boolean(problem)}
       >
-        {analyzing ? "Analyzing… this can take up to a minute" : "Analyze résumé"}
+        {analyzing ? "Creating your report…" : "Analyze résumé"}
+        {!analyzing && <Sparkles size={16} aria-hidden="true" />}
       </button>
 
       <p id="resumeUploadMessage" className="dashError" role="alert">
         {message}
       </p>
+      <p className="resumeUploadFootnote"><Lock size={13} aria-hidden="true" /> No résumé score. No file storage.</p>
     </form>
   );
 }
@@ -143,14 +200,15 @@ function HistoryItem({ item, open, onToggle, onDelete, deleting, currentRoadmapI
           type="button"
           className="resumeHistoryToggle"
           aria-expanded={open}
-          aria-controls={panelId}
+          aria-controls={open ? panelId : undefined}
           onClick={onToggle}
         >
+          <span className="resumeHistoryIcon"><FileText size={17} aria-hidden="true" /></span>
           <span className="resumeHistoryMeta">
-            <span className="resumeHistoryCareer">{item.career}</span>
-            <span className="dashMuted">{formatDate(item.createdAt)}</span>
+            <span className="resumeHistoryTopline"><span className="resumeHistoryCareer">{item.career}</span><span className="resumeHistoryDate">{formatDate(item.createdAt)}</span></span>
+            {!open && <span className="resumeHistorySummary">{item.summary}</span>}
+            <span className="resumeHistoryView">{open ? "Close report" : "Open report"}</span>
           </span>
-          {!open && <span className="dashMuted resumeHistorySummary">{item.summary}</span>}
           <ChevronDown size={18} className={`resumeChevron ${open ? "resumeChevron--open" : ""}`} aria-hidden="true" />
         </button>
         <button
@@ -181,6 +239,7 @@ export default function Resume() {
   const [availability, setAvailability] = useState({ status: "loading", data: null });
   const [history, setHistory] = useState({ status: "loading", items: [], error: "" });
   const [analyzing, setAnalyzing] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState({ phase: "uploading", percent: 0 });
   const [uploadError, setUploadError] = useState("");
   const [openId, setOpenId] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(null);
@@ -220,13 +279,14 @@ export default function Resume() {
   // Cancel an analysis in flight when leaving the page.
   useEffect(() => () => analyzeAbort.current?.abort(), []);
 
-  async function runAnalysis(file) {
+  async function runAnalysis(file, onUploadProgress) {
     setAnalyzing(true);
+    setUploadProgress({ phase: "uploading", percent: 0 });
     setUploadError("");
     const controller = new AbortController();
     analyzeAbort.current = controller;
     try {
-      const row = await analyze(file, { signal: controller.signal });
+      const row = await analyze(file, { signal: controller.signal, onUploadProgress });
       const item = normalizeAnalysis(row);
       setHistory((prev) => ({ ...prev, items: [item, ...prev.items.filter((i) => i.id !== item.id)] }));
       setOpenId(item.id);
@@ -240,6 +300,7 @@ export default function Resume() {
       return false;
     } finally {
       setAnalyzing(false);
+      setUploadProgress({ phase: "uploading", percent: 0 });
       analyzeAbort.current = null;
     }
   }
@@ -264,7 +325,10 @@ export default function Resume() {
   function renderStatus() {
     if (availability.status === "loading") {
       return (
-        <section className="dashCard resumeUpload" aria-busy="true">
+        <section className="dashCard resumeLoading" aria-busy="true" aria-label="Checking résumé analysis">
+          <span className="resumeSkeleton resumeSkeleton--title" />
+          <span className="resumeSkeleton resumeSkeleton--body" />
+          <span className="resumeSkeleton resumeSkeleton--drop" />
           <p className="dashMuted" role="status">
             Checking résumé analysis…
           </p>
@@ -289,7 +353,13 @@ export default function Resume() {
     const { available, reason, career } = availability.data || {};
     if (available) {
       return (
-        <UploadCard career={career} analyzing={analyzing} error={uploadError} onAnalyze={runAnalysis} />
+        <UploadCard
+          career={career}
+          analyzing={analyzing}
+          error={uploadError}
+          progress={uploadProgress}
+          onAnalyze={(file) => runAnalysis(file, setUploadProgress)}
+        />
       );
     }
     if (reason === "no_active_roadmap") {
@@ -318,16 +388,6 @@ export default function Resume() {
       </StateCard>
     );
   }
-
-  const intro = (
-    <div className="resumeIntro">
-      <h1 className="resumeTitle">Resume Analyzer</h1>
-      <p className="dashMuted">
-        Upload your résumé as a PDF and get AI feedback against your roadmap&apos;s career: skills it
-        shows, gaps to close and concrete edits.
-      </p>
-    </div>
-  );
 
   let content;
   if (!accountsEnabled) {
@@ -376,9 +436,7 @@ export default function Resume() {
               Your reviews
             </h2>
             {history.status === "ready" && (
-              <span className="dashMuted">
-                {history.items.length} saved
-              </span>
+              <span className="resumeHistoryCount">{history.items.length} saved</span>
             )}
           </div>
           {historyError && (
@@ -387,9 +445,11 @@ export default function Resume() {
             </p>
           )}
           {history.status === "loading" ? (
-            <p className="dashMuted" role="status">
-              Loading your reviews…
-            </p>
+            <div className="resumeHistoryLoading" aria-busy="true">
+              <span className="resumeSkeleton resumeSkeleton--body" />
+              <span className="resumeSkeleton resumeSkeleton--body" />
+              <p className="srOnly" role="status">Loading your reports…</p>
+            </div>
           ) : history.status === "error" ? (
             <div className="resumeHistoryEmpty">
               <p className="dashError" role="alert">
@@ -400,7 +460,13 @@ export default function Resume() {
               </button>
             </div>
           ) : history.items.length === 0 ? (
-            <p className="dashMuted resumeHistoryEmpty">No reviews yet. Your reviews will appear here.</p>
+            <div className="resumeHistoryEmpty">
+              <span className="resumeHistoryEmptyIcon"><History size={19} aria-hidden="true" /></span>
+              <div>
+                <h3>No reviews yet</h3>
+                <p>After your first review, revisit its strengths, gaps, and next steps anytime.</p>
+              </div>
+            </div>
           ) : (
             <ul className="resumeHistoryList">
               {history.items.map((item) => (
@@ -424,8 +490,14 @@ export default function Resume() {
   return (
     <div className="homePage">
       <AppHeader />
-      <main className="dashMain resumeMain">
-        {intro}
+      <main className="dashMain featureMain">
+        <FeatureHeading
+          icon={<FileText size={22} />}
+          eyebrow="CAREER TOOLKIT · 01"
+          title="Resume Analyzer"
+          description="Turn your roadmap into a focused résumé review—with strengths to lead with, gaps to close, and edits you can use."
+          context="Grounded in your roadmap"
+        />
         {content}
       </main>
 

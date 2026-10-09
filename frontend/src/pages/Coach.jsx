@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Lock, MessageSquare, Plus, Send, ShieldCheck, Trash2, UserRound } from "lucide-react";
+import { Bot, Lock, Map, MessageSquare, Plus, Send, ShieldCheck, Sparkles, Trash2, UserRound } from "lucide-react";
 import AppHeader from "../components/AppHeader";
 import Dialog from "../components/Dialog";
+import FeatureHeading from "../components/FeatureHeading";
 import CoachMessage from "../components/coach/CoachMessage";
 import { errorMessage } from "../lib/api";
 import { useAuth } from "../lib/authContext";
@@ -27,13 +28,14 @@ const STARTERS = [
 
 function StateCard({ icon, title, children, action }) {
   return (
-    <section className="dashCard dashEmpty resumeState">
-      <span className="dashEmptyIcon" aria-hidden="true">
+    <section className="dashCard featureState resumeState">
+      <span className="featureStateIcon" aria-hidden="true">
         {icon}
       </span>
-      <h2 className="dashEmptyTitle">{title}</h2>
-      <div className="dashEmptyText">{children}</div>
-      {action}
+      <p className="featureEyebrow">AI COACH</p>
+      <h2 className="featureStateTitle">{title}</h2>
+      <div className="featureStateText">{children}</div>
+      {action && <div className="featureStateAction">{action}</div>}
     </section>
   );
 }
@@ -258,16 +260,24 @@ export default function Coach() {
       <div className="coachLayout">
         <aside className="dashCard coachThreads" aria-labelledby="coachThreadsTitle">
           <div className="coachThreadsHead">
-            <h2 id="coachThreadsTitle" className="dashRailTitle">Conversations</h2>
-            <button type="button" className="dashBtn coachNew" onClick={newConversation}>
-              <Plus size={15} aria-hidden="true" /> New
+            <div>
+              <p className="featureEyebrow">YOUR HISTORY</p>
+              <h2 id="coachThreadsTitle">Conversations</h2>
+            </div>
+            <button type="button" className="dashBtn coachNew" onClick={newConversation} aria-label="Start a new conversation" title="Start a new conversation">
+              <Plus size={16} aria-hidden="true" /><span>New</span>
             </button>
           </div>
+          <p className="coachThreadsHint">Pick up where you left off, or start fresh.</p>
           {threads.error && <p className="dashError" role="alert">{threads.error}</p>}
           {threads.status === "loading" ? (
             <p className="dashMuted" role="status">Loading…</p>
           ) : threads.items.length === 0 ? (
-            <p className="dashMuted coachNone">No conversations yet.</p>
+            <div className="coachThreadsEmpty">
+              <MessageSquare size={17} aria-hidden="true" />
+              <p>No conversations yet.</p>
+              <span>Your first chat will appear here.</span>
+            </div>
           ) : (
             <ul className="coachThreadList">
               {threads.items.map((t) => (
@@ -296,14 +306,24 @@ export default function Coach() {
         </aside>
 
         <section className="dashCard coachChat" aria-labelledby="coachChatTitle">
-          <h2 id="coachChatTitle" className="srOnly">Chat with your coach</h2>
-          {messages.status === "loading" && <p className="dashMuted" role="status">Loading conversation…</p>}
+          <header className="coachPanelHeader">
+            <span className="coachPanelAvatar"><Sparkles size={18} aria-hidden="true" /></span>
+            <div className="coachPanelHeading">
+              <p className="featureEyebrow">PATHWAYAI COACH</p>
+              <h2 id="coachChatTitle">Your next move, made clearer</h2>
+            </div>
+            <span className="coachGrounding"><Map size={14} aria-hidden="true" /> Roadmap context</span>
+          </header>
+          {messages.status === "loading" && <p className="dashMuted coachLoading" role="status"><span className="resumeSkeleton resumeSkeleton--body" />Loading conversation…</p>}
           {messages.status === "error" && <p className="dashError" role="alert">{messages.error}</p>}
           {messages.items.length === 0 && messages.status !== "loading" ? (
             <div className="coachWelcome">
+              <span className="coachWelcomeIcon"><Bot size={19} aria-hidden="true" /></span>
+              <p className="featureEyebrow">A GOOD PLACE TO START</p>
+              <h3>What are you working through?</h3>
               <p className="coachWelcomeText">
-                Ask about your roadmap, what to learn next, projects or your job search.
-                {record?.career ? ` Your coach knows your ${record.career} roadmap and progress.` : ""}
+                Ask about what to learn next, a project to build, or how to stay moving.
+                {record?.career ? ` Your coach knows your ${record.career} roadmap and progress.` : " Your coach will use your roadmap and progress for context."}
               </p>
               <div className="coachStarters">
                 {STARTERS.map((s) => (
@@ -383,14 +403,13 @@ export default function Coach() {
   return (
     <div className="homePage">
       <AppHeader />
-      <main className="dashMain resumeMain">
-        <div className="resumeIntro">
-          <h1 className="resumeTitle">AI Coach</h1>
-          <p className="dashMuted">
-            Personal guidance grounded in your roadmap and progress. The coach suggests next steps; you decide
-            what to do with them.
-          </p>
-        </div>
+      <main className="dashMain featureMain">
+        <FeatureHeading
+          icon={<Bot size={22} />}
+          eyebrow="CAREER TOOLKIT · 02"
+          title="AI Coach"
+          description="Talk through your roadmap, progress, and career questions. Get a practical next step, then decide what to do with it."
+        />
         {body}
       </main>
 

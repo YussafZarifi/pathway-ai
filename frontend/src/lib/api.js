@@ -35,15 +35,78 @@ export function errorMessage(error, fallback) {
   return specific && error.message ? error.message : fallback;
 }
 
+function parseApiResponse(status, text) {
+  let data = null;
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch {
+    // Match fetch's existing behavior for an empty or non-JSON body.
+  }
+  if (status < 200 || status >= 300) {
+    const detail = typeof data?.detail === "string" ? data.detail : "";
+    throw new ApiError(detail || "Something went wrong. Please try again.", status);
+  }
+  return data;
+}
+
+function requestWithUploadProgress(path, raw, { signal, token, contentType, onUploadProgress }) {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    let settled = false;
+    const cleanup = () => signal?.removeEventListener("abort", abort);
+    const finish = (callback, value) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      callback(value);
+    };
+    const abort = () => {
+      xhr.abort();
+      finish(reject, new DOMException("The request was aborted.", "AbortError"));
+    };
+
+    if (signal?.aborted) {
+      finish(reject, new DOMException("The request was aborted.", "AbortError"));
+      return;
+    }
+    signal?.addEventListener("abort", abort, { once: true });
+    xhr.open("POST", `${API_URL}${path}`);
+    xhr.timeout = TIMEOUT_MS;
+    xhr.setRequestHeader("Content-Type", contentType);
+    if (token) xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+    xhr.upload.addEventListener("progress", (event) => {
+      if (event.lengthComputable) {
+        onUploadProgress({ phase: "uploading", percent: Math.round((event.loaded / event.total) * 100) });
+      }
+    });
+    xhr.upload.addEventListener("load", () => onUploadProgress({ phase: "reviewing", percent: 100 }));
+    xhr.onload = () => {
+      try {
+        finish(resolve, parseApiResponse(xhr.status, xhr.responseText));
+      } catch (error) {
+        finish(reject, error);
+      }
+    };
+    xhr.onerror = () => finish(reject, new ApiError("Couldn't reach PathwayAI. Check your connection and try again."));
+    xhr.ontimeout = () => finish(reject, new ApiError("This is taking longer than expected. Please try again."));
+    xhr.onabort = () => finish(reject, new DOMException("The request was aborted.", "AbortError"));
+    xhr.send(raw);
+  });
+}
+
 /**
  * One backend call. JSON by default; `raw` sends a Blob/File as the body
  * unchanged with its own Content-Type (the résumé PDF, ADR-020), and
  * `method: "GET"` sends no body.
  */
-async function request(path, body, { signal, token, method = "POST", raw = null, contentType } = {}) {
+async function request(path, body, { signal, token, method = "POST", raw = null, contentType, onUploadProgress } = {}) {
   if (!API_URL) {
     console.error("VITE_API_URL is not set; see frontend/.env.example");
     throw new ApiError("PathwayAI isn't configured correctly. Please try again later.", 500);
+  }
+
+  if (raw && onUploadProgress) {
+    return requestWithUploadProgress(path, raw, { signal, token, contentType, onUploadProgress });
   }
 
   // Abort on the caller's signal (e.g. unmount) or on our own timeout.
@@ -170,12 +233,13 @@ export function getResumeAvailability(token, { signal } = {}) {
  * no file name, form fields or other metadata are sent.
  * @returns {Promise<object>} the saved analysis row
  */
-export function analyzeResume(token, file, { signal } = {}) {
+export function analyzeResume(token, file, { signal, onUploadProgress } = {}) {
   return request("/api/resume-analyses", null, {
     signal,
     token,
     raw: file,
     contentType: "application/pdf",
+    onUploadProgress,
   });
 }
 

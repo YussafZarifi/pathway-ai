@@ -165,6 +165,24 @@ describe("/resume upload", () => {
     expect(screen.getByText("1 saved")).toBeTruthy();
   });
 
+  it("accepts a dropped PDF and displays upload progress", async () => {
+    signIn();
+    let completeUpload;
+    api.analyze.mockImplementation((_file, { onUploadProgress }) => new Promise((resolve) => {
+      completeUpload = resolve;
+      onUploadProgress({ phase: "uploading", percent: 47 });
+    }));
+    renderPage();
+    await screen.findByText("Data Analyst");
+    const file = pdf();
+    fireEvent.drop(document.querySelector(".resumeDrop"), { dataTransfer: { files: [file] } });
+    expect(screen.getByText("PDF ready to review")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /Analyze/ }));
+    expect(await screen.findByText("47%")).toBeTruthy();
+    completeUpload(ROW);
+    expect(await screen.findByText("Solid SQL.")).toBeTruthy();
+  });
+
   it("never shows, stores or logs the file name", async () => {
     signIn();
     api.analyze.mockResolvedValue(ROW);

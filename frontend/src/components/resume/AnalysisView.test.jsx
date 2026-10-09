@@ -18,9 +18,9 @@ function view(props) {
 describe("AnalysisView", () => {
   it("labels the review as AI feedback and shows no score", () => {
     const { container } = view({});
-    expect(screen.getByText("AI review")).toBeTruthy();
+    expect(screen.getByText("AI-generated review")).toBeTruthy();
     expect(container.textContent).not.toMatch(/\d+\s*(%|\/\s*100)|score/i);
-    expect(screen.getByText("None listed")).toBeTruthy(); // empty missing skills
+    expect(screen.getByText("No specific skills called out in this category.")).toBeTruthy(); // empty missing skills
   });
 
   it("links a gap to the dashboard step for the current roadmap", () => {

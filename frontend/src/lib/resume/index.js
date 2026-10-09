@@ -54,8 +54,8 @@ export async function checkAvailability({ signal } = {}) {
 }
 
 /** Analyze a PDF; resolves to the saved analysis row. */
-export async function analyze(file, { signal } = {}) {
-  return analyzeResume(await accessToken(), file, { signal });
+export async function analyze(file, { signal, onUploadProgress } = {}) {
+  return analyzeResume(await accessToken(), file, { signal, onUploadProgress });
 }
 
 function list(value) {

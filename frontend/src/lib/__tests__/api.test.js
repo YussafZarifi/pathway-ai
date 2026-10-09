@@ -69,6 +69,42 @@ describe("résumé calls", () => {
     expect(init.headers).toEqual({ "Content-Type": "application/pdf", Authorization: "Bearer tok" });
     expect(JSON.stringify(init.headers)).not.toContain("jane-doe");
   });
+
+  it("reports real upload progress while keeping the raw PDF request", async () => {
+    let lastRequest;
+    class ProgressRequest {
+      constructor() {
+        lastRequest = this;
+        this.uploadListeners = {};
+        this.upload = { addEventListener: (name, callback) => { this.uploadListeners[name] = callback; } };
+      }
+      open = vi.fn();
+      setRequestHeader = vi.fn();
+      send = vi.fn((body) => {
+        this.body = body;
+        this.status = 201;
+        this.responseText = JSON.stringify({ id: "saved" });
+        this.uploadListeners.progress({ lengthComputable: true, loaded: 25, total: 100 });
+        this.uploadListeners.load();
+        this.onload();
+      });
+    }
+    const onUploadProgress = vi.fn();
+    const fetch = vi.fn();
+    vi.stubGlobal("XMLHttpRequest", ProgressRequest);
+    vi.stubGlobal("fetch", fetch);
+    const file = new File(["%PDF-1.4"], "private-name.pdf", { type: "application/pdf" });
+
+    await expect(analyzeResume("tok", file, { onUploadProgress })).resolves.toEqual({ id: "saved" });
+
+    expect(lastRequest.open).toHaveBeenCalledWith("POST", "http://api.test/api/resume-analyses");
+    expect(lastRequest.body).toBe(file);
+    expect(lastRequest.setRequestHeader).toHaveBeenCalledWith("Content-Type", "application/pdf");
+    expect(lastRequest.setRequestHeader).toHaveBeenCalledWith("Authorization", "Bearer tok");
+    expect(onUploadProgress).toHaveBeenNthCalledWith(1, { phase: "uploading", percent: 25 });
+    expect(onUploadProgress).toHaveBeenNthCalledWith(2, { phase: "reviewing", percent: 100 });
+    expect(fetch).not.toHaveBeenCalled();
+  });
 });
 
 describe("errorMessage", () => {

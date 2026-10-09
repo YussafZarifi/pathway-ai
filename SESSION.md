@@ -4,21 +4,20 @@
 
 ---
 
-## Current session — 2026-10-09 · Trusted proxy IP hardening
+## Current session — 2026-10-09 · Resume Analyzer and AI Coach UI polish
 
 ### Summary
-- Verified `main`, `origin`, the local-only commit history, and pre-existing untracked tooling files. No push, deployment, production settings or database changes were made.
-- Hardened rate-limit client-IP extraction: Uvicorn proxy-header rewriting is disabled. Default `none` mode uses the socket peer; Render mode accepts one valid `CF-Connecting-IP` only when Render's service identity is present; generic `cidrs` mode honors one valid XFF chain only from an explicitly trusted socket-peer CIDR and walks it right-to-left. Duplicate, malformed, oversized and excessive-hop chains fall back to the peer. IPv4, IPv6 and IPv4-mapped IPv6 are normalized; `/0` proxy networks are rejected.
-- Added 25 regression checks for proxy modes, Render header behavior, one/multiple hops, spoofing, malformed/duplicate headers, IPv4/IPv6/localhost/direct clients, and rate-limit bypass attempts. Documented local, Render and future-host configuration in `docs/deployment.md` and ADR-023.
-- Final checks: backend 551 passed (one existing Starlette/httpx deprecation warning); frontend lint passed; build passed with the existing large-chunk warning; `npm audit` found 0 vulnerabilities. `pip-audit` is unavailable. Frontend tests and database checks were not requested or run.
-- A first pytest invocation from the repository root hit an existing cwd-relative fixture path; rerunning from `backend/` passed all tests. Frontend checks passed from `frontend/`.
-- Completed this change as one descriptive local commit; no push or deployment.
-- Render picks up `TRUSTED_PROXY_MODE=render` from `render.yaml` on a future approved deploy. Local development stays at `none`; future providers need exact proxy CIDRs and Uvicorn proxy rewriting disabled.
+- Reworked both signed-in career tools into a shared, responsive feature experience aligned with PathwayAI's existing dark palette and accent system. Resume Analyzer now has an accessible PDF drop zone, real upload progress, clear privacy guidance, a structured qualitative report, and report-style history. AI Coach now shares the visual system across its thread rail, welcome prompts, and chat surface; existing suggested-action confirmations remain intact.
+- Added upload-progress transport only for the raw PDF request; backend endpoints, payloads, authentication, storage, and business rules are unchanged. Added regression coverage for raw upload progress and drag-and-drop.
+- Frontend suite: 151 tests passed. Lint and production build passed; build retains the existing large-chunk warning. No push or deployment.
 
 ### Remaining work and next task
-- No additional proxy work is known. Continue with owner review and owner-side launch tasks; push or deploy only on explicit approval.
+- Review the local UI polish commit, then continue with owner review and owner-side launch actions. Push or deploy only with explicit approval.
 
 ## History
+
+### 2026-10-09 · Trusted proxy IP hardening
+- Hardened forwarded-address handling for direct/local, Render, and explicitly configured CIDR proxy modes; added 25 regression checks and documented configuration. Backend 551 passed; frontend lint/build and npm audit passed. Local commit only; no push or deployment.
 
 ### Version 1 build and final security audit — 2026-10-05 to 2026-10-08
 
