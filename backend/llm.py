@@ -111,6 +111,9 @@ def generate(
         system_instruction=system_instruction,
         temperature=temperature,
         max_output_tokens=max_output_tokens,
+        # No tools are ever passed, so automatic function calling only added
+        # an "AFC is enabled" log line to every request (TD-58).
+        automatic_function_calling=genai_types.AutomaticFunctionCallingConfig(disable=True),
     )
 
     for attempt in range(1, MAX_ATTEMPTS + 1):

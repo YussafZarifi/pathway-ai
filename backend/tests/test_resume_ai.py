@@ -108,6 +108,7 @@ def test_request_sends_pdf_inline_with_target_and_rules(fake_gemini):
     assert config.max_output_tokens == resume_ai.MAX_OUTPUT_TOKENS
     assert config.response_mime_type == "application/json"
     assert config.response_schema is resume_ai.ResumeAnalysisSchema
+    assert config.automatic_function_calling.disable is True  # TD-58: no AFC log noise
 
 
 def test_system_instruction_treats_resume_as_data_and_forbids_scores():
