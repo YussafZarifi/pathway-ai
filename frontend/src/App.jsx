@@ -1,7 +1,6 @@
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import { MotionConfig } from "framer-motion";
 import AuthProvider from "./components/AuthProvider";
-import ThemeGate from "./components/ThemeGate";
 import ScrollToTop from "./components/ScrollToTop";
 import ErrorBoundary from "./components/ErrorBoundary";
 import AppFooter from "./components/AppFooter";
@@ -32,8 +31,7 @@ export default function App() {
       <MotionConfig reducedMotion="user">
         <BrowserRouter>
           <ScrollToTop />
-          <ThemeGate>
-            <RouteErrorBoundary>
+              <RouteErrorBoundary>
               <Routes>
                 {/* Public pages (Aurora) */}
                 <Route path="/" element={<Landing />} />
@@ -63,8 +61,7 @@ export default function App() {
               </Routes>
             </RouteErrorBoundary>
             <AppFooter />
-          </ThemeGate>
-        </BrowserRouter>
+          </BrowserRouter>
       </MotionConfig>
     </AuthProvider>
   );

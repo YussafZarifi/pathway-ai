@@ -54,7 +54,6 @@ body.theme-landing .resultsTitleMain {
 }
 
 body.theme-landing .subtitle,
-body.theme-landing .trustRow,
 body.theme-landing .footer,
 body.theme-landing .resultsSummary {
   opacity: 0.85;
@@ -957,76 +956,6 @@ body.theme-landing .badge {
   margin-top: 18px;
 }
 
-.roadmapBox {
-  margin-top: 22px;
-  padding: 16px;
-  border-radius: 18px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.resultsH2 {
-  margin: 0 0 10px;
-  font-size: 18px;
-  font-weight: 900;
-}
-
-.resultsList {
-  margin: 0;
-  padding-left: 18px;
-  color: rgba(255, 255, 255, 0.82);
-}
-
-.resultsListItem {
-  margin: 10px 0;
-  line-height: 1.55;
-}
-
-@keyframes orb-pulse {
-  0%,
-  100% {
-    transform: scale(1);
-    opacity: 0.65;
-  }
-  50% {
-    transform: scale(1.25);
-    opacity: 1;
-  }
-}
-
-.loadingText {
-  font-weight: 900;
-  color: rgba(255, 255, 255, 0.92);
-}
-
-.loadingSub {
-  margin-top: 2px;
-  font-size: 13px;
-  color: rgba(255, 255, 255, 0.62);
-}
-
-.loadingDots {
-  display: flex;
-  gap: 6px;
-  margin-top: 8px;
-}
-
-.loadingDots span {
-  width: 6px;
-  height: 6px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.25);
-  animation: dot 1s infinite ease-in-out;
-}
-
-  .loadingDots span:nth-child(2) {
-  animation-delay: 0.15s;
-}
-
-  .loadingDots span:nth-child(3) {
-    animation-delay: 0.3s;
-  }
-
 /* From Uiverse.io by dexter-st */
 .loadingIconPhase {
   display: flex;
@@ -1146,18 +1075,6 @@ body.theme-landing .badge {
   }
 }
 
-@keyframes dot {
-  0%,
-  100% {
-    transform: translateY(0);
-    opacity: 0.4;
-  }
-  50% {
-    transform: translateY(-3px);
-    opacity: 1;
-  }
-}
-
 /* Shimmer */
 .roadmapLoading {
   margin-top: 18px;
@@ -1190,27 +1107,8 @@ body.theme-landing .badge {
 /* ===========================
     Feature Grid (NEW - Icon Cards with Floating Animation)
  =========================== */
-.featureGrid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 20px;
-  width: min(420px, 100%);
-}
 
 /* Icon Card Styles */
-.featureCard {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  padding: 24px;
-  border-radius: 24px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-  animation: float 6s ease-in-out infinite;
-}
 
 /* Floating Animation */
 @keyframes float {
@@ -1223,46 +1121,10 @@ body.theme-landing .badge {
 }
 
 /* Staggered animation delays */
-.featureCard:nth-child(1) {
-  animation-delay: 0s;
-}
-
-.featureCard:nth-child(2) {
-  animation-delay: 0.2s;
-}
-
-.featureCard:nth-child(3) {
-  animation-delay: 0.4s;
-}
 
 /* Hover State */
-.featureCard:hover {
-  animation-play-state: paused;
-  transform: translateY(-4px) scale(1.03);
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 55, 208, 0.4);
-  box-shadow: 0 20px 60px rgba(255, 55, 208, 0.25);
-}
-
-.featureCard:active {
-  transform: translateY(-2px) scale(0.98);
-}
 
 /* Icon Container */
-.featureIcon {
-  display: grid;
-  place-items: center;
-  width: 80px;
-  height: 80px;
-  border-radius: 20px;
-  background: linear-gradient(135deg, var(--primary), var(--accent));
-  box-shadow: 0 8px 24px rgba(37, 99, 235, 0.25), inset 0 0 0 1px rgba(255, 255, 255, 0.1);
-  transition: transform 0.3s ease;
-}
-
-.featureCard:hover .featureIcon {
-  transform: scale(1.1) rotate(5deg);
-}
 
 /* Roadmap icon gradient */
 .roadmapIcon {
@@ -1280,44 +1142,10 @@ body.theme-landing .badge {
 }
 
 /* Feature Text */
-.featureText {
-  flex: 1;
-  text-align: left;
-}
-
-.featureTitle {
-  font-size: 18px;
-  font-weight: 900;
-  color: #ffffff;
-  margin: 0 0 8px;
-  letter-spacing: -0.3px;
-}
-
-.featureSub {
-  font-size: 14px;
-  color: rgba(255, 255, 255, 0.75);
-  margin: 0 0 16px;
-  line-height: 1.5;
-}
 
 /* Ready Badge */
-.featureBadge {
-  display: inline-flex;
-  align-items: center;
-  padding: 4px 12px;
-  border-radius: 20px;
-  background: linear-gradient(135deg, #22c55e, #16a34a);
-  font-size: 11px;
-  font-weight: 700;
-  color: #ffffff;
-  letter-spacing: 0.5px;
-  text-transform: uppercase;
-}
 
 /* Hide old trust row since we have feature cards */
-body.theme-landing .trustRow {
-  display: none;
-}
 
 /* ===========================
     Home Page (future signed-in hub) - Noir Theme
@@ -1599,9 +1427,6 @@ body.theme-landing .trustRow {
 }
 
 /* Planned (not built) features: informational, not clickable */
-.homeFeatureCard--planned {
-  cursor: default;
-}
 
 .homeFeatureIcon {
   transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
@@ -1687,21 +1512,6 @@ body.theme-landing .trustRow {
 
 .homeFeatureCard:hover .homeFeatureLink svg {
   transform: translateX(3px);
-}
-
-.homeBadge {
-  display: inline-flex;
-  align-items: center;
-  margin-top: auto;
-  padding: 3px 10px;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  background: rgba(255, 255, 255, 0.05);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.6px;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.7);
 }
 
 /* Empty state (no saved roadmaps until accounts exist) */
@@ -2304,10 +2114,6 @@ body.theme-landing .trustRow {
   accent-color: rgb(255, 55, 208);
 }
 
-.careerCard.expanded .expandIndicator {
-  transform: rotate(180deg);
-}
-
 /* Results toolbar */
 .resultsToolbar {
   display: flex;
@@ -2533,11 +2339,6 @@ body.theme-landing .trustRow {
   }
 }
 
-.timelineResourceLink:hover {
-  color: #ff37d0;
-  text-decoration: underline;
-}
-
 .timelineTasksList {
   list-style: none;
   padding: 0;
@@ -2562,69 +2363,6 @@ body.theme-landing .trustRow {
 /* ===========================
    Compare Modal
  =========================== */
-
-.compareModalOverlay {
-  position: fixed;
-  inset: 0;
-  z-index: 9999;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 20px;
-  background: rgba(0, 0, 0, 0.75);
-  backdrop-filter: blur(8px);
-}
-
-.compareModalContent {
-  width: 100%;
-  max-width: 1200px;
-  max-height: 90vh;
-  border-radius: 20px;
-  background: rgba(5, 6, 7, 0.98);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.6);
-  display: grid;
-  grid-template-rows: auto 1fr auto;
-  overflow: hidden;
-}
-
-.compareModalHeader {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 20px 24px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.compareModalTitle {
-  font-size: 20px;
-  font-weight: 800;
-  margin: 0;
-}
-
-.compareModalClose {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  border-radius: 9px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  color: rgba(255, 255, 255, 0.7);
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.compareModalClose:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: rgba(255, 255, 255, 0.95);
-}
-
-.compareModalBody {
-  padding: 24px;
-  overflow-y: auto;
-}
 
 .compareGrid {
   display: grid;
@@ -2679,51 +2417,9 @@ body.theme-landing .trustRow {
   color: rgba(255, 255, 255, 0.9);
 }
 
-.compareModalFooter {
-  padding: 16px 24px;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
-  display: flex;
-  justify-content: flex-end;
-}
-
 /* ===========================
    Share Modal
  =========================== */
-
-.shareModalOverlay {
-  position: fixed;
-  inset: 0;
-  z-index: 9999;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 20px;
-  background: rgba(0, 0, 0, 0.75);
-  backdrop-filter: blur(8px);
-}
-
-.shareModalContent {
-  width: 100%;
-  max-width: 480px;
-  border-radius: 20px;
-  background: rgba(5, 6, 7, 0.98);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.6);
-}
-
-.shareModalHeader {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 20px 24px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.shareModalTitle {
-  font-size: 20px;
-  font-weight: 800;
-  margin: 0;
-}
 
 .shareModalClose {
   display: flex;
@@ -2742,10 +2438,6 @@ body.theme-landing .trustRow {
 .shareModalClose:hover {
   background: rgba(255, 255, 255, 0.1);
   color: rgba(255, 255, 255, 0.95);
-}
-
-.shareModalBody {
-  padding: 24px;
 }
 
 .shareModalSubtitle {
@@ -2867,11 +2559,9 @@ body.theme-landing .trustRow {
 
 @media print {
   .topbar,
-  .compareModalOverlay,
-  .shareModalOverlay,
-  .resultsHeaderActions,
-  .resultsToolbar,
-  .resultsActions {
+.resultsHeaderActions,
+.resultsToolbar,
+.resultsActions {
     display: none !important;
   }
 
@@ -2885,8 +2575,7 @@ body.theme-landing .trustRow {
     border: 1px solid #ccc !important;
   }
 
-  .careerCard,
-  .roadmapBox {
+  .careerCard {
     page-break-inside: avoid;
     break-inside: avoid;
   }
@@ -2933,13 +2622,9 @@ body.theme-landing .trustRow {
     margin-left: 0;
   }
 
-  .compareModalContent {
-    max-height: 95vh;
-  }
+  
 
-  .compareModalBody {
-    padding: 16px;
-  }
+  
 }
 
 /* Dashboard mobile */
@@ -2984,30 +2669,6 @@ body.theme-landing .trustRow {
    Resume Analyzer Page
    =========================== */
 
-.resumeAnalyzerPage {
-  min-height: 100vh;
-  background: #000000;
-  color: #ffffff;
-  padding: 30px 20px;
-}
-
-.resumeCard {
-  max-width: 900px;
-  margin: 0 auto;
-  background: rgba(20, 20, 20, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 24px;
-  padding: 40px 24px;
-}
-
-.resumeHeader {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 20px;
-  margin-bottom: 40px;
-}
-
 .resumeIcon {
   display: grid;
   place-items: center;
@@ -3025,147 +2686,9 @@ body.theme-landing .trustRow {
   gap: 24px;
 }
 
-.uploadZone {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  height: 240px;
-  border: 2px dashed rgba(255, 255, 255, 0.2);
-  border-radius: 20px;
-  background: rgba(255, 255, 255, 0.02);
-  cursor: pointer;
-  transition: all 0.3s ease;
-  gap: 16px;
-}
-
-.uploadZone:hover {
-  border-color: rgba(255, 55, 208, 0.5);
-  background: rgba(255, 55, 208, 0.05);
-}
-
-.uploadZone.hasFile {
-  border-style: solid;
-  border-color: #22c55e;
-  background: rgba(34, 197, 94, 0.05);
-}
-
-.uploadText {
-  font-size: 16px;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.9);
-}
-
-.uploadHint {
-  font-size: 14px;
-  color: rgba(255, 255, 255, 0.6);
-}
-
-.resumeResult {
-  display: flex;
-  flex-direction: column;
-  gap: 30px;
-}
-
-.scoreSection {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 30px;
-  padding: 30px;
-  border-radius: 20px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.scoreCircle {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-}
-
-.scoreValueLarge {
-  font-size: 72px;
-  font-weight: 900;
-  line-height: 1;
-}
-
-.scoreLabel {
-  font-size: 14px;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.7);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.improvementBadge {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 12px 16px;
-  border-radius: 999px;
-  background: rgba(34, 197, 94, 0.15);
-  color: #22c55e;
-  font-weight: 700;
-  font-size: 14px;
-}
-
-.resultSection {
-  padding: 24px;
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.resultTitle {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 16px;
-  font-weight: 700;
-  color: rgba(255, 255, 255, 0.9);
-  margin: 0 0 16px;
-}
-
-.resultList {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.resultItem {
-  padding: 10px 0;
-  font-size: 14px;
-  color: rgba(255, 255, 255, 0.85);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-}
-
-.resultItem:last-child {
-  border-bottom: none;
-}
-
-.resultItem.suggestion {
-  color: #22c55e;
-}
-
-.resultActions {
-  display: flex;
-  gap: 12px;
-  justify-content: center;
-}
-
 /* ===========================
    Roadmap Page
    =========================== */
-
-.roadmapPage {
-  min-height: 100vh;
-  background: #000000;
-  color: #ffffff;
-  padding: 30px 20px;
-}
 
 .roadmapLoading {
   display: flex;
@@ -3176,152 +2699,11 @@ body.theme-landing .trustRow {
   gap: 20px;
 }
 
-.roadmapHeader {
-  max-width: 900px;
-  margin: 0 auto 40px;
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 20px;
-}
-
-.roadmapStats {
-  display: flex;
-  gap: 16px;
-}
-
-.roadmapStats .stat {
-  text-align: center;
-  padding: 16px 20px;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.roadmapStats .statValue {
-  font-size: 24px;
-  font-weight: 700;
-  color: rgba(255, 255, 255, 0.9);
-}
-
-.roadmapStats .statLabel {
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.6);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.roadmapSteps {
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-  max-width: 900px;
-  margin: 0 auto;
-}
-
-.roadmap-step {
-  padding: 24px;
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 2px solid rgba(255, 255, 255, 0.1);
-  transition: all 0.3s ease;
-}
-
-.roadmap-step-completed {
-  border-color: rgba(34, 197, 94, 0.3);
-  background: rgba(34, 197, 94, 0.05);
-}
-
-.roadmap-step-in-progress {
-  border-color: rgba(255, 55, 208, 0.3);
-  background: rgba(255, 55, 208, 0.05);
-}
-
-.roadmap-step-skipped {
-  border-color: rgba(255, 255, 255, 0.2);
-  background: rgba(255, 255, 255, 0.02);
-  opacity: 0.6;
-}
-
-.stepHeader {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  margin-bottom: 20px;
-}
-
-.stepNumber {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 48px;
-  height: 48px;
-  border-radius: 12px;
-  background: linear-gradient(135deg, #ff37d0, #a855f7);
-  font-size: 20px;
-  font-weight: 700;
-}
-
-.stepIcon {
-  display: grid;
-  place-items: center;
-  width: 40px;
-  height: 40px;
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.05);
-}
-
-.step-icon-completed {
-  color: #22c55e;
-}
-
-.step-icon-in-progress {
-  color: #ff37d0;
-  animation: pulse 2s ease-in-out infinite;
-}
-
-.step-icon-skipped {
-  color: rgba(255, 255, 255, 0.3);
-}
-
-.step-icon-pending {
-  color: rgba(255, 255, 255, 0.3);
-}
-
-@keyframes pulse {
-  0%, 100% {
-    opacity: 1;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 0.7;
-    transform: scale(1.05);
-  }
-}
-
-.stepInfo {
-  flex: 1;
-}
-
 .stepTitle {
   font-size: 18px;
   font-weight: 700;
   margin: 0 0 6px;
   color: rgba(255, 255, 255, 0.9);
-}
-
-.stepTime {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.6);
-}
-
-.stepContent {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
 }
 
 .stepDescription {
@@ -3331,149 +2713,7 @@ body.theme-landing .trustRow {
   margin: 0;
 }
 
-.stepTasks,
-.stepResources,
-.stepReason {
-  padding: 16px;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-}
-
-.stepTasksTitle,
-.stepResourcesTitle,
-.stepReasonTitle {
-  font-size: 14px;
-  font-weight: 700;
-  color: rgba(255, 255, 255, 0.9);
-  margin: 0 0 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.stepTasksList,
-.stepTasksList {
-  margin: 0;
-  padding-left: 20px;
-  list-style: disc;
-}
-
-.stepTask {
-  font-size: 14px;
-  color: rgba(255, 255, 255, 0.8);
-  line-height: 1.6;
-  margin-bottom: 8px;
-}
-
-.stepResourcesList {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.stepResource {
-  font-size: 14px;
-  color: #ff37d0;
-  font-weight: 600;
-  text-decoration: none;
-  transition: all 0.2s ease;
-}
-
-.stepResource:hover {
-  color: #a855f7;
-  text-decoration: underline;
-}
-
-.stepReason p {
-  font-size: 14px;
-  color: rgba(255, 255, 255, 0.8);
-  line-height: 1.6;
-  margin: 0;
-}
-
-.stepActions {
-  display: flex;
-  gap: 12px;
-  justify-content: center;
-  padding-top: 16px;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.stepCompletedMessage {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 12px 24px;
-  border-radius: 999px;
-  background: rgba(34, 197, 94, 0.15);
-  color: #22c55e;
-  font-weight: 700;
-  font-size: 14px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.stepSkippedMessage {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 12px 24px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.05);
-  color: rgba(255, 255, 255, 0.5);
-  font-weight: 600;
-  font-size: 14px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
 /* Mobile Responsive */
-@media (max-width: 950px) {
-  .scoresGrid {
-    grid-template-columns: 1fr;
-  }
-
-  .recommendationsList {
-    grid-template-columns: 1fr;
-  }
-
-  .roadmapHeader {
-    flex-direction: column;
-  }
-
-  .roadmapStats {
-    width: 100%;
-  }
-
-  .roadmapStats .stat {
-    flex: 1;
-  }
-}
-
-@media (max-width: 600px) {
-  .resumeHeader {
-    flex-direction: column;
-    align-items: center;
-  }
-
-  .scoreSection {
-    flex-direction: column;
-  }
-
-  .stepHeader {
-    flex-wrap: wrap;
-  }
-
-  .stepActions {
-    flex-direction: column;
-  }
-
-  .resultActions {
-    flex-direction: column;
-  }
-}
 
 /* ===========================
    Dashboard (pages/Dashboard.jsx, components/dashboard/*)
@@ -4338,12 +3578,6 @@ body.theme-landing .trustRow {
   font-size: 14px;
   font-weight: 700;
   color: #ffffff;
-}
-
-.quickActionLabel .homeBadge {
-  margin-top: 0;
-  padding: 1px 7px;
-  font-size: 10px;
 }
 
 .quickActionHint {

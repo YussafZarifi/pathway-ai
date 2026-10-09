@@ -63,10 +63,6 @@ export default function Coach() {
   const inputRef = useRef(null);
   const sendAbort = useRef(null);
 
-  useEffect(() => {
-    document.body.classList.add("theme-landing");
-    return () => document.body.classList.remove("theme-landing");
-  }, []);
 
   const refreshAvailability = useCallback(async (signal) => {
     try {

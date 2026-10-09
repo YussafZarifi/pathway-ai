@@ -9,10 +9,8 @@ export default function NotFound() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    document.body.classList.add("theme-landing");
     document.title = "Page not found · PathwayAI";
     return () => {
-      document.body.classList.remove("theme-landing");
       document.title = "PathwayAI";
     };
   }, []);

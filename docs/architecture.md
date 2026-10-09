@@ -71,7 +71,7 @@ flowchart TB
 ## Known architectural problems
 - ~~The roadmap exists only in router state; progress keys collide across careers~~ — resolved 2026-09-26 (ADR-013). Guests: still one roadmap per browser. Signed-in users: roadmaps in Postgres since 2026-10-03 (Milestone 2, ADR-019).
 - ~~Hard-coded origins/URLs prevent any deployment~~ — resolved 2026-09-27 (ADR-014).
-- Two competing theme mechanisms (`ThemeGate` and per-page `useEffect` body classes).
+- ~~Two competing theme mechanisms~~ — since 2026-10-08 one dark theme: `<body class="theme-landing">` in `index.html` (N-10).
 - ~~Two dashboard designs~~ — resolved 2026-09-25 (ADR-010): the unrouted `/app/*` shell was deleted; the tabbed `/dashboard` is the roadmap view and `/home` is the future signed-in hub.
 - The backend is an unauthenticated proxy to a paid API; since 2026-09-27 rate limits and input limits bound the spend (ADR-014). Rate limits and the YouTube cache live in process memory (reset on restart, not shared between instances).
 

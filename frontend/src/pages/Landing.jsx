@@ -60,10 +60,6 @@ export default function Landing() {
   const { enabled, user } = useAuth();
   const [accountsDialogOpen, setAccountsDialogOpen] = useState(false);
 
-  useEffect(() => {
-    document.body.classList.add("theme-landing");
-    return () => document.body.classList.remove("theme-landing");
-  }, []);
 
   // The footer's "About" link (/#about) lands here.
   useEffect(() => {

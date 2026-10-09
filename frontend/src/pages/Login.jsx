@@ -42,10 +42,8 @@ export default function Login() {
   const isForgot = mode === "forgot";
 
   useEffect(() => {
-    document.body.classList.add("theme-landing");
     document.title = `${isSignup ? "Create account" : isForgot ? "Reset password" : "Sign in"} · PathwayAI`;
     return () => {
-      document.body.classList.remove("theme-landing");
       document.title = "PathwayAI";
     };
   }, [isSignup, isForgot]);

@@ -95,8 +95,8 @@ Rules for every Version 2 commit (keep it deployable): backend tests pass; lint 
 | N-22 | `og:image` link-preview card (1200×630) + `og:url` once the live URL exists | P2 | XS |
 | ~~N-13~~ | ✅ 2026-10-07: ESLint at 0 errors (real unused vars fixed; `motion` allowed by name) | P2 | S |
 | ~~F-12~~ | ✅ 2026-10-08: React error boundary around the routes (reset on navigation; logs only the error's name) | P1 | XS |
-| N-10 | Single theme mechanism (`ThemeGate` vs page effects) | P2 | S |
-| N-14 | Prune dead CSS in `index.css` | P3 | S |
+| ~~N-10~~ | ✅ 2026-10-08: one theme mechanism — `theme-landing` on `<body>` in `index.html`; `ThemeGate` and ten per-page effects deleted (pixel-identical) | P2 | S |
+| ~~N-14~~ | ✅ 2026-10-08: dead CSS pruned — 111 selectors for classes no source file uses (deleted analyzer, `/app` shell, old roadmap page, old modal markup) and 3 unused keyframes; `index.css` 5,970 → 5,204 lines; 20 page screenshots (2 widths) byte-identical before and after | P3 | S |
 | N-19 | Remove v1 (8-question) answer support once no saved roadmap needs it (ADR-016) | P3 | XS |
 | — | SDK AFC warning noise in logs (TD-58) | P3 | XS |
 

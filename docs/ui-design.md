@@ -20,7 +20,7 @@
 - ~~Two product names~~ — the tab title, favicon and metadata say PathwayAI since 2026-09-29. Two header implementations: Landing, and the shared `AppHeader` for `/home` + `/dashboard` (2026-09-26).
 - One button system in use (`uiverseBtn` + `ghostBtn`); `primaryBtn` styles are left over in `index.css` but no component uses them since the `/app/*` shell was deleted.
 - Three loader styles (letter wave, orb, shimmer).
-- Two theme mechanisms (`ThemeGate` + per-page body classes) that both render black.
+- ~~Two theme mechanisms~~ — one since 2026-10-08 (`theme-landing` on `<body>` in `index.html`).
 - Tokens on `:root` since the 2026-09-26 dashboard work, but older screens still use many raw colour literals.
 
 ## Accessibility gaps

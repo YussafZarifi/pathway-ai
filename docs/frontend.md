@@ -4,7 +4,7 @@
 
 ## Entry & routing
 - `src/main.jsx` renders `<App/>` in `StrictMode` and imports `index.css` (the only stylesheet).
-- `src/App.jsx` — `BrowserRouter` → `ThemeGate` → `Routes`:
+- `src/App.jsx` — `MotionConfig` → `BrowserRouter` → route-keyed `ErrorBoundary` → `Routes`, then `AppFooter` (one dark theme: `theme-landing` is set on `<body>` in `index.html` since 2026-10-08):
 
 | Route | Page | Status |
 |---|---|---|
@@ -38,7 +38,7 @@ Every page file is now routed. Deleted as unreachable: the `/app/*` shell (`Dash
 - **ImportRoadmapBanner.jsx** (since 2026-10-03, ADR-019) — for signed-in users whose browser still holds a guest roadmap, on Home and Dashboard: "Save the roadmap on this device to your account?" with **Save to my account** / **Not now**, error + retry on failure. Never imports silently.
 | Component | Used by | Notes |
 |---|---|---|
-| `ThemeGate` | App | Sets `theme-aurora` or `theme-landing` on body per route; conflicts with page-level effects |
+| ~~`ThemeGate`~~ | — | Deleted 2026-10-08 (N-10): it raced the pages' own body-class effects; the single theme class now lives in `index.html` |
 | `dashboard/RoadmapStepper` | Dashboard | Replaced `RoadmapTimeline` (deleted 2026-09-26). Node button = mark done (`aria-pressed`), header button = expand (`aria-expanded`), details outside any button |
 | `dashboard/*` others | Dashboard | `DashboardHero`, `TodayFocus`, `StatTile` (+ `StepsBar`, `ActivityBars`), `AchievementGrid`, `InsightsPanel`, `QuickActions`: presentational, props only |
 | `VideoCard` | Dashboard (stepper, Today's focus) | The only YouTube preview card: thumbnail (lazy, `onError` → placeholder), title, channel, play icon; with no video it renders a "Search YouTube for this step" card. Link name "Watch <title> by <channel> on YouTube (opens in a new tab)". Added 2026-09-26 |

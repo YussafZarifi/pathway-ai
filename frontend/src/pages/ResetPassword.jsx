@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { KeyRound } from "lucide-react";
 import AppHeader from "../components/AppHeader";
@@ -17,10 +17,6 @@ export default function ResetPassword() {
   const [confirm, setConfirm] = useState("");
   const [state, setState] = useState({ busy: false, text: "", error: false, done: false });
 
-  useEffect(() => {
-    document.body.classList.add("theme-landing");
-    return () => document.body.classList.remove("theme-landing");
-  }, []);
 
   async function onSubmit(event) {
     event.preventDefault();

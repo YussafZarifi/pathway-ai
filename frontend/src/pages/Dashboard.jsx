@@ -54,10 +54,6 @@ export default function Dashboard() {
   const [scrollTarget, setScrollTarget] = useState(null);
   const openedFromHash = useRef(false);
 
-  useEffect(() => {
-    document.body.classList.add("theme-landing");
-    return () => document.body.classList.remove("theme-landing");
-  }, []);
 
   const hasRoadmap = Boolean(record);
 

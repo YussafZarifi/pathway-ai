@@ -1,4 +1,3 @@
-import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Map,
@@ -25,10 +24,6 @@ export default function Home() {
     ? { career: record.career, summary: summarizeProgress(record.statuses) }
     : null;
 
-  useEffect(() => {
-    document.body.classList.add("theme-landing");
-    return () => document.body.classList.remove("theme-landing");
-  }, []);
 
   return (
     <div className="homePage">

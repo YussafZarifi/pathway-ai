@@ -26,6 +26,8 @@
    - **Polish 1 (2026-10-08):** error boundary, shared footer (built by, GitHub, About), Landing with real feature cards, How it works and About, hero visible on first paint, sorted matches and labelled AI estimates on Results, icon-only header below 560 px; a shell test caught the accounts-off dialog rendering with accounts on (fixed).
    - **P-7 link checks (2026-10-08):** `link_check.py` (SSRF-safe HEAD checks, vetted at connect time), `LINK_CHECK_ENABLED`; 39 tests (498 total) + a live run against real DNS (incl. `localtest.me` → 127.0.0.1 refused).
    - **N-21 accessibility (2026-10-08):** focus after quiz steps/regenerate, aria-pressed on career cards, Compare/Share on the shared dialog, reduced motion app-wide, quiet aborted requests, no alert(), no N/A compare rows; 3 tests (140).
+   - **N-10 (2026-10-08):** one theme mechanism (static body class), `ThemeGate` deleted.
+   - **N-14 (2026-10-08):** 111 dead selectors + 3 keyframes pruned (5,970 → 5,204 lines), screenshots byte-identical.
    - **Frontend tests + lint 0 (2026-10-07):** Vitest 5.0.3 + Testing Library + jsdom (exact pins), 64 tests, `npm test`; lint 12 → 0; `scoringEngine.js` deleted (imported nowhere, TD-28/29 resolved); `npm audit fix` for a new `source-map-js` advisory (0 vulnerabilities).
 1. **Owner:** restart the backend (it still has the old packages loaded) and `npm run dev`; then the manual Milestone 2 QA checklist from Step 0 (paused).
 2. Tag Milestone 2 as complete once the manual QA passes.

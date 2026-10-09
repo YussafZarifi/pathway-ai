@@ -49,10 +49,6 @@ export default function Roadmaps() {
   const [busyId, setBusyId] = useState(null);
   const [note, setNote] = useState({ text: "", error: false });
 
-  useEffect(() => {
-    document.body.classList.add("theme-landing");
-    return () => document.body.classList.remove("theme-landing");
-  }, []);
 
   const load = useCallback(async () => {
     setState((prev) => ({ ...prev, status: "loading", error: "" }));

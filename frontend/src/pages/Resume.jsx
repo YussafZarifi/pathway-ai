@@ -188,10 +188,6 @@ export default function Resume() {
   const [historyError, setHistoryError] = useState("");
   const analyzeAbort = useRef(null);
 
-  useEffect(() => {
-    document.body.classList.add("theme-landing");
-    return () => document.body.classList.remove("theme-landing");
-  }, []);
 
   const refreshAvailability = useCallback(async (signal) => {
     setAvailability((prev) => ({ ...prev, status: prev.data ? "ready" : "loading" }));

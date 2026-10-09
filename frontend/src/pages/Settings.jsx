@@ -56,10 +56,6 @@ export default function Settings() {
   const [delState, setDelState] = useState({ busy: false, text: "", error: false });
   const [deleted, setDeleted] = useState(false);
 
-  useEffect(() => {
-    document.body.classList.add("theme-landing");
-    return () => document.body.classList.remove("theme-landing");
-  }, []);
 
   // Typed text always wins over a load that finishes later.
   const nameEdited = useRef(false);
