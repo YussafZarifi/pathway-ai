@@ -10,7 +10,7 @@ import io
 import json
 import re
 import unicodedata
-from typing import Literal
+from typing import Annotated, Literal
 
 from google.genai import types as genai_types
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
@@ -116,39 +116,49 @@ def extract_resume_pages(data: bytes) -> list[str]:
 
 
 # --- Structured output sent to Gemini ----------------------------------------
+# Keep these constraints aligned with the strict reply models below. Gemini
+# receives this schema, so it can avoid generating a reply we would reject.
 
-class EvidenceSchema(BaseModel):
+SchemaId = Annotated[str, Field(min_length=1, max_length=40)]
+SchemaSkillId = Annotated[str, Field(min_length=1, max_length=20)]
+
+
+class _ResponseSchema(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+
+class EvidenceSchema(_ResponseSchema):
     source: Literal["resume_text"]
-    page: int
-    quote: str
+    page: int = Field(ge=1)
+    quote: str = Field(min_length=20, max_length=160)
 
 
-class EvaluationSchema(BaseModel):
-    criterion_id: str
+class EvaluationSchema(_ResponseSchema):
+    criterion_id: SchemaId
     found: bool
-    evidence: list[EvidenceSchema]
-    note: str
+    evidence: list[EvidenceSchema] = Field(max_length=1)
+    note: str = Field(min_length=1, max_length=120)
 
 
-class RecommendationSchema(BaseModel):
-    title: str
-    action: str
-    criterion_ids: list[str]
+class RecommendationSchema(_ResponseSchema):
+    title: str = Field(min_length=1, max_length=80)
+    action: str = Field(min_length=1, max_length=180)
+    criterion_ids: list[SchemaId] = Field(min_length=1, max_length=4)
 
 
-class SkillRoadmapSchema(BaseModel):
-    skill_id: str
-    step_positions: list[int]
+class SkillRoadmapSchema(_ResponseSchema):
+    skill_id: SchemaSkillId
+    step_positions: list[int] = Field(max_length=5)
 
 
-class ResumeAnalysisSchema(BaseModel):
+class ResumeAnalysisSchema(_ResponseSchema):
     is_resume: bool
     # This schema is passed directly to Gemini. Keep its limit aligned with
     # ResumeReply so Gemini cannot return a summary the strict parser rejects.
     summary: str = Field(min_length=1, max_length=350)
-    evaluations: list[EvaluationSchema]
-    recommendations: list[RecommendationSchema]
-    skill_roadmap: list[SkillRoadmapSchema]
+    evaluations: list[EvaluationSchema] = Field(max_length=40)
+    recommendations: list[RecommendationSchema] = Field(max_length=5)
+    skill_roadmap: list[SkillRoadmapSchema] = Field(max_length=8)
 
 
 # --- Strict validated reply ---------------------------------------------------
@@ -367,6 +377,7 @@ def analyze_resume(pdf: bytes, career: str, skills, steps) -> dict:
         system_instruction=RESUME_SYSTEM_INSTRUCTION,
         temperature=0,
         max_output_tokens=MAX_OUTPUT_TOKENS,
+        retry_on_validation_error=False,
     )
     if not reply.pop("is_resume"):
         raise ResumeInputError("not_resume")

@@ -3,7 +3,9 @@ safe diagnostics.
 
 Retry policy (at most 2 attempts, so a request stays well inside the
 frontend's 90 s timeout):
-- a reply that can't be parsed or fails validation: retry once;
+- a reply that can't be parsed or fails validation: retry once by default;
+  callers with a fixed strict contract may disable this to avoid repeating a
+  deterministic invalid reply;
 - Gemini 5xx, timeouts, network errors: retry once after 1 s;
 - Gemini 429 per-minute limit with a short retry delay: wait, retry once;
 - Gemini 429 daily quota: no retry (it can't succeed until the reset);
@@ -97,6 +99,7 @@ def generate(
     system_instruction: str | None = None,
     temperature: float | None = None,
     max_output_tokens: int | None = None,
+    retry_on_validation_error: bool = True,
 ) -> dict:
     """Generate and validate one JSON reply. Raises AIServiceError.
 
@@ -167,7 +170,7 @@ def generate(
                 label, attempt, e.kind, e.detail, meta["finish"], meta["out_tokens"],
                 len(text), _fingerprint(text), elapsed,
             )
-            if not last:
+            if not last and retry_on_validation_error:
                 continue
             raise AIServiceError("failed") from None
 
