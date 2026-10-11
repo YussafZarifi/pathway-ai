@@ -167,6 +167,48 @@ def test_citation_can_match_whitespace_and_unicode_normalization():
     assert parsed["evaluations_by_id"]["project_outcome"]["found"]
 
 
+@pytest.mark.parametrize("quote", [
+    "Built an API driven dashboard improving reporting",
+    "**Built an API-driven dashboard** — improving reporting",
+    "Built an API driven dashboard improving",
+])
+def test_citation_accepts_real_pdf_extraction_formatting_and_truncation(quote):
+    source = "Experience\n• Built an “API-driven” dashboard — improving reporting.\nSkills: Python, SQL.\n"
+    # Exercise pypdf's actual extracted text rather than a hand-written page.
+    pages = extract_resume_pages(make_pdf(pages=[source * 8]))
+    data = reply()
+    for evaluation in data["evaluations"]:
+        evaluation["found"] = False
+        evaluation["evidence"] = []
+    target = next(item for item in data["evaluations"] if item["criterion_id"] == "project_technology")
+    target.update(found=True, evidence=[{"source": "resume_text", "page": 1, "quote": quote}])
+
+    parsed, _ = parse_resume_reply(json.dumps(data), rubric(), pages, len(STEPS))
+    assert parsed["evaluations_by_id"]["project_technology"]["found"]
+
+
+def test_citation_accepts_pdf_line_wrap_hyphenation():
+    page = "Projects\nBuilt a data-driven dash-\nboard for weekly reporting.\n" * 8
+    extracted = extract_resume_pages(make_pdf(pages=[page]))[0]
+    assert resume_ai._quote_matches_source("Built a data-driven dashboard for weekly reporting", extracted)
+
+
+def test_citation_rejects_unrelated_words_and_logs_no_resume_text(caplog):
+    page = "Projects\n• Built a Python dashboard for weekly reporting.\n" * 8
+    extracted = extract_resume_pages(make_pdf(pages=[page]))[0]
+    caplog.set_level(logging.WARNING, logger="pathwayai.resume_ai")
+
+    assert not resume_ai._quote_matches_source("Built a Kubernetes cluster for production traffic", extracted)
+    data = reply()
+    target = next(item for item in data["evaluations"] if item["found"])
+    target["evidence"] = [{"source": "resume_text", "page": 1,
+                           "quote": "Built a Kubernetes cluster for production traffic"}]
+    with pytest.raises(AIOutputError, match="not_in_source"):
+        parse_resume_reply(json.dumps(data), rubric(), [extracted], len(STEPS))
+    assert "quote_chars" in caplog.text and "page_tokens" in caplog.text
+    assert "Kubernetes" not in caplog.text and "Python dashboard" not in caplog.text
+
+
 @pytest.mark.parametrize("mutation", ["missing", "duplicate", "unknown"])
 def test_evaluation_list_must_cover_each_expected_criterion_once(mutation):
     data = reply()

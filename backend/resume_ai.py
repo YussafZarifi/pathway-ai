@@ -6,8 +6,10 @@ citations are checked against extracted PDF pages before deterministic
 career-rubric scoring. Only the bounded structured report is saved.
 """
 
+import hashlib
 import io
 import json
+import logging
 import re
 import unicodedata
 from typing import Literal
@@ -38,6 +40,8 @@ MAX_REPLY_CHARS = 30_000
 MAX_ANALYSIS_BYTES = 16_000
 MAX_OUTPUT_TOKENS = 8192
 MIN_QUOTE_CHARS = 3
+
+logger = logging.getLogger("pathwayai.resume_ai")
 
 _CONTACT_EMAIL = re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+")
 _CONTACT_PHONE = re.compile(r"(?<!\w)(?:\+\d{1,3}[\s.-]?)?\(?\d{3}\)?[\s.-]?\d{3}[\s.-]\d{4}(?!\w)")
@@ -206,8 +210,57 @@ _KNOWN_FIELDS = (
 )
 
 
+_WORD = re.compile(r"[^\W_]+", re.UNICODE)
+_LINE_WRAP_HYPHEN = re.compile(r"(?<=\w)[\-\u2010-\u2015]\s*\n\s*(?=\w)")
+
+
+def _normalized_tokens(value: str) -> tuple[str, ...]:
+    """Normalize display-only PDF differences without relaxing word evidence."""
+    unwrapped = _LINE_WRAP_HYPHEN.sub("", value)
+    decomposed = unicodedata.normalize("NFKD", unwrapped).casefold()
+    plain = "".join(char for char in decomposed if not unicodedata.combining(char))
+    return tuple(_WORD.findall(plain))
+
+
 def _normalized(value: str) -> str:
-    return " ".join(unicodedata.normalize("NFKC", value).casefold().split())
+    """A punctuation-insensitive form used only for citation verification."""
+    return " ".join(_normalized_tokens(value))
+
+
+def _quote_matches_source(quote: str, page: str) -> bool:
+    """Require an ordered, contiguous sequence of source words.
+
+    This accepts harmless rendering differences and a quote that ends early,
+    but rejects paraphrases and hallucinated words. It intentionally avoids
+    fuzzy/token-overlap matching: a few shared keywords are not enough proof
+    that Gemini cited the uploaded rÃ©sumÃ©.
+    """
+    quote_tokens = _normalized_tokens(quote)
+    page_tokens = _normalized_tokens(page)
+    if not quote_tokens or not page_tokens:
+        return False
+    return " ".join(quote_tokens) in " ".join(page_tokens)
+
+
+def _citation_mismatch_diagnostic(quote: str, page: str, page_number: int) -> dict:
+    """Content-free observability for a failed citation check.
+
+    RÃ©sumÃ© text is sensitive and must never be written to production logs.
+    Hashes, lengths and token counts expose formatting-related mismatches
+    without retaining a user quote or extracted page text.
+    """
+    quote_normalized = _normalized(quote)
+    page_normalized = _normalized(page)
+    return {
+        "page": page_number,
+        "quote_chars": len(quote),
+        "page_chars": len(page),
+        "quote_tokens": len(_normalized_tokens(quote)),
+        "page_tokens": len(_normalized_tokens(page)),
+        "quote_normalized_sha256": hashlib.sha256(quote_normalized.encode()).hexdigest()[:12],
+        "page_normalized_sha256": hashlib.sha256(page_normalized.encode()).hexdigest()[:12],
+        "contiguous_word_match": False,
+    }
 
 
 def _static_evaluations(pages: list[str]) -> dict:
@@ -264,7 +317,12 @@ def parse_resume_reply(text: str, rubric: dict, pages: list[str], step_count: in
                 raise AIOutputError("schema", f"evaluations.{index}.evidence.{citation_index}.page:out_of_range")
             if contains_contact_details(citation.quote):
                 raise AIOutputError("personal_data", f"evaluations.{index}.evidence.{citation_index}")
-            if _normalized(citation.quote) not in _normalized(pages[citation.page - 1]):
+            page = pages[citation.page - 1]
+            if not _quote_matches_source(citation.quote, page):
+                logger.warning(
+                    "RÃ©sumÃ© citation could not be verified: %s",
+                    _citation_mismatch_diagnostic(citation.quote, page, citation.page),
+                )
                 raise AIOutputError("schema", f"evaluations.{index}.evidence.{citation_index}.quote:not_in_source")
         if contains_contact_details(item.note):
             raise AIOutputError("personal_data", f"evaluations.{index}.note")
