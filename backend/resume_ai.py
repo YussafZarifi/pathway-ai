@@ -10,7 +10,7 @@ import io
 import json
 import re
 import unicodedata
-from typing import Annotated, Literal
+from typing import Literal
 
 from google.genai import types as genai_types
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
@@ -37,6 +37,7 @@ MAX_REPLY_CHARS = 30_000
 # resume_analyses.analysis is limited to 16,384 bytes in the database; keep a margin.
 MAX_ANALYSIS_BYTES = 16_000
 MAX_OUTPUT_TOKENS = 8192
+MIN_QUOTE_CHARS = 3
 
 _CONTACT_EMAIL = re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+")
 _CONTACT_PHONE = re.compile(r"(?<!\w)(?:\+\d{1,3}[\s.-]?)?\(?\d{3}\)?[\s.-]?\d{3}[\s.-]\d{4}(?!\w)")
@@ -116,49 +117,44 @@ def extract_resume_pages(data: bytes) -> list[str]:
 
 
 # --- Structured output sent to Gemini ----------------------------------------
-# Keep these constraints aligned with the strict reply models below. Gemini
-# receives this schema, so it can avoid generating a reply we would reject.
+# Gemini 2.5 Flash-Lite's response_schema has a small serving-state budget.
+# Send only the output shape here; the strict models below enforce every
+# length, list, type, and extra-field constraint after generation.
 
-SchemaId = Annotated[str, Field(min_length=1, max_length=40)]
-SchemaSkillId = Annotated[str, Field(min_length=1, max_length=20)]
-
-
-class _ResponseSchema(BaseModel):
-    model_config = ConfigDict(extra="forbid", strict=True)
-
-
-class EvidenceSchema(_ResponseSchema):
+class EvidenceSchema(BaseModel):
     source: Literal["resume_text"]
-    page: int = Field(ge=1)
-    quote: str = Field(min_length=20, max_length=160)
+    page: int
+    quote: str = Field(
+        description="A verbatim, contiguous, non-identifying excerpt from the stated page, 3 to 160 characters long."
+    )
 
 
-class EvaluationSchema(_ResponseSchema):
-    criterion_id: SchemaId
+class EvaluationSchema(BaseModel):
+    criterion_id: str
     found: bool
-    evidence: list[EvidenceSchema] = Field(max_length=1)
-    note: str = Field(min_length=1, max_length=120)
+    evidence: list[EvidenceSchema]
+    note: str = Field(description="A concise factual note of at most 120 characters.")
 
 
-class RecommendationSchema(_ResponseSchema):
-    title: str = Field(min_length=1, max_length=80)
-    action: str = Field(min_length=1, max_length=180)
-    criterion_ids: list[SchemaId] = Field(min_length=1, max_length=4)
+class RecommendationSchema(BaseModel):
+    title: str = Field(description="A concise improvement title of at most 80 characters.")
+    action: str = Field(description="An honest, concrete action of at most 180 characters.")
+    criterion_ids: list[str]
 
 
-class SkillRoadmapSchema(_ResponseSchema):
-    skill_id: SchemaSkillId
-    step_positions: list[int] = Field(max_length=5)
+class SkillRoadmapSchema(BaseModel):
+    skill_id: str
+    step_positions: list[int]
 
 
-class ResumeAnalysisSchema(_ResponseSchema):
+class ResumeAnalysisSchema(BaseModel):
     is_resume: bool
-    # This schema is passed directly to Gemini. Keep its limit aligned with
-    # ResumeReply so Gemini cannot return a summary the strict parser rejects.
-    summary: str = Field(min_length=1, max_length=350)
-    evaluations: list[EvaluationSchema] = Field(max_length=40)
-    recommendations: list[RecommendationSchema] = Field(max_length=5)
-    skill_roadmap: list[SkillRoadmapSchema] = Field(max_length=8)
+    # Descriptions are supported by Gemini's minimal response schema; the
+    # strict reply model below remains the enforcement boundary.
+    summary: str = Field(description="A concise evidence-led overview without personal details, at most 350 characters.")
+    evaluations: list[EvaluationSchema]
+    recommendations: list[RecommendationSchema]
+    skill_roadmap: list[SkillRoadmapSchema]
 
 
 # --- Strict validated reply ---------------------------------------------------
@@ -175,7 +171,7 @@ class _ReplyBase(BaseModel):
 class Evidence(_ReplyBase):
     source: Literal["resume_text"]
     page: int = Field(ge=1)
-    quote: Quote = Field(min_length=20)
+    quote: Quote = Field(min_length=MIN_QUOTE_CHARS)
 
 
 class Evaluation(_ReplyBase):
@@ -262,7 +258,7 @@ def parse_resume_reply(text: str, rubric: dict, pages: list[str], step_count: in
         if not item.found and item.evidence:
             raise AIOutputError("schema", f"evaluations.{index}.evidence:unexpected")
         for citation_index, citation in enumerate(item.evidence):
-            if len(citation.quote.strip()) < 20:
+            if len(citation.quote.strip()) < MIN_QUOTE_CHARS:
                 raise AIOutputError("schema", f"evaluations.{index}.evidence.{citation_index}.quote:min_length")
             if citation.page > len(pages):
                 raise AIOutputError("schema", f"evaluations.{index}.evidence.{citation_index}.page:out_of_range")
@@ -369,6 +365,15 @@ def analyze_resume(pdf: bytes, career: str, skills, steps) -> dict:
     ]
     prompt = build_resume_evidence_prompt(career, rubric, roadmap_steps, pages)
     contents = [genai_types.Part.from_bytes(data=bytes(pdf), mime_type="application/pdf"), prompt]
+
+    def corrective_contents(error: AIOutputError):
+        if error.kind not in {"empty", "invalid_json", "not_object", "schema", "too_large"}:
+            return None
+        correction = """
+
+Corrective retry: Generate a new JSON response from the source material, not a revision of your prior answer. Every evidence quote must be a verbatim, contiguous excerpt of 3-160 characters from its stated page. If no such non-identifying excerpt exists, set that criterion to false with an empty evidence list. Keep the summary, notes, recommendation title/action, and arrays within every stated limit."""
+        return [contents[0], prompt + correction]
+
     reply = llm.generate(
         contents,
         "resume",
@@ -378,6 +383,7 @@ def analyze_resume(pdf: bytes, career: str, skills, steps) -> dict:
         temperature=0,
         max_output_tokens=MAX_OUTPUT_TOKENS,
         retry_on_validation_error=False,
+        validation_retry_contents=corrective_contents,
     )
     if not reply.pop("is_resume"):
         raise ResumeInputError("not_resume")

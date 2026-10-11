@@ -6,7 +6,6 @@ import logging
 import httpx
 import pytest
 from google.genai import errors as genai_errors
-from pydantic import ValidationError
 
 import llm
 import resume_ai
@@ -71,32 +70,20 @@ def test_gemini_gets_pdf_target_checklist_and_page_text_but_never_a_score(fake_g
     assert models.configs[0].automatic_function_calling.disable is True
 
 
-def test_gemini_resume_schema_caps_the_summary_at_the_parser_limit():
-    schema = resume_ai.ResumeAnalysisSchema.model_json_schema()
-    assert schema["properties"]["summary"]["maxLength"] == 350
+def test_gemini_resume_schema_uses_only_the_minimal_provider_shape():
+    def walk(value):
+        if isinstance(value, dict):
+            for key, item in value.items():
+                assert key not in {
+                    "additionalProperties", "maxItems", "maxLength", "minItems",
+                    "minLength", "minimum",
+                }
+                walk(item)
+        elif isinstance(value, list):
+            for item in value:
+                walk(item)
 
-
-@pytest.mark.parametrize("mutation", [
-    lambda data: data.update(summary="x" * 351),
-    lambda data: data["evaluations"][0].update(note="x" * 121),
-    lambda data: data["evaluations"][0]["evidence"][0].update(quote="too short"),
-    lambda data: data["evaluations"][0]["evidence"][0].update(quote="x" * 161),
-    lambda data: data["evaluations"][0]["evidence"][0].update(page="1"),
-    lambda data: data["evaluations"][0].update(evidence=[data["evaluations"][0]["evidence"][0]] * 2),
-    lambda data: data.update(evaluations=data["evaluations"] * 3),
-    lambda data: data["recommendations"][0].update(title="x" * 81),
-    lambda data: data["recommendations"][0].update(action="x" * 181),
-    lambda data: data["recommendations"][0].update(criterion_ids=["project_demo"] * 5),
-    lambda data: data.update(recommendations=data["recommendations"] * 3),
-    lambda data: data["skill_roadmap"][0].update(step_positions=[1] * 6),
-    lambda data: data.update(skill_roadmap=data["skill_roadmap"] * 9),
-    lambda data: data.update(score=87),
-])
-def test_gemini_resume_schema_matches_the_strict_reply_size_limits(mutation):
-    data = reply()
-    mutation(data)
-    with pytest.raises(ValidationError):
-        resume_ai.ResumeAnalysisSchema.model_validate(data)
+    walk(resume_ai.ResumeAnalysisSchema.model_json_schema())
 
 
 def test_resume_prompt_states_every_free_text_limit():
@@ -106,7 +93,7 @@ def test_resume_prompt_states_every_free_text_limit():
     ], RESUME_PAGES)
     assert "summary` is at most 350 characters" in prompt
     assert "note` is at most 120 characters" in prompt
-    assert "Quotes must be 20" in prompt
+    assert "Quotes must be 3" in prompt
     assert "title` is at most 80 characters" in prompt
     assert "action` is at most 180 characters" in prompt
 
@@ -124,12 +111,12 @@ def test_domain_resume_fixtures_produce_a_valid_scored_analysis(fake_gemini, car
     assert result["analysis"]["score_report"]["overall"] >= 0
 
 
-def test_invalid_resume_schema_reply_is_not_retried(fake_gemini):
+def test_invalid_resume_schema_reply_uses_one_corrective_regeneration(fake_gemini):
     models = fake_gemini(reply(summary="x" * 351), reply())
-    with pytest.raises(llm.AIServiceError) as error:
-        run()
-    assert error.value.kind == "failed"
-    assert models.calls == 1
+    assert run()["analysis"]["score_report"]["overall"] >= 0
+    assert models.calls == 2
+    assert models.prompts[0][1] != models.prompts[1][1]
+    assert "Corrective retry" in models.prompts[1][1]
 
 
 def test_every_citation_is_verified_against_the_claimed_page():
@@ -166,6 +153,14 @@ def test_evaluation_list_must_cover_each_expected_criterion_once(mutation):
         data["evaluations"][0]["criterion_id"] = "imaginary"
     with pytest.raises(AIOutputError, match="criterion_set_mismatch"):
         parse(data)
+
+
+def test_short_exact_technology_citation_is_allowed():
+    data = reply()
+    item = next(e for e in data["evaluations"] if e["criterion_id"] == "skill_1")
+    item["evidence"][0]["quote"] = "SQL"
+    parsed, _ = parse(data)
+    assert parsed["evaluations_by_id"]["skill_1"]["evidence"][0]["quote"] == "SQL"
 
 
 def test_found_evaluation_requires_source_quote_and_missing_one_cannot_have_it():
@@ -296,11 +291,12 @@ def test_result_size_limit_prevents_oversized_persisted_report(monkeypatch, fake
 
 
 @pytest.mark.parametrize("bad", ["not json", reply(evaluations=[]), reply(score=90)])
-def test_invalid_resume_replies_fail_closed_without_a_blind_retry(bad, fake_gemini):
+def test_invalid_resume_replies_fail_closed_after_one_corrective_regeneration(bad, fake_gemini):
     models = fake_gemini(bad, bad)
     with pytest.raises(llm.AIServiceError) as error:
         run()
-    assert error.value.kind == "failed" and models.calls == 1
+    assert error.value.kind == "failed" and models.calls == 2
+    assert models.prompts[0][1] != models.prompts[1][1]
 
 
 def test_gemini_errors_timeouts_and_no_key_keep_existing_error_behavior(fake_gemini, monkeypatch):
@@ -379,7 +375,6 @@ def test_wrong_types_and_unexpected_nested_fields_fail_closed(mutation):
 @pytest.mark.parametrize("mutation", [
     lambda data: data.update(summary="x" * 351),
     lambda data: data["evaluations"][0].update(note="x" * 121),
-    lambda data: data["evaluations"][0]["evidence"][0].update(quote="SQL"),
     lambda data: data["evaluations"][0]["evidence"][0].update(quote="x" * 161),
     lambda data: data.update(recommendations=[data["recommendations"][0]] * 6),
     lambda data: data["recommendations"][0].update(criterion_ids=["project_demo"] * 5),

@@ -98,6 +98,23 @@ def test_client_errors_are_not_retried(fake_gemini):
     assert (err.value.kind, models.calls) == ("failed", 1)
 
 
+def test_client_error_logs_safe_provider_body_for_schema_diagnosis(fake_gemini, caplog):
+    details = [{
+        "fieldViolations": [{
+            "field": "generation_config.response_schema.properties.summary.maxLength",
+            "description": "Unknown name maxLength",
+        }],
+        "content": SECRET,
+    }]
+    fake_gemini(gemini_error(400, "INVALID_ARGUMENT", details))
+    with pytest.raises(llm.AIServiceError):
+        run()
+    assert "fieldViolations" in caplog.text
+    assert "response_schema.properties.summary.maxLength" in caplog.text
+    assert "Unknown name maxLength" in caplog.text
+    assert SECRET not in caplog.text
+
+
 def test_missing_key_means_unavailable(monkeypatch):
     monkeypatch.setattr(llm, "client", None)
     with pytest.raises(llm.AIServiceError) as err:

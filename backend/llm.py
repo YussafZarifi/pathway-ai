@@ -19,6 +19,7 @@ ADR-020): unexpected client errors are logged by type name only.
 """
 
 import hashlib
+import json
 import logging
 import re
 import time
@@ -36,6 +37,13 @@ logger = logging.getLogger("pathwayai.llm")
 
 MAX_ATTEMPTS = 2
 MAX_RATE_LIMIT_WAIT_SECONDS = 10
+
+_SENSITIVE_PROVIDER_ERROR_KEYS = {
+    "api_key", "apikey", "authorization", "content", "data", "input",
+    "inline_data", "password", "pdf", "prompt", "text", "token", "value",
+}
+_EMAIL = re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+")
+_PHONE = re.compile(r"(?<!\w)(?:\+\d{1,3}[\s.-]?)?\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}(?!\w)")
 
 
 class AIServiceError(Exception):
@@ -61,6 +69,29 @@ client = (
 
 def _fingerprint(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()[:12]
+
+
+def _provider_error_body(error: genai_errors.APIError) -> str:
+    """Safe provider diagnostics for invalid requests.
+
+    Gemini's structured error body identifies invalid schema fields. Preserve
+    that metadata, while redacting any field that could contain a prompt,
+    upload, credential, or personal contact detail.
+    """
+    def scrub(value, key=""):
+        if key.casefold() in _SENSITIVE_PROVIDER_ERROR_KEYS:
+            return "[redacted]"
+        if isinstance(value, dict):
+            return {str(k): scrub(v, str(k)) for k, v in value.items()}
+        if isinstance(value, list):
+            return [scrub(item) for item in value]
+        if isinstance(value, str):
+            return _PHONE.sub("[redacted]", _EMAIL.sub("[redacted]", value))
+        if value is None or isinstance(value, (bool, int, float)):
+            return value
+        return f"<{type(value).__name__}>"
+
+    return json.dumps(scrub(error.details), ensure_ascii=False, separators=(",", ":"))
 
 
 def _quota_info(error: genai_errors.APIError) -> tuple[str, int | None]:
@@ -100,6 +131,7 @@ def generate(
     temperature: float | None = None,
     max_output_tokens: int | None = None,
     retry_on_validation_error: bool = True,
+    validation_retry_contents: Callable[[AIOutputError], object | None] | None = None,
 ) -> dict:
     """Generate and validate one JSON reply. Raises AIServiceError.
 
@@ -141,7 +173,10 @@ def generate(
                     time.sleep(delay)
                     continue
                 raise AIServiceError("busy", retry_after=delay or 60) from None
-            logger.error("%s attempt %d: Gemini %s %s (%.1fs)", label, attempt, e.code, e.status, elapsed)
+            logger.error(
+                "%s attempt %d: Gemini %s %s body=%s (%.1fs)",
+                label, attempt, e.code, e.status, _provider_error_body(e), elapsed,
+            )
             if not last and isinstance(e.code, int) and e.code >= 500:
                 time.sleep(1)
                 continue
@@ -170,8 +205,14 @@ def generate(
                 label, attempt, e.kind, e.detail, meta["finish"], meta["out_tokens"],
                 len(text), _fingerprint(text), elapsed,
             )
-            if not last and retry_on_validation_error:
-                continue
+            if not last:
+                if validation_retry_contents is not None:
+                    next_contents = validation_retry_contents(e)
+                    if next_contents is not None:
+                        contents = next_contents
+                        continue
+                elif retry_on_validation_error:
+                    continue
             raise AIServiceError("failed") from None
 
         if diag["dropped"]:
