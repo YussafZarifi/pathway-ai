@@ -70,6 +70,11 @@ def test_gemini_gets_pdf_target_checklist_and_page_text_but_never_a_score(fake_g
     assert models.configs[0].automatic_function_calling.disable is True
 
 
+def test_gemini_resume_schema_caps_the_summary_at_the_parser_limit():
+    schema = resume_ai.ResumeAnalysisSchema.model_json_schema()
+    assert schema["properties"]["summary"]["maxLength"] == 350
+
+
 def test_every_citation_is_verified_against_the_claimed_page():
     data = reply()
     item = next(e for e in data["evaluations"] if e["criterion_id"] == "project_outcome")

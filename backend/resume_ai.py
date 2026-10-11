@@ -143,7 +143,9 @@ class SkillRoadmapSchema(BaseModel):
 
 class ResumeAnalysisSchema(BaseModel):
     is_resume: bool
-    summary: str
+    # This schema is passed directly to Gemini. Keep its limit aligned with
+    # ResumeReply so Gemini cannot return a summary the strict parser rejects.
+    summary: str = Field(min_length=1, max_length=350)
     evaluations: list[EvaluationSchema]
     recommendations: list[RecommendationSchema]
     skill_roadmap: list[SkillRoadmapSchema]
