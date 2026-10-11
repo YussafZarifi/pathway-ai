@@ -94,6 +94,53 @@ def _provider_error_body(error: genai_errors.APIError) -> str:
     return json.dumps(scrub(error.details), ensure_ascii=False, separators=(",", ":"))
 
 
+def _request_summary(model: str, contents, config) -> str:
+    """A content-free record of the Gemini request shape for failure logs.
+
+    Provider errors often identify a bad response-schema field, but the
+    surrounding request configuration is needed to diagnose it.  This summary
+    deliberately records structure only: never prompt text, PDF bytes, or
+    credentials.
+    """
+    parts = contents if isinstance(contents, list) else [contents]
+    content_parts = []
+    for part in parts:
+        inline = getattr(part, "inline_data", None)
+        if inline is not None:
+            data = getattr(inline, "data", b"")
+            content_parts.append({
+                "kind": "inline_data",
+                "mime_type": getattr(inline, "mime_type", None),
+                "bytes": len(data) if isinstance(data, (bytes, bytearray)) else None,
+            })
+        elif isinstance(part, str):
+            content_parts.append({"kind": "text", "chars": len(part)})
+        else:
+            content_parts.append({"kind": type(part).__name__})
+
+    schema = getattr(config, "response_schema", None)
+    schema_json = schema.model_json_schema() if hasattr(schema, "model_json_schema") else {}
+    return json.dumps({
+        "model": model,
+        "contents": content_parts,
+        "system_instruction": {"present": bool(getattr(config, "system_instruction", None))},
+        "generation_config": {
+            "temperature": getattr(config, "temperature", None),
+            "max_output_tokens": getattr(config, "max_output_tokens", None),
+            "response_mime_type": getattr(config, "response_mime_type", None),
+            "response_schema": {
+                "type": schema_json.get("type"),
+                "properties": sorted((schema_json.get("properties") or {}).keys()),
+                "definitions": sorted((schema_json.get("$defs") or {}).keys()),
+            },
+            "safety_settings": "set" if getattr(config, "safety_settings", None) else "not_set",
+        },
+        "automatic_function_calling": {
+            "disabled": getattr(getattr(config, "automatic_function_calling", None), "disable", None),
+        },
+    }, ensure_ascii=False, separators=(",", ":"))
+
+
 def _quota_info(error: genai_errors.APIError) -> tuple[str, int | None]:
     """(quota id, retry delay in seconds) from a 429's details, if present."""
     details = error.details if isinstance(error.details, dict) else {}
@@ -174,8 +221,9 @@ def generate(
                     continue
                 raise AIServiceError("busy", retry_after=delay or 60) from None
             logger.error(
-                "%s attempt %d: Gemini %s %s body=%s (%.1fs)",
-                label, attempt, e.code, e.status, _provider_error_body(e), elapsed,
+                "%s attempt %d: Gemini %s %s body=%s request=%s (%.1fs)",
+                label, attempt, e.code, e.status, _provider_error_body(e),
+                _request_summary(config.GEMINI_MODEL, contents, request_config), elapsed,
             )
             if not last and isinstance(e.code, int) and e.code >= 500:
                 time.sleep(1)

@@ -86,6 +86,31 @@ def test_gemini_resume_schema_uses_only_the_minimal_provider_shape():
     walk(resume_ai.ResumeAnalysisSchema.model_json_schema())
 
 
+def test_gemini_rejection_log_has_complete_safe_error_and_request_shape(fake_gemini, caplog):
+    details = [{
+        "@type": "type.googleapis.com/google.rpc.BadRequest",
+        "fieldViolations": [{
+            "field": "generation_config.response_schema",
+            "description": "Unknown name additional_properties",
+        }],
+    }]
+    fake_gemini(gemini_error(400, "INVALID_ARGUMENT", details))
+    caplog.set_level(logging.ERROR, logger="pathwayai.llm")
+
+    with pytest.raises(llm.AIServiceError):
+        run()
+
+    assert '"status":"INVALID_ARGUMENT"' in caplog.text
+    assert '"fieldViolations"' in caplog.text
+    assert '"model":"gemini-2.5-flash-lite"' in caplog.text
+    assert '"mime_type":"application/pdf"' in caplog.text
+    assert '"temperature":0' in caplog.text
+    assert '"max_output_tokens":8192' in caplog.text
+    assert '"response_mime_type":"application/json"' in caplog.text
+    assert '"safety_settings":"not_set"' in caplog.text
+    assert SECRET not in caplog.text and "jane.resume@example.com" not in caplog.text
+
+
 def test_resume_prompt_states_every_free_text_limit():
     prompt = build_resume_evidence_prompt(CAREER, rubric(), [
         {"position": index, "title": title, "description": "", "tasks": []}
