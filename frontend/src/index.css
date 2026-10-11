@@ -1812,6 +1812,19 @@ body.theme-landing .badge {
 .resumeScoreReport .resumeSummary { display: block; }
 .resumeScoreReport .resumeReportNote { max-width: 900px; }
 .resumeAnalysis .resumeReportNote { color: #938c99; }
+.resumeScoreHero { grid-template-columns: minmax(0, 1.5fr) minmax(150px, .7fr) minmax(150px, .65fr); gap: 18px; }
+.resumeScoreHero.is-insufficient { border-color: rgba(236, 184, 135, .27); }
+.resumeScoreHero.is-insufficient .resumeScoreTag,
+.resumeScoreHero.is-insufficient .resumeScoreConfidence { color: #efbd92; }
+.resumeNoScoreState { min-width: 144px; min-height: 108px; display: grid; place-content: center; justify-items: center; gap: 9px; color: #edbd95; }
+.resumeNoScoreState strong { font-size: 13px; }
+.resumeMissingSkills > p { margin: 0; color: #e1d8ec; font-size: 13px; line-height: 1.7; }
+.resumeMissingSkills > small { display: block; margin-top: 8px; color: #918b98; font-size: 10px; }
+.resumeMoreDetails { border: 1px solid rgba(179, 161, 209, .14); border-radius: 14px; background: rgba(17, 16, 23, .78); overflow: hidden; }
+.resumeMoreDetails > summary { padding: 15px 18px; color: #d4c5eb; font-size: 12px; font-weight: 700; cursor: pointer; }
+.resumeMoreDetails > summary:focus-visible { outline: 2px solid #bd94ff; outline-offset: -3px; }
+.resumeMoreDetailsBody { display: grid; gap: 14px; padding: 0 14px 14px; }
+.resumeMoreDetailsBody .resumeReportSection { background: rgba(26, 23, 35, .65); }
 
 @media (max-width: 850px) {
   .resumeScoreHero { grid-template-columns: minmax(0, 1fr) minmax(145px, .55fr); }
@@ -5733,6 +5746,14 @@ button.landingFeatureCard:focus-visible {
   font-size: 12px;
 }
 
+.resumeSelectedCopy strong {
+  overflow: hidden;
+  max-width: 100%;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 650;
+}
+
 .resumeSelectedCopy small {
   color: var(--dash-muted);
   font-size: 11px;
@@ -5748,6 +5769,39 @@ button.landingFeatureCard:focus-visible {
   font: inherit;
   font-size: 12px;
   cursor: pointer;
+}
+
+.resumePickButton {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  border: 1px solid rgba(216, 180, 254, 0.32);
+  border-radius: 10px;
+  color: #f1e7ff;
+  background: rgba(168, 85, 247, 0.1);
+  font-size: 13px;
+  font-weight: 650;
+  transition: border-color 160ms ease, background 160ms ease, transform 160ms ease;
+}
+
+.resumePickButton:hover:not(:disabled) {
+  border-color: rgba(216, 180, 254, 0.62);
+  background: rgba(168, 85, 247, 0.17);
+  transform: translateY(-1px);
+}
+
+.resumePickButton:focus-visible {
+  outline: 2px solid #c084fc;
+  outline-offset: 3px;
+}
+
+.featureInitLoading {
+  min-height: 180px;
+  align-content: center;
+  gap: 14px;
+  padding: 24px;
 }
 
 .resumeClearFile:hover {
@@ -6548,6 +6602,16 @@ button.landingFeatureCard:focus-visible {
 
 .coachThreadsEmpty span {
   font-size: 11px;
+}
+
+.coachThreadLoading,
+.coachThreadLoadError {
+  display: grid;
+  gap: 10px;
+}
+
+.coachThreadLoadError .dashError {
+  margin: 0;
 }
 
 .coachThreadList {

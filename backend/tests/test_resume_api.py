@@ -20,6 +20,7 @@ import db
 import main
 import rate_limit
 import resume_ai
+from ai_output import AIOutputError
 from auth import AuthUser, current_user
 from conftest import SECRET
 from generation import AI_BUSY, AI_QUOTA, AI_UNAVAILABLE
@@ -361,6 +362,17 @@ def test_chunked_upload_within_the_limit_is_analyzed(client, repo, fake_gemini):
     assert status == 201 and len(repo.analyses) == 1
 
 
+def test_sparse_valid_pdf_is_saved_as_an_explicit_no_score_report(client, repo, fake_gemini):
+    models = fake_gemini(reply())
+    response = post(client, make_pdf(pages=["Brief profile only."]))
+    report = response.json()["analysis"]["score_report"]
+    assert response.status_code == 201
+    assert report["status"] == "insufficient_evidence"
+    assert report["overall"] == report["ats"]["score"] == 0
+    assert report["confidence"]["level"] == "very_low"
+    assert len(repo.analyses) == 1 and models.calls == 0
+
+
 def test_other_routes_keep_the_16_kb_limit(client):
     r = client.post("/api/ai/career", content=b"x" * (17 * 1024), headers={"Content-Type": "application/json"})
     assert r.status_code == 413
@@ -418,6 +430,21 @@ def test_no_gemini_key_is_503(client, monkeypatch):
     monkeypatch.setattr(llm, "client", None)
     r = post(client)
     assert (r.status_code, r.json()["detail"]) == (503, AI_UNAVAILABLE)
+
+
+def test_final_report_size_error_is_a_safe_502_not_an_unhandled_exception(client, repo, monkeypatch, caplog):
+    def reject_oversized_report(*args, **kwargs):
+        raise AIOutputError("too_large", "analysis 16183 bytes")
+
+    monkeypatch.setattr(resume_ai, "analyze_resume", reject_oversized_report)
+    caplog.set_level(logging.DEBUG)
+
+    response = post(client)
+
+    assert (response.status_code, response.json()["detail"]) == (502, resume_router.ANALYSIS_FAILED)
+    assert repo.analyses == {}
+    assert "Resume report rejected: too_large" in caplog.text
+    assert "Unhandled AIOutputError" not in caplog.text
 
 
 # --- Database failures (rollback) ------------------------------------------------------------------

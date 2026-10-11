@@ -12,6 +12,7 @@ const ANALYSIS = {
 };
 
 const SCORE_REPORT = {
+  status: "scored",
   overall: 76,
   ats: { score: 75, earned: 3.8, weight: 5 },
   rubric: { family: "data_science", label: "Data science & analytics" },
@@ -72,14 +73,15 @@ describe("AnalysisView", () => {
       <MemoryRouter><AnalysisView analysis={{ ...ANALYSIS, scoreReport: SCORE_REPORT }} currentRoadmapId="r1" /></MemoryRouter>
     );
     expect(screen.getByRole("img", { name: "Resume evidence score: 76 out of 100" })).toBeTruthy();
+    screen.getByText("Evidence, ATS, and roadmap details").click();
     expect(screen.getByRole("heading", { name: "Skill match" })).toBeTruthy();
     expect(screen.getAllByText("Evidence found").length).toBe(2);
     expect(screen.getAllByText("Not evidenced yet").length).toBe(2);
-    expect(screen.getByText("Used SQL for reporting.")).toBeTruthy();
+    expect(screen.getByText(/Used SQL for reporting\./)).toBeTruthy();
     expect(screen.getAllByText("No Tableau evidence was found.").length).toBe(2);
     expect(screen.getByText("Tableau dashboards")).toBeTruthy();
-    expect(screen.getByText("+15")).toBeTruthy();
-    expect(screen.getByText(/not your abilities or your chance of being hired/i)).toBeTruthy();
+    expect(screen.getByText("Add a Tableau project")).toBeTruthy();
+    expect(screen.getByText(/not a measure of your ability or hiring chances/i)).toBeTruthy();
     expect(container.querySelector('svg[aria-label^="Category evidence profile"]')).toBeTruthy();
   });
 });

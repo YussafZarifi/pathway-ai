@@ -11,8 +11,13 @@ import io
 import json
 import logging
 import re
+import threading
 import unicodedata
+from copy import deepcopy
+from datetime import datetime, timezone
+from pathlib import Path
 from typing import Literal
+from uuid import uuid4
 
 from google.genai import types as genai_types
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
@@ -31,7 +36,9 @@ PROMPT_VERSION = "r2"
 MIN_PDF_BYTES = 1024
 MAX_PDF_BYTES = 2 * 1024 * 1024
 MAX_PDF_PAGES = 10
-MIN_EXTRACTED_TEXT_CHARS = 300
+MIN_EXTRACTED_TEXT_CHARS = 0
+MIN_SCORE_TEXT_CHARS = 300
+MIN_SCORE_TEXT_WORDS = 50
 MAX_EXTRACTED_TEXT_CHARS = 30_000
 MAX_PAGE_CONTENT_BYTES = 600_000
 
@@ -40,6 +47,7 @@ MAX_REPLY_CHARS = 30_000
 MAX_ANALYSIS_BYTES = 16_000
 MAX_OUTPUT_TOKENS = 8192
 MIN_QUOTE_CHARS = 3
+MAX_QUOTE_CHARS = 160
 
 logger = logging.getLogger("pathwayai.resume_ai")
 
@@ -54,6 +62,54 @@ class ResumeInputError(Exception):
     def __init__(self, kind: str):
         super().__init__(kind)
         self.kind = kind
+
+
+_DEBUG_CAPTURE_ROOT = Path(__file__).resolve().parent / ".resume-debug"
+_DEBUG_CAPTURE_LOCK = threading.Lock()
+
+
+class _ResumeDebugCapture:
+    """One-shot local forensic capture; contains highly sensitive user data."""
+
+    def __init__(self, pdf: bytes, pages: list[str]):
+        self.attempt = 0
+        with _DEBUG_CAPTURE_LOCK:
+            _DEBUG_CAPTURE_ROOT.mkdir(parents=True, exist_ok=True)
+            claim = _DEBUG_CAPTURE_ROOT / ".capture-claimed"
+            try:
+                with claim.open("x", encoding="utf-8") as stream:
+                    stream.write(datetime.now(timezone.utc).isoformat())
+            except FileExistsError:
+                raise ResumeInputError("debug_capture_already_used") from None
+            self.path = _DEBUG_CAPTURE_ROOT / (
+                "capture-" + datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ") + "-" + uuid4().hex[:8]
+            )
+            self.path.mkdir()
+        self._write_json("upload-metadata.json", {
+            "pdf_bytes": len(pdf),
+            "page_count": len(pages),
+            "capture_utc": datetime.now(timezone.utc).isoformat(),
+        })
+        self._write_json("extracted-pages.json", [{"page": i, "text": page}
+                                                   for i, page in enumerate(pages, start=1)])
+        self._write_json("normalized-pages.json", [{"page": i, "text": _normalized(page)}
+                                                    for i, page in enumerate(pages, start=1)])
+
+    def _write_json(self, filename: str, value) -> None:
+        (self.path / filename).write_text(
+            json.dumps(value, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+
+    def save_response(self, text: str, attempt: int) -> None:
+        self.attempt = attempt
+        (self.path / f"gemini-raw-response-attempt-{attempt}.json").write_text(text, encoding="utf-8")
+
+    def save_comparison(self, detail: dict) -> None:
+        filename = f"evidence-comparisons-attempt-{self.attempt or 1}.json"
+        path = self.path / filename
+        existing = json.loads(path.read_text(encoding="utf-8")) if path.exists() else []
+        existing.append(detail)
+        self._write_json(filename, existing)
 
 
 def check_pdf(data) -> None:
@@ -115,7 +171,7 @@ def extract_resume_pages(data: bytes) -> list[str]:
         # only the stable failure kind, never parser text or a stack to users.
         raise ResumeInputError("unreadable") from None
 
-    if not pages or sum(len(page.strip()) for page in pages) < MIN_EXTRACTED_TEXT_CHARS:
+    if not pages:
         raise ResumeInputError("unreadable")
     return pages
 
@@ -164,7 +220,7 @@ class ResumeAnalysisSchema(BaseModel):
 # --- Strict validated reply ---------------------------------------------------
 
 _Strict = ConfigDict(extra="forbid", strict=True)
-Quote = _text(160)
+Quote = _text(MAX_QUOTE_CHARS)
 Note = _text(120)
 
 
@@ -181,7 +237,7 @@ class Evidence(_ReplyBase):
 class Evaluation(_ReplyBase):
     criterion_id: _text(40)
     found: bool
-    evidence: list[Evidence] = Field(max_length=1)
+    evidence: list[Evidence] = Field(max_length=4)
     note: Note
 
 
@@ -264,6 +320,7 @@ def _citation_mismatch_diagnostic(quote: str, page: str, page_number: int) -> di
 
 
 def _static_evaluations(pages: list[str]) -> dict:
+    extracted_chars = sum(len(page.strip()) for page in pages)
     matches = []
     for number, page in enumerate(pages, start=1):
         if _CONTACT_EMAIL.search(page) or _CONTACT_PHONE.search(page):
@@ -277,16 +334,20 @@ def _static_evaluations(pages: list[str]) -> dict:
                      else "No email address or phone number detected in the extracted text."),
         },
         "text_parseability": {
-            "found": True,
-            "evidence": [{"source": "document_check", "page": None, "quote": None}],
-            "note": f"Selectable text extracted from {len(pages)} PDF page(s).",
+            "found": extracted_chars > 0,
+            "evidence": ([{"source": "document_check", "page": None, "quote": None}]
+                         if extracted_chars else []),
+            "note": (f"Selectable text extracted from {len(pages)} PDF page(s)." if extracted_chars
+                     else "No selectable résumé text could be extracted from this PDF."),
         },
     }
 
 
-def parse_resume_reply(text: str, rubric: dict, pages: list[str], step_count: int) -> tuple[dict, dict]:
+def parse_resume_reply(text: str, rubric: dict, pages: list[str], step_positions: list[int] | int,
+                       debug_capture: _ResumeDebugCapture | None = None) -> tuple[dict, dict]:
     """Validate evidence citations and exact criterion coverage; never score."""
     data = load_strict_json(text, MAX_REPLY_CHARS)
+    _compact_verified_quotes(data, pages)
     try:
         reply = ResumeReply.model_validate(data)
     except ValidationError as error:
@@ -318,7 +379,29 @@ def parse_resume_reply(text: str, rubric: dict, pages: list[str], step_count: in
             if contains_contact_details(citation.quote):
                 raise AIOutputError("personal_data", f"evaluations.{index}.evidence.{citation_index}")
             page = pages[citation.page - 1]
-            if not _quote_matches_source(citation.quote, page):
+            normalized_quote = _normalized(citation.quote)
+            normalized_page = _normalized(page)
+            matches = _quote_matches_source(citation.quote, page)
+            if debug_capture is not None:
+                quote_tokens = normalized_quote.split()
+                page_tokens = normalized_page.split()
+                debug_capture.save_comparison({
+                    "evaluation_index": index,
+                    "criterion_id": item.criterion_id,
+                    "evidence_index": citation_index,
+                    "returned_quote": citation.quote,
+                    "normalized_quote": normalized_quote,
+                    "page_number": citation.page,
+                    "extracted_page_text": page,
+                    "normalized_page_text": normalized_page,
+                    "matches": matches,
+                    "match_reason": (
+                        "normalized quote words occur contiguously and in order"
+                        if matches else "normalized quote word sequence is absent from normalized cited page"
+                    ),
+                    "first_mismatch": _first_sequence_mismatch(quote_tokens, page_tokens),
+                })
+            if not matches:
                 logger.warning(
                     "RÃ©sumÃ© citation could not be verified: %s",
                     _citation_mismatch_diagnostic(citation.quote, page, citation.page),
@@ -347,8 +430,9 @@ def parse_resume_reply(text: str, rubric: dict, pages: list[str], step_count: in
     roadmap_skill_ids = [item.skill_id for item in reply.skill_roadmap]
     if len(roadmap_skill_ids) != len(set(roadmap_skill_ids)) or set(roadmap_skill_ids) != skill_ids:
         raise AIOutputError("schema", "skill_roadmap:skill_set_mismatch")
+    allowed_positions = _allowed_roadmap_positions(step_positions)
     for index, item in enumerate(reply.skill_roadmap):
-        if any(position < 1 or position > step_count for position in item.step_positions):
+        if any(position not in allowed_positions for position in item.step_positions):
             raise AIOutputError("schema", f"skill_roadmap.{index}.step_positions:out_of_range")
 
     for field, value in (("summary", reply.summary),):
@@ -363,6 +447,110 @@ def parse_resume_reply(text: str, rubric: dict, pages: list[str], step_count: in
         "dropped": [],
     }
     return result, diagnostics
+
+
+def _compact_verified_quotes(data: object, pages: list[str]) -> None:
+    """Shorten overlong model citations only to an independently verified excerpt.
+
+    Gemini can occasionally return a valid full sentence beyond the display
+    bound despite the prompt. A shorter prefix is accepted only when it is
+    still a contiguous, non-identifying match on the cited page; the normal
+    strict schema and citation verifier then run unchanged.
+    """
+    if not isinstance(data, dict) or not isinstance(data.get("evaluations"), list):
+        return
+    for evaluation in data["evaluations"]:
+        if not isinstance(evaluation, dict) or not isinstance(evaluation.get("evidence"), list):
+            continue
+        for citation in evaluation["evidence"]:
+            if not isinstance(citation, dict):
+                continue
+            quote, page_number = citation.get("quote"), citation.get("page")
+            if not isinstance(quote, str) or len(quote) <= MAX_QUOTE_CHARS:
+                continue
+            if not isinstance(page_number, int) or isinstance(page_number, bool) or not 1 <= page_number <= len(pages):
+                continue
+            page = pages[page_number - 1]
+            for end in range(min(MAX_QUOTE_CHARS, len(quote)), MIN_QUOTE_CHARS - 1, -1):
+                if end < len(quote) and not quote[end].isspace() and not quote[end - 1].isspace():
+                    continue
+                candidate = quote[:end].rstrip()
+                if (len(candidate) >= MIN_QUOTE_CHARS
+                        and not contains_contact_details(candidate)
+                        and _quote_matches_source(candidate, page)):
+                    citation["quote"] = candidate
+                    break
+
+
+def _allowed_roadmap_positions(positions: list[int] | int) -> list[int]:
+    """Return saved roadmap identifiers; integer input preserves test/legacy callers."""
+    if isinstance(positions, int) and not isinstance(positions, bool):
+        return list(range(1, positions + 1))
+    return list(dict.fromkeys(positions))
+
+
+def _gemini_response_schema(step_positions: list[int] | int) -> dict:
+    """Bound step identifiers to the saved roadmap's numeric range."""
+    schema = deepcopy(ResumeAnalysisSchema.model_json_schema())
+    def normalize_supported_schema(value):
+        if isinstance(value, dict):
+            if "const" in value:
+                value["enum"] = [value.pop("const")]
+            for child in value.values():
+                normalize_supported_schema(child)
+        elif isinstance(value, list):
+            for child in value:
+                normalize_supported_schema(child)
+
+    normalize_supported_schema(schema)
+    schema["$defs"]["EvaluationSchema"]["properties"]["evidence"]["maxItems"] = 4
+    allowed_positions = _allowed_roadmap_positions(step_positions)
+    if allowed_positions:
+        position_schema = schema["$defs"]["SkillRoadmapSchema"]["properties"]["step_positions"]["items"]
+        position_schema["minimum"] = min(allowed_positions)
+        position_schema["maximum"] = max(allowed_positions)
+    return schema
+
+
+def _compact_report_evidence(evaluations: dict) -> dict:
+    """Keep one verified excerpt per criterion (four section labels for headings).
+
+    All model citations have already passed source and privacy checks. The UI
+    needs one representative excerpt for each scored finding; conventional
+    section formatting keeps up to four distinct heading excerpts.
+    """
+    compacted = {}
+    for criterion_id, evaluation in evaluations.items():
+        evidence = evaluation["evidence"]
+        limit = 4 if criterion_id == "standard_sections" else 1
+        compacted[criterion_id] = {**evaluation, "evidence": evidence[:limit]}
+    return compacted
+
+
+def _first_sequence_mismatch(quote_tokens: list[str], page_tokens: list[str]) -> dict | None:
+    """Explain the earliest point at which quote tokens cannot align to source."""
+    if not quote_tokens:
+        return {"quote_token_index": 0, "expected": None, "source_window": []}
+    for start in range(max(1, len(page_tokens) - len(quote_tokens) + 1)):
+        if page_tokens[start:start + len(quote_tokens)] == quote_tokens:
+            return None
+    best_start = 0
+    best_prefix = 0
+    for start in range(len(page_tokens)):
+        matched = 0
+        while (matched < len(quote_tokens) and start + matched < len(page_tokens)
+               and quote_tokens[matched] == page_tokens[start + matched]):
+            matched += 1
+        if matched > best_prefix:
+            best_start, best_prefix = start, matched
+    mismatch_index = best_prefix
+    return {
+        "quote_token_index": mismatch_index,
+        "expected": quote_tokens[mismatch_index] if mismatch_index < len(quote_tokens) else None,
+        "source_window_start_token": best_start + mismatch_index,
+        "source_window": page_tokens[best_start:best_start + len(quote_tokens)],
+        "matched_prefix_tokens": best_prefix,
+    }
 
 
 def _legacy_analysis(reply: dict, rubric: dict, score_report: dict, evaluations: dict) -> dict:
@@ -412,10 +600,58 @@ def _legacy_analysis(reply: dict, rubric: dict, score_report: dict, evaluations:
     }
 
 
+def _insufficient_analysis(career: str, skills, steps: list[dict], pages: list[str]) -> dict:
+    """Return a server-authored no-score report without sending sparse PDFs to Gemini."""
+    rubric = rubric_for(career, skills)
+    roadmap_steps = steps if steps and isinstance(steps[0], dict) else [
+        {"position": index, "title": title, "description": "", "tasks": [], "completed": False}
+        for index, title in enumerate(steps or [], start=1)
+    ]
+    evaluations = _static_evaluations(pages)
+    for category in rubric["categories"]:
+        for criterion in category["criteria"]:
+            if criterion["id"] not in _STATIC_CRITERIA:
+                evaluations[criterion["id"]] = {
+                    "found": False,
+                    "evidence": [],
+                    "note": "Not enough readable résumé content to verify this item reliably.",
+                }
+    extracted_chars = sum(len(page.strip()) for page in pages)
+    extracted_words = len(_WORD.findall(" ".join(pages)))
+    score_report = build_score_report(
+        rubric, evaluations, [], roadmap_steps, {}, extracted_chars, len(pages), extracted_words
+    )
+    if score_report["status"] != "insufficient_evidence":
+        # This helper is only used for sparse text. Keep the invariant explicit
+        # if the scoring threshold changes independently in the future.
+        score_report["status"] = "insufficient_evidence"
+        score_report["overall"] = 0
+        score_report["ats"]["score"] = 0
+        score_report["confidence"] = {"level": "very_low", "score": 5,
+                                      "reason": "There is not enough readable résumé content to support a dependable score."}
+        score_report["insufficient_reasons"] = ["The PDF contains too little readable résumé text for a reliable review."]
+        for category in score_report["categories"]:
+            category["earned"] = category["score"] = 0
+            for item in category["criteria"]:
+                item["points"] = 0
+        score_report["readiness"] = {"internship": 0, "junior": 0, "mid_level": 0}
+    analysis = _legacy_analysis({
+        "summary": "Unable to score reliably: this PDF contains too little readable résumé content. Add clear skills, project, experience, and education details, then upload it again.",
+        "recommendations": [],
+    }, rubric, score_report, evaluations)
+    return {"analysis": analysis, "career": " ".join(str(career).split())[:100],
+            "prompt_version": PROMPT_VERSION, "model": config.GEMINI_MODEL}
+
+
 def analyze_resume(pdf: bytes, career: str, skills, steps) -> dict:
     """Analyze, cite, and score a résumé against the current PathwayAI roadmap."""
     check_pdf(pdf)
     pages = extract_resume_pages(pdf)
+    extracted_chars = sum(len(page.strip()) for page in pages)
+    extracted_words = len(_WORD.findall(" ".join(pages)))
+    if extracted_chars < MIN_SCORE_TEXT_CHARS or extracted_words < MIN_SCORE_TEXT_WORDS:
+        return _insufficient_analysis(career, skills, steps, pages)
+    debug_capture = _ResumeDebugCapture(pdf, pages) if config.DEBUG_RESUME_VERIFIER else None
     rubric = rubric_for(career, skills)
     roadmap_steps = steps if steps and isinstance(steps[0], dict) else [
         {"position": index, "title": title, "description": "", "tasks": [], "completed": False}
@@ -427,21 +663,28 @@ def analyze_resume(pdf: bytes, career: str, skills, steps) -> dict:
     def corrective_contents(error: AIOutputError):
         if error.kind not in {"empty", "invalid_json", "not_object", "schema", "too_large"}:
             return None
-        correction = """
+        allowed_positions = [step["position"] for step in roadmap_steps]
+        correction = f"""
 
-Corrective retry: Generate a new JSON response from the source material, not a revision of your prior answer. Every evidence quote must be a verbatim, contiguous excerpt of 3-160 characters from its stated page. If no such non-identifying excerpt exists, set that criterion to false with an empty evidence list. Keep the summary, notes, recommendation title/action, and arrays within every stated limit."""
+Corrective retry: Your previous JSON was rejected by strict validation at `{error.detail}`. Generate a new complete JSON response from the source material; do not copy invalid fields from your prior response.
+For any evidence quote, copy one uninterrupted, contiguous 3-160 character substring from exactly the cited page's resume_pages_json text. Never join separate headings, bullets, or phrases across omitted text. Put distinct noncontiguous supporting spans into separate evidence entries (maximum four); if no safe contiguous excerpt exists, mark that criterion false with an empty evidence list.
+For every skill_roadmap.step_positions array, use only these saved roadmap positions: {json.dumps(allowed_positions)}. Do not renumber them or assume they start at 1; use [] when no listed step applies.
+Keep the summary, notes, recommendation title/action, and arrays within every stated limit."""
         return [contents[0], prompt + correction]
 
     reply = llm.generate(
         contents,
         "resume",
-        ResumeAnalysisSchema,
-        lambda text: parse_resume_reply(text, rubric, pages, len(roadmap_steps)),
+        _gemini_response_schema([step["position"] for step in roadmap_steps]),
+        lambda text: parse_resume_reply(
+            text, rubric, pages, [step["position"] for step in roadmap_steps], debug_capture
+        ),
         system_instruction=RESUME_SYSTEM_INSTRUCTION,
         temperature=0,
         max_output_tokens=MAX_OUTPUT_TOKENS,
         retry_on_validation_error=False,
         validation_retry_contents=corrective_contents,
+        on_response=debug_capture.save_response if debug_capture is not None else None,
     )
     if not reply.pop("is_resume"):
         raise ResumeInputError("not_resume")
@@ -449,8 +692,8 @@ Corrective retry: Generate a new JSON response from the source material, not a r
     evaluations = reply.pop("evaluations_by_id")
     skill_roadmap = {item["skill_id"]: item["step_positions"] for item in reply["skill_roadmap"]}
     score_report = build_score_report(
-        rubric, evaluations, reply["recommendations"], roadmap_steps, skill_roadmap,
-        sum(len(page) for page in pages), len(pages),
+        rubric, _compact_report_evidence(evaluations), reply["recommendations"], roadmap_steps, skill_roadmap,
+        sum(len(page) for page in pages), len(pages), len(_WORD.findall(" ".join(pages))),
     )
     analysis = _legacy_analysis(reply, rubric, score_report, evaluations)
     size = len(json.dumps(analysis, ensure_ascii=False).encode("utf-8"))

@@ -164,74 +164,96 @@ function ScoreReport({ analysis, currentRoadmapId }) {
   const categories = report.categories || [];
   const strengths = categories.flatMap((category) => category.criteria
     .filter((criterion) => criterion.found)
-    .map((criterion) => ({ category: category.label, ...criterion }))).slice(0, 4);
+    .map((criterion) => ({ category: category.label, categoryId: category.id, ...criterion })))
+    .sort((a, b) => ({ projects: 0, experience: 1, skills: 2, education: 3, formatting: 4, ats: 5 }[a.categoryId]
+      - ({ projects: 0, experience: 1, skills: 2, education: 3, formatting: 4, ats: 5 }[b.categoryId]))).slice(0, 4);
   const gaps = categories.flatMap((category) => category.criteria
     .filter((criterion) => !criterion.found)
-    .map((criterion) => ({ category: category.label, ...criterion }))).slice(0, 4);
+    .map((criterion) => ({ category: category.label, categoryId: category.id, ...criterion })))
+    .sort((a, b) => ({ projects: 0, experience: 1, formatting: 2, ats: 3, skills: 4, education: 5 }[a.categoryId]
+      - ({ projects: 0, experience: 1, formatting: 2, ats: 3, skills: 4, education: 5 }[b.categoryId]))).slice(0, 4);
   const linkSteps = Boolean(currentRoadmapId) && analysis.roadmapId === currentRoadmapId;
   const confidence = report.confidence || {};
   const skillCategory = categories.find((item) => item.id === "skills");
+  const insufficient = report.status === "insufficient_evidence";
+  const recommendations = report.recommendations?.length
+    ? report.recommendations.slice(0, 3)
+    : (report.insufficient_reasons || []).slice(0, 3).map((reason, index) => ({
+      title: ["Add readable résumé content", "Show two or more core sections", "Include specific, verifiable examples"][index] || "Add more evidence",
+      action: reason,
+    }));
 
   return <div className="resumeScoreReport">
-    <section className="resumeScoreHero" aria-labelledby={`resumeScoreTitle-${analysis.id}`}>
+    <section className={`resumeScoreHero ${insufficient ? "is-insufficient" : ""}`} aria-labelledby={`resumeScoreTitle-${analysis.id}`}>
       <div className="resumeScoreIntro">
-        <div className="resumeScoreTag"><Sparkles size={13} aria-hidden="true" /> EVIDENCE-BASED REVIEW</div>
-        <h3 id={`resumeScoreTitle-${analysis.id}`}>A clearer view of your next step</h3>
-        <p>Compared with the <strong>{analysis.career}</strong> rubric and your PathwayAI roadmap. Every point comes from a cited resume finding.</p>
-        <div className="resumeScoreConfidence"><ShieldCheck size={15} aria-hidden="true" /><span><strong>{confidence.level || "Review"} confidence</strong>{confidence.reason && <small>{confidence.reason}</small>}</span></div>
+        <div className="resumeScoreTag"><Sparkles size={13} aria-hidden="true" /> CAREER-SPECIFIC REVIEW</div>
+        <h3 id={`resumeScoreTitle-${analysis.id}`}>{insufficient ? "Not enough content to score reliably" : "Resume evidence score"}</h3>
+        <p>{insufficient
+          ? "This document did not provide enough readable, verifiable résumé evidence. No competitive score has been assigned."
+          : <>Compared with the <strong>{analysis.career}</strong> rubric. The score uses verified résumé evidence, not a model-generated rating.</>}</p>
+        <div className="resumeScoreConfidence"><ShieldCheck size={15} aria-hidden="true" /><span><strong>{String(confidence.level || "Review").replaceAll("_", " ")} confidence{Number.isFinite(confidence.score) ? ` · ${confidence.score}/100` : ""}</strong>{confidence.reason && <small>{confidence.reason}</small>}</span></div>
       </div>
       <div className="resumeScoreMain">
-        <ScoreGauge score={report.overall} />
-        <div><span className="resumeScoreLabel">Resume evidence score</span><span className="resumeScoreSub">{report.rubric?.label || "Career-specific rubric"} · out of 100</span></div>
+        {insufficient ? <div className="resumeNoScoreState"><CircleHelp size={25} aria-hidden="true" /><strong>Not scored</strong></div>
+          : <ScoreGauge score={report.overall} />}
+        <div><span className="resumeScoreLabel">{insufficient ? "Insufficient evidence" : report.rubric?.label || "Career-specific rubric"}</span>
+          {!insufficient && <span className="resumeScoreSub">out of 100 · backend-computed</span>}</div>
       </div>
       <div className="resumeScoreQuickStats">
-        <div><span>ATS readiness</span><strong>{report.ats?.score ?? 0}<small> / 100</small></strong><p>Parsing and keyword evidence</p></div>
-        <div><span>Rubric categories</span><strong>{categories.length}</strong><p>Weighted, career-specific checks</p></div>
+        <div><span>{insufficient ? "What to add" : "ATS evidence"}</span>
+          <strong>{insufficient ? "Skills · projects" : `${report.ats?.score ?? 0}`} {!insufficient && <small>/ 100</small>}</strong>
+          <p>{insufficient ? "Experience · education" : "Structure and contextual keywords"}</p></div>
       </div>
-      <p className="resumeScoreDisclaimer">This measures evidence in the document, not your abilities or your chance of being hired.</p>
+      <p className="resumeScoreDisclaimer">A document review, not a measure of your ability or hiring chances.</p>
     </section>
 
-    <div className="resumeScoreOverview">
-      <section className="resumeReportSection resumeRadarPanel" aria-labelledby={`resumeRadarHeading-${analysis.id}`}>
-        <div className="resumeSectionHeading"><span className="resumeSectionIcon"><Target size={17} aria-hidden="true" /></span><div><p>AT A GLANCE</p><h3 id={`resumeRadarHeading-${analysis.id}`}>Evidence profile</h3></div></div>
-        <div className="resumeRadarLayout"><RadarChart categories={categories} /><ul className="resumeRadarLegend">{categories.map((category) => <li key={category.id}><span>{category.label}</span><strong>{category.score}%</strong></li>)}</ul></div>
-      </section>
-      <section className="resumeReportSection resumeReadinessPanel" aria-labelledby={`resumeReadinessHeading-${analysis.id}`}>
-        <div className="resumeSectionHeading"><span className="resumeSectionIcon"><BriefcaseBusiness size={17} aria-hidden="true" /></span><div><p>ROLE COVERAGE</p><h3 id={`resumeReadinessHeading-${analysis.id}`}>Hiring readiness signals</h3></div></div>
-        <Readiness readiness={report.readiness || {}} />
-        <p className="resumeReportNote">These percentages show coverage across different experience rubrics; they are not hiring predictions.</p>
-      </section>
-    </div>
+    {analysis.summary && <p className="resumeScoreSummary"><Sparkles size={15} aria-hidden="true" />{analysis.summary}</p>}
 
-    <SkillMatch category={skillCategory} reportId={analysis.id} />
-
-    <section className="resumeReportSection resumeCategorySection" aria-labelledby={`resumeCategoryHeading-${analysis.id}`}>
-      <div className="resumeSectionHeading"><span className="resumeSectionIcon"><BadgeCheck size={17} aria-hidden="true" /></span><div><p>POINTS YOU CAN TRACE</p><h3 id={`resumeCategoryHeading-${analysis.id}`}>Career rubric breakdown</h3></div></div>
-      <div className="resumeCategoryGrid">{categories.map((category) => <CategoryCard key={category.id} category={category} />)}</div>
-      <p className="resumeReportNote">A category earns equal portions of its weight for each criterion supported by the resume. Missing evidence means no points for that criterion; it does not mean you lack that skill.</p>
+    <section className="resumeReportSection resumeRecommendations" aria-labelledby={`resumeRecommendationsHeading-${analysis.id}`}>
+      <div className="resumeSectionHeading"><span className="resumeSectionIcon"><Lightbulb size={17} aria-hidden="true" /></span><div><p>WHAT TO FIX FIRST</p><h3 id={`resumeRecommendationsHeading-${analysis.id}`}>Priority improvements</h3></div></div>
+      {recommendations.length ? <ol className="resumePriorityList">{recommendations.map((item, index) => <li key={`${item.title}-${index}`}><span className="resumePriorityNumber">{String(index + 1).padStart(2, "0")}</span><div><strong>{item.title}</strong><p>{item.action}</p></div></li>)}</ol> : <p className="resumeReportNote">No high-priority changes were identified.</p>}
     </section>
 
     <div className="resumeScoreOverview resumeInsightGrid">
       <section className="resumeReportSection resumeInsightPanel is-strength" aria-labelledby={`resumeStrengthHeading-${analysis.id}`}>
-        <div className="resumeSectionHeading"><span className="resumeSectionIcon"><Check size={17} aria-hidden="true" /></span><div><p>BACKED BY YOUR RESUME</p><h3 id={`resumeStrengthHeading-${analysis.id}`}>Strengths</h3></div></div>
-        {strengths.length ? <ul className="resumeInsightList">{strengths.map((item) => <li key={item.id}><strong>{item.label}</strong><small>{item.evidence?.[0]?.quote || item.note}</small></li>)}</ul> : <p className="resumeReportNote">No criteria in this rubric had enough evidence to earn points yet.</p>}
+        <div className="resumeSectionHeading"><span className="resumeSectionIcon"><Check size={17} aria-hidden="true" /></span><div><p>VERIFIED IN YOUR RÉSUMÉ</p><h3 id={`resumeStrengthHeading-${analysis.id}`}>Strengths</h3></div></div>
+        {strengths.length ? <ul className="resumeInsightList">{strengths.slice(0, 3).map((item) => <li key={item.id}><strong>{item.label}</strong><small>{item.note}</small></li>)}</ul> : <p className="resumeReportNote">No strengths could be verified from this document.</p>}
       </section>
       <section className="resumeReportSection resumeInsightPanel is-gap" aria-labelledby={`resumeGapHeading-${analysis.id}`}>
-        <div className="resumeSectionHeading"><span className="resumeSectionIcon"><ArrowDownRight size={17} aria-hidden="true" /></span><div><p>ROOM TO SHOW MORE</p><h3 id={`resumeGapHeading-${analysis.id}`}>Evidence gaps</h3></div></div>
-        {gaps.length ? <ul className="resumeInsightList">{gaps.map((item) => <li key={item.id}><strong>{item.label}</strong><small>{item.note}</small><span>{item.max_points} pts available</span></li>)}</ul> : <p className="resumeReportNote">Every rubric criterion has supporting evidence in this report.</p>}
+        <div className="resumeSectionHeading"><span className="resumeSectionIcon"><ArrowDownRight size={17} aria-hidden="true" /></span><div><p>OPPORTUNITIES TO STRENGTHEN</p><h3 id={`resumeGapHeading-${analysis.id}`}>Main gaps</h3></div></div>
+        {gaps.length ? <ul className="resumeInsightList">{gaps.slice(0, 3).map((item) => <li key={item.id}><strong>{item.label}</strong><small>{item.note}</small></li>)}</ul> : <p className="resumeReportNote">No major evidence gaps were identified.</p>}
       </section>
     </div>
 
-    <RoadmapAlignment roadmap={report.roadmap} linkSteps={linkSteps} />
+    {skillCategory && <section className="resumeReportSection resumeMissingSkills" aria-labelledby={`resumeMissingHeading-${analysis.id}`}>
+      <div className="resumeSectionHeading"><span className="resumeSectionIcon"><Target size={17} aria-hidden="true" /></span><div><p>ROLE KEYWORDS</p><h3 id={`resumeMissingHeading-${analysis.id}`}>Skills to evidence</h3></div></div>
+      <p>{skillCategory.criteria.filter((item) => !item.found).slice(0, 6).map((item) => item.label).join(" · ") || "All roadmap skills had supporting evidence."}</p>
+      <small>Not evidenced means the document did not support the skill; it is not a claim that you lack it.</small>
+    </section>}
 
-    <section className="resumeReportSection resumeRecommendations" aria-labelledby={`resumeRecommendationsHeading-${analysis.id}`}>
-      <div className="resumeSectionHeading"><span className="resumeSectionIcon"><Lightbulb size={17} aria-hidden="true" /></span><div><p>HIGHEST-IMPACT NEXT STEPS</p><h3 id={`resumeRecommendationsHeading-${analysis.id}`}>Priority improvements</h3></div></div>
-      {report.recommendations?.length ? <ol className="resumePriorityList">{report.recommendations.map((item, index) => <li key={`${item.title}-${index}`}><span className="resumePriorityNumber">{String(index + 1).padStart(2, "0")}</span><div><strong>{item.title}</strong><p>{item.action}</p></div><span className="resumePriorityGain">+{item.potential_points} <small>possible pts</small></span></li>)}</ol> : <p className="resumeReportNote">No additional recommendations were returned for missing criteria.</p>}
-      <p className="resumeReportNote">Point gains are the rubric value of the linked missing evidence. They are not guarantees; recommendations may overlap and are not added together.</p>
-    </section>
-
-    {analysis.summary && <p className="resumeScoreSummary"><Sparkles size={15} aria-hidden="true" />{analysis.summary}</p>}
-    <p className="resumeScorePrivacy"><ShieldCheck size={14} aria-hidden="true" />The original PDF and full extracted text are not stored. Short verified excerpts are saved with this report.</p>
+    <details className="resumeMoreDetails">
+      <summary>Evidence, ATS, and roadmap details</summary>
+      <div className="resumeMoreDetailsBody">
+        <div className="resumeScoreOverview">
+          <section className="resumeReportSection resumeRadarPanel" aria-labelledby={`resumeRadarHeading-${analysis.id}`}>
+            <div className="resumeSectionHeading"><span className="resumeSectionIcon"><Target size={17} aria-hidden="true" /></span><div><p>SCORING DETAIL</p><h3 id={`resumeRadarHeading-${analysis.id}`}>Evidence profile</h3></div></div>
+            <div className="resumeRadarLayout"><RadarChart categories={categories} /><ul className="resumeRadarLegend">{categories.map((category) => <li key={category.id}><span>{category.label}</span><strong>{category.score}%</strong></li>)}</ul></div>
+          </section>
+          <section className="resumeReportSection resumeReadinessPanel" aria-labelledby={`resumeReadinessHeading-${analysis.id}`}>
+            <div className="resumeSectionHeading"><span className="resumeSectionIcon"><BriefcaseBusiness size={17} aria-hidden="true" /></span><div><p>ROLE COVERAGE</p><h3 id={`resumeReadinessHeading-${analysis.id}`}>Readiness signals</h3></div></div>
+            <Readiness readiness={report.readiness || {}} />
+            <p className="resumeReportNote">Evidence coverage only; not hiring predictions.</p>
+          </section>
+        </div>
+        <SkillMatch category={skillCategory} reportId={analysis.id} />
+        <section className="resumeReportSection resumeCategorySection" aria-labelledby={`resumeCategoryHeading-${analysis.id}`}>
+          <div className="resumeSectionHeading"><span className="resumeSectionIcon"><BadgeCheck size={17} aria-hidden="true" /></span><div><p>TRACEABLE POINTS</p><h3 id={`resumeCategoryHeading-${analysis.id}`}>Career rubric and source evidence</h3></div></div>
+          <div className="resumeCategoryGrid">{categories.map((category) => <CategoryCard key={category.id} category={category} />)}</div>
+          <p className="resumeReportNote">Short cited excerpts are verified against the uploaded PDF text. The original file and full text are not stored.</p>
+        </section>
+        <RoadmapAlignment roadmap={report.roadmap} linkSteps={linkSteps} />
+      </div>
+    </details>
   </div>;
 }
 

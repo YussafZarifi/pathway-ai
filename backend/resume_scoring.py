@@ -43,13 +43,18 @@ _FIXED_CRITERIA = {
     "projects": (
         ("relevant_project", "At least one project relevant to the target career"),
         ("project_technology", "Projects name the tools or technologies used"),
-        ("project_outcome", "Projects explain an outcome, result, or what was built"),
+        ("project_complexity", "Projects explain the problem, scope, or technical complexity"),
+        ("project_deployment", "Projects state whether the work was deployed or usable"),
+        ("project_impact", "Projects quantify or otherwise demonstrate their impact"),
+        ("project_outcome", "Projects clearly explain what was built and how it works"),
         ("project_demo", "A project includes a portfolio, repository, or demo link"),
     ),
     "experience": (
         ("relevant_experience", "Relevant work, internship, or applied experience"),
+        ("experience_relevance", "Experience connects responsibilities to the target career"),
         ("experience_scope", "Experience bullets describe ownership or scope"),
         ("experience_achievement", "At least one experience bullet shows a result"),
+        ("experience_bullet_quality", "Experience bullets use specific actions instead of vague duties"),
         ("transferable_experience", "Transferable work or team experience is described"),
     ),
     "education": (
@@ -74,8 +79,10 @@ _FIXED_CRITERIA = {
     "ats": (
         ("contact_information", "Professional contact information is present"),
         ("standard_headings", "Common section names support predictable parsing"),
+        ("section_order", "Sections and work/education chronology are easy to follow"),
         ("text_parseability", "Resume content is extractable as selectable text"),
         ("keyword_coverage", "Target-role terminology appears naturally in the resume"),
+        ("keyword_balance", "Keywords are relevant and supported rather than repeated without context"),
     ),
 }
 
@@ -120,7 +127,8 @@ def _round_points(value: float) -> float:
 
 def build_score_report(rubric: dict, evaluations: dict, recommendations: list[dict],
                        roadmap_steps: list[dict], skill_step_positions: dict[str, list[int]],
-                       extracted_chars: int, extracted_pages: int) -> dict:
+                       extracted_chars: int, extracted_pages: int,
+                       extracted_words: int | None = None) -> dict:
     """Calculate every score from validated binary evidence findings."""
     categories = []
     criterion_lookup = {}
@@ -152,6 +160,37 @@ def build_score_report(rubric: dict, evaluations: dict, recommendations: list[di
             "score": round(earned_exact / category["weight"] * 100) if category["weight"] else 0,
             "criteria": criteria,
         })
+
+    if extracted_words is None:
+        extracted_words = round(extracted_chars / 6)
+    found_ids = {criterion_id for criterion_id, item in criterion_lookup.items() if item["found"]}
+    substantive_sections = sum((criterion_id in found_ids) for criterion_id in (
+        "relevant_project", "relevant_experience", "education_entry",
+    ))
+    verified_findings = sum(
+        item["found"] for criterion_id, item in evaluations.items()
+        if criterion_id not in {"contact_information", "text_parseability"}
+    )
+    insufficient_reasons = []
+    if extracted_chars < 300 or extracted_words < 50:
+        insufficient_reasons.append("The PDF contains too little readable résumé text for a reliable review.")
+    if substantive_sections < 2:
+        insufficient_reasons.append("At least two of projects, relevant experience, or education need clear evidence.")
+    if not any(criterion_id.startswith("skill_") for criterion_id in found_ids):
+        insufficient_reasons.append("At least one skill relevant to the target career must be evidenced.")
+    if not criterion_lookup.get("standard_sections", {}).get("found", False):
+        insufficient_reasons.append("Clear résumé section headings are needed for a reliable structure review.")
+    if verified_findings < 6:
+        insufficient_reasons.append("Too few separate résumé details could be verified against the source.")
+    scoreable = not insufficient_reasons
+    if not scoreable:
+        # Keep verified findings visible, but do not present partial evidence as
+        # a competitive score. All numeric score surfaces are withheld together.
+        for category in categories:
+            category["earned"] = 0
+            category["score"] = 0
+            for item in category["criteria"]:
+                item["points"] = 0
 
     total = round(sum(category["earned"] for category in categories))
     by_id = {category["id"]: category for category in categories}
@@ -202,21 +241,26 @@ def build_score_report(rubric: dict, evaluations: dict, recommendations: list[di
         positions = sorted(set(skill_step_positions.get(item["id"], [])))
         skill_rows.append({
             "skill": item["label"], "found": item["found"],
-            "evidence": item["evidence"], "roadmap_steps": positions,
+            "roadmap_steps": positions,
         })
 
-    if extracted_chars >= 1400 and extracted_pages > 0:
+    if not scoreable:
+        confidence = {"level": "very_low", "reason": "There is not enough readable content and section-level evidence to support a dependable score."}
+    elif extracted_chars >= 1800 and extracted_words >= 250 and verified_findings >= 12:
         confidence = {"level": "high", "reason": "The PDF contains substantial selectable text, and every cited excerpt was verified against its page."}
-    elif extracted_chars >= 600:
+    elif extracted_chars >= 900 and extracted_words >= 120 and verified_findings >= 8:
         confidence = {"level": "medium", "reason": "The PDF contains readable text and verified citations, but has limited text for a broad assessment."}
     else:
         confidence = {"level": "low", "reason": "The PDF text is sparse; some resume details may not be represented in the score."}
+    confidence["score"] = {"very_low": 5, "low": 40, "medium": 65, "high": 90}[confidence["level"]]
 
     return {
+        "status": "scored" if scoreable else "insufficient_evidence",
         "overall": total,
         "ats": {"score": ats["score"], "earned": ats["earned"], "weight": ats["weight"]},
         "readiness": readiness,
         "confidence": confidence,
+        "insufficient_reasons": insufficient_reasons,
         "rubric": {"family": rubric["family"], "label": rubric["label"]},
         "categories": categories,
         "recommendations": ranked,
@@ -226,4 +270,5 @@ def build_score_report(rubric: dict, evaluations: dict, recommendations: list[di
         },
         "extracted_chars": extracted_chars,
         "extracted_pages": extracted_pages,
+        "extracted_words": extracted_words,
     }

@@ -44,13 +44,36 @@ def test_success_returns_legacy_fields_plus_server_computed_score_report(fake_ge
     assert {"summary", "matched_skills", "missing_skills", "strengths", "gaps", "suggestions"} <= set(analysis)
     assert "score_report" in analysis
     assert analysis["score_report"]["overall"] == round(sum(c["earned"] for c in analysis["score_report"]["categories"]))
-    assert analysis["score_report"]["overall"] == 64
-    assert analysis["score_report"]["ats"]["score"] == 100
+    assert analysis["score_report"]["status"] == "scored"
+    assert 0 < analysis["score_report"]["overall"] < 60
+    assert analysis["score_report"]["ats"]["score"] == 67
     assert analysis["matched_skills"] == ["SQL"] and analysis["missing_skills"] == ["Tableau"]
     assert analysis["score_report"]["recommendations"][0]["potential_points"] == 14.0
     assert result["career"] == CAREER and result["prompt_version"] == "r2"
     assert result["model"] == resume_ai.config.GEMINI_MODEL
     assert models.calls == 1
+
+
+def test_debug_capture_saves_exact_local_artifacts_and_claims_only_once(tmp_path, monkeypatch):
+    monkeypatch.setattr(resume_ai, "_DEBUG_CAPTURE_ROOT", tmp_path / ".resume-debug")
+    capture = resume_ai._ResumeDebugCapture(b"synthetic-private-pdf-bytes", ["Ada builds systems."])
+    capture.save_response('{"summary":"ok"}', 1)
+    capture.save_comparison({"returned_quote": "builds systems", "page_number": 1})
+
+    capture_dir = capture.path
+    assert capture_dir is not None
+    assert json.loads((capture_dir / "extracted-pages.json").read_text(encoding="utf-8")) == [
+        {"page": 1, "text": "Ada builds systems."}
+    ]
+    assert json.loads((capture_dir / "normalized-pages.json").read_text(encoding="utf-8")) == [
+        {"page": 1, "text": "ada builds systems"}
+    ]
+    assert (capture_dir / "gemini-raw-response-attempt-1.json").read_text(encoding="utf-8") == '{"summary":"ok"}'
+    assert json.loads((capture_dir / "evidence-comparisons-attempt-1.json").read_text(encoding="utf-8")) == [
+        {"returned_quote": "builds systems", "page_number": 1}
+    ]
+    with pytest.raises(ResumeInputError, match="debug_capture_already_used"):
+        resume_ai._ResumeDebugCapture(b"another-private-pdf", ["Another page."])
 
 
 def test_gemini_gets_pdf_target_checklist_and_page_text_but_never_a_score(fake_gemini):
@@ -66,7 +89,9 @@ def test_gemini_gets_pdf_target_checklist_and_page_text_but_never_a_score(fake_g
     assert models.configs[0].system_instruction == RESUME_SYSTEM_INSTRUCTION
     assert models.configs[0].temperature == 0
     assert models.configs[0].response_mime_type == "application/json"
-    assert models.configs[0].response_schema is resume_ai.ResumeAnalysisSchema
+    schema = models.configs[0].response_schema
+    positions = schema["$defs"]["SkillRoadmapSchema"]["properties"]["step_positions"]["items"]
+    assert positions["minimum"] == 1 and positions["maximum"] == len(STEPS)
     assert models.configs[0].automatic_function_calling.disable is True
 
 
@@ -75,15 +100,19 @@ def test_gemini_resume_schema_uses_only_the_minimal_provider_shape():
         if isinstance(value, dict):
             for key, item in value.items():
                 assert key not in {
-                    "additionalProperties", "maxItems", "maxLength", "minItems",
-                    "minLength", "minimum",
+                    "additionalProperties", "maxLength", "minItems",
+                    "minLength",
                 }
                 walk(item)
         elif isinstance(value, list):
             for item in value:
                 walk(item)
 
-    walk(resume_ai.ResumeAnalysisSchema.model_json_schema())
+    walk(resume_ai._gemini_response_schema(len(STEPS)))
+    positions = resume_ai._gemini_response_schema(len(STEPS))["$defs"]["SkillRoadmapSchema"]["properties"]["step_positions"]["items"]
+    assert positions["minimum"] == 1 and positions["maximum"] == len(STEPS)
+    evidence_schema = resume_ai._gemini_response_schema(len(STEPS))["$defs"]["EvaluationSchema"]["properties"]["evidence"]
+    assert evidence_schema["maxItems"] == 4
 
 
 def test_gemini_rejection_log_has_complete_safe_error_and_request_shape(fake_gemini, caplog):
@@ -121,6 +150,11 @@ def test_resume_prompt_states_every_free_text_limit():
     assert "Quotes must be 3" in prompt
     assert "title` is at most 80 characters" in prompt
     assert "action` is at most 180 characters" in prompt
+    assert "single uninterrupted, contiguous substring" in prompt
+    assert "1–4 independently verifiable evidence excerpts" in prompt
+    assert "put each span in a separate evidence entry" in prompt
+    assert "Allowed roadmap step position values (use exactly as listed; do not renumber): [1, 2, 3]" in prompt
+    assert "may start at 0" in RESUME_SYSTEM_INSTRUCTION
 
 
 @pytest.mark.parametrize("career,skills", [
@@ -144,11 +178,105 @@ def test_invalid_resume_schema_reply_uses_one_corrective_regeneration(fake_gemin
     assert "Corrective retry" in models.prompts[1][1]
 
 
+def test_noncontiguous_heading_quote_gets_a_specific_corrective_prompt(fake_gemini):
+    bad = reply()
+    item = next(e for e in bad["evaluations"] if e["criterion_id"] == "standard_sections")
+    item["evidence"][0]["quote"] = "SKILLS\nEXPERIENCE\nPROJECTS\nEDUCATION"
+    models = fake_gemini(bad, reply())
+
+    result = run()
+
+    assert result["analysis"]["score_report"]["overall"] >= 0
+    retry_prompt = models.prompts[1][1]
+    assert "quote:not_in_source" in retry_prompt
+    assert "one uninterrupted, contiguous" in retry_prompt
+    assert "Allowed roadmap step position values (use exactly as listed; do not renumber): [1, 2, 3]" in retry_prompt
+
+
+def test_out_of_range_skill_position_gets_exact_saved_position_correction(fake_gemini):
+    bad = reply()
+    bad["skill_roadmap"][0]["step_positions"] = [0]
+    models = fake_gemini(bad, reply())
+
+    result = run()
+
+    assert result["analysis"]["score_report"]["overall"] >= 0
+    retry_prompt = models.prompts[1][1]
+    assert "step_positions:out_of_range" in retry_prompt
+    assert "only these saved roadmap positions: [1, 2, 3]" in retry_prompt
+    assert "Do not renumber them" in retry_prompt
+
+
+def test_zero_based_saved_roadmap_positions_are_valid_and_preserved():
+    data = reply()
+    data["skill_roadmap"][0]["step_positions"] = [0]
+    data["skill_roadmap"][1]["step_positions"] = [2]
+
+    parsed, _ = parse_resume_reply(json.dumps(data), rubric(), RESUME_PAGES, [0, 1, 2])
+
+    assert parsed["skill_roadmap"][0]["step_positions"] == [0]
+    assert parsed["skill_roadmap"][1]["step_positions"] == [2]
+    schema = resume_ai._gemini_response_schema([0, 1, 2])
+    bounds = schema["$defs"]["SkillRoadmapSchema"]["properties"]["step_positions"]["items"]
+    assert bounds["minimum"] == 0 and bounds["maximum"] == 2
+
+
 def test_every_citation_is_verified_against_the_claimed_page():
     data = reply()
     item = next(e for e in data["evaluations"] if e["criterion_id"] == "project_outcome")
     item["evidence"][0]["page"] = 2
     with pytest.raises(AIOutputError, match="not_in_source"):
+        parse(data)
+
+
+def test_separate_headings_use_independent_verified_citations():
+    data = reply()
+    item = next(e for e in data["evaluations"] if e["criterion_id"] == "standard_sections")
+    item["evidence"] = [
+        {"source": "resume_text", "page": 1, "quote": heading}
+        for heading in ("Skills", "Projects", "Experience", "Education")
+    ]
+
+    parsed, _ = parse_resume_reply(json.dumps(data), rubric(), RESUME_PAGES, len(STEPS))
+
+    assert len(parsed["evaluations_by_id"]["standard_sections"]["evidence"]) == 4
+
+
+def test_persisted_report_keeps_representative_verified_evidence_without_score_changes():
+    repeated = [{"source": "resume_text", "page": 1, "quote": "Built a SQL dashboard"} for _ in range(4)]
+    evaluations = {
+        "project_outcome": {"found": True, "evidence": repeated, "note": "Evidence found."},
+        "standard_sections": {"found": True, "evidence": repeated, "note": "Headings found."},
+    }
+
+    compacted = resume_ai._compact_report_evidence(evaluations)
+
+    assert len(compacted["project_outcome"]["evidence"]) == 1
+    assert len(compacted["standard_sections"]["evidence"]) == 4
+    assert evaluations["project_outcome"]["evidence"] == repeated
+
+
+def test_overlong_quote_is_compacted_only_to_verified_source_excerpt():
+    data = reply()
+    source_excerpt = RESUME_PAGES[0].split("Built a SQL dashboard", 1)[1]
+    long_quote = "Built a SQL dashboard" + source_excerpt[:180]
+    assert len(long_quote) > resume_ai.MAX_QUOTE_CHARS
+    item = next(e for e in data["evaluations"] if e["criterion_id"] == "project_outcome")
+    item["evidence"] = [{"source": "resume_text", "page": 1, "quote": long_quote}]
+
+    parsed, _ = parse_resume_reply(json.dumps(data), rubric(), RESUME_PAGES, len(STEPS))
+
+    citation = parsed["evaluations_by_id"]["project_outcome"]["evidence"][0]["quote"]
+    assert len(citation) <= resume_ai.MAX_QUOTE_CHARS
+    assert resume_ai._quote_matches_source(citation, RESUME_PAGES[0])
+
+
+def test_overlong_quote_without_verifiable_prefix_still_fails():
+    data = reply()
+    item = next(e for e in data["evaluations"] if e["criterion_id"] == "project_outcome")
+    item["evidence"] = [{"source": "resume_text", "page": 1, "quote": "invented " * 25}]
+
+    with pytest.raises(AIOutputError, match="string_too_long"):
         parse(data)
 
 
@@ -262,11 +390,17 @@ def test_non_resume_cannot_return_findings(fake_gemini):
     assert error.value.kind == "not_resume" and models.calls == 1
 
 
-def test_unreadable_upload_is_rejected_before_gemini(fake_gemini):
+@pytest.mark.parametrize("pages", [[""], ["Brief profile only."], ["x" * 40]])
+def test_empty_or_near_empty_pdf_returns_no_score_without_calling_gemini(fake_gemini, pages):
     models = fake_gemini(reply())
-    with pytest.raises(ResumeInputError) as error:
-        analyze_resume(make_pdf(pages=["x" * 40]), CAREER, SKILLS, STEPS)
-    assert error.value.kind == "unreadable" and models.calls == 0
+    result = analyze_resume(make_pdf(pages=pages), CAREER, SKILLS, STEPS)
+    report = result["analysis"]["score_report"]
+    assert report["status"] == "insufficient_evidence"
+    assert report["overall"] == report["ats"]["score"] == 0
+    assert set(report["readiness"].values()) == {0}
+    assert report["confidence"]["level"] == "very_low"
+    assert "Unable to score reliably" in result["analysis"]["summary"]
+    assert models.calls == 0
 
 
 def test_pdf_pages_and_text_are_extracted_only_for_this_request():
@@ -398,7 +532,7 @@ def test_success_logs_only_safe_diagnostics(fake_gemini, caplog):
     result = run()
     assert "resume attempt 1: ok" in caplog.text
     assert SECRET not in caplog.text and "jane.resume@example.com" not in caplog.text
-    assert result["analysis"]["score_report"]["confidence"]["level"] == "medium"
+    assert result["analysis"]["score_report"]["confidence"]["level"] == "low"
 
 
 @pytest.mark.parametrize("raw,kind", [
