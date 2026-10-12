@@ -28,11 +28,11 @@ import config
 import llm
 from ai_output import AIOutputError
 from prompts import RESUME_SYSTEM_INSTRUCTION, build_resume_evidence_prompt
-from resume_scoring import build_score_report, rubric_for
+from resume_scoring import build_score_report, build_skill_roadmap, rubric_for
 from strict_ai import contains_contact_details, error_summary, load_strict_json
 from strict_ai import text as _text
 
-PROMPT_VERSION = "r2"
+PROMPT_VERSION = "r8"
 
 MIN_PDF_BYTES = 1024
 MAX_PDF_BYTES = 2 * 1024 * 1024
@@ -43,12 +43,12 @@ MIN_SCORE_TEXT_WORDS = 50
 MAX_EXTRACTED_TEXT_CHARS = 30_000
 MAX_PAGE_CONTENT_BYTES = 600_000
 
-MAX_REPLY_CHARS = 30_000
+MAX_REPLY_CHARS = 45_000
 # resume_analyses.analysis is limited to 16,384 bytes in the database; keep a margin.
 MAX_ANALYSIS_BYTES = 16_000
 MAX_OUTPUT_TOKENS = 8192
 MIN_QUOTE_CHARS = 3
-MAX_QUOTE_CHARS = 160
+MAX_QUOTE_CHARS = 320
 
 logger = logging.getLogger("pathwayai.resume_ai")
 
@@ -59,10 +59,18 @@ _PROJECT_CHECK_IDS = {
     "project_purpose", "project_stack", "project_complexity", "project_architecture",
     "project_apis", "project_deployment", "project_testing", "project_impact", "project_career_fit",
 }
+_PROJECT_CHECK_ORDER = (
+    "project_purpose", "project_stack", "project_complexity", "project_architecture",
+    "project_apis", "project_deployment", "project_testing", "project_impact", "project_career_fit",
+)
 _EXPERIENCE_CHECK_IDS = {
     "experience_relevance", "experience_ownership", "experience_actions",
     "experience_results", "experience_transferable", "experience_career_fit",
 }
+_EXPERIENCE_CHECK_ORDER = (
+    "experience_relevance", "experience_ownership", "experience_actions",
+    "experience_results", "experience_transferable", "experience_career_fit",
+)
 _PROJECT_CHECK_WEIGHTS = {
     "project_purpose": 12, "project_stack": 15, "project_complexity": 14,
     "project_architecture": 12, "project_apis": 8, "project_deployment": 10,
@@ -84,6 +92,7 @@ class ResumeInputError(Exception):
 
 _DEBUG_CAPTURE_ROOT = Path(__file__).resolve().parent / ".resume-debug"
 _DEBUG_CAPTURE_LOCK = threading.Lock()
+_DEBUG_CAPTURE_PIDS: set[int] = set()
 
 
 class _ResumeDebugCapture:
@@ -93,15 +102,11 @@ class _ResumeDebugCapture:
         self.attempt = 0
         with _DEBUG_CAPTURE_LOCK:
             _DEBUG_CAPTURE_ROOT.mkdir(parents=True, exist_ok=True)
-            # A capture is one-shot per server process, not one-shot forever.
-            # A stale marker from an earlier local run must never break a later
-            # upload when DEBUG_RESUME_VERIFIER is enabled.
-            claim = _DEBUG_CAPTURE_ROOT / f".capture-claimed-{os.getpid()}"
-            try:
-                with claim.open("x", encoding="utf-8") as stream:
-                    stream.write(datetime.now(timezone.utc).isoformat())
-            except FileExistsError:
+            # Keep the one-capture-per-process forensic guard in memory. PID
+            # marker files can collide after Windows reuses a process ID.
+            if os.getpid() in _DEBUG_CAPTURE_PIDS:
                 raise ResumeInputError("debug_capture_already_used") from None
+            _DEBUG_CAPTURE_PIDS.add(os.getpid())
             self.path = _DEBUG_CAPTURE_ROOT / (
                 "capture-" + datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ") + "-" + uuid4().hex[:8]
             )
@@ -124,6 +129,15 @@ class _ResumeDebugCapture:
     def save_response(self, text: str, attempt: int) -> None:
         self.attempt = attempt
         (self.path / f"gemini-raw-response-attempt-{attempt}.json").write_text(text, encoding="utf-8")
+
+    def save_attempt(self, detail: dict) -> None:
+        path = self.path / "attempt-metrics.json"
+        existing = json.loads(path.read_text(encoding="utf-8")) if path.exists() else []
+        existing.append(detail)
+        self._write_json(path.name, existing)
+
+    def save_request(self, detail: dict) -> None:
+        self._write_json("request-metrics.json", detail)
 
     def save_comparison(self, detail: dict) -> None:
         filename = f"evidence-comparisons-attempt-{self.attempt or 1}.json"
@@ -206,21 +220,28 @@ class EvidenceSchema(BaseModel):
     source: Literal["resume_text"]
     page: int
     quote: str = Field(
-        description="A verbatim, contiguous, non-identifying excerpt from the stated page, 3 to 160 characters long."
+        max_length=MAX_QUOTE_CHARS,
+        description="A verbatim, contiguous, non-identifying excerpt from the stated page, 3 to 320 characters long."
     )
 
 
 class EvaluationSchema(BaseModel):
-    criterion_id: str
-    found: bool
-    evidence: list[EvidenceSchema]
-    note: str = Field(description="A concise factual note of at most 120 characters.")
+    criterion_id: str = Field(description="One exact criterion ID from the checklist.")
+    found: bool = Field(description="True only when the resume clearly supports this criterion; false otherwise.")
+    evidence: list[EvidenceSchema] = Field(
+        max_length=5,
+        description=(
+            "Exact source excerpts only when found is true. If found is false, this must be an empty array. "
+            "Never return evidence for a false finding."
+        ),
+    )
+    note: str = Field(description="A concise factual note of at most 180 characters.")
 
 
 class RecommendationSchema(BaseModel):
     title: str = Field(description="A concise improvement title of at most 80 characters.")
     action: str = Field(description="An honest, concrete action of at most 180 characters.")
-    criterion_ids: list[str]
+    criterion_ids: list[str] = Field(min_length=1, max_length=4)
 
 
 class SkillRoadmapSchema(BaseModel):
@@ -235,18 +256,18 @@ class ReviewCheckSchema(BaseModel):
         max_length=1,
         description="At most one exact source excerpt for this project or job check.",
     )
-    note: str = Field(description="A concise, specific note about this source-backed finding.")
+    note: str = Field(description="A concise, specific source-backed note of at most 160 characters.")
 
 
 class BulletRewriteSchema(BaseModel):
     source: EvidenceSchema
-    suggestion: str = Field(description="A truthful rewrite using only details from source evidence; never invent metrics.")
+    suggestion: str = Field(description="A truthful rewrite of at most 400 characters using only supported source facts; never invent metrics.")
 
 
 class WorkSampleSchema(BaseModel):
     title: str = Field(description="A generic project name or role title, never an employer or person's name.")
-    summary: str = Field(description="A short factual description supported by the cited source evidence.")
-    technologies: list[str]
+    summary: str = Field(description="A concise factual description, at most 300 characters, supported by the cited source evidence.")
+    technologies: list[str] = Field(max_length=6)
     checks: list[ReviewCheckSchema]
     bullet_rewrite: BulletRewriteSchema | None
 
@@ -257,7 +278,9 @@ class ResumeAnalysisSchema(BaseModel):
     # strict reply model below remains the enforcement boundary.
     summary: str = Field(description="A concise evidence-led overview without personal details, at most 350 characters.")
     evaluations: list[EvaluationSchema]
-    recommendations: list[RecommendationSchema]
+    recommendations: list[RecommendationSchema] = Field(
+        description="Return no more than three highest-priority recommendations."
+    )
     skill_roadmap: list[SkillRoadmapSchema]
     project_reviews: list[WorkSampleSchema]
     experience_reviews: list[WorkSampleSchema]
@@ -267,7 +290,7 @@ class ResumeAnalysisSchema(BaseModel):
 
 _Strict = ConfigDict(extra="forbid", strict=True)
 Quote = _text(MAX_QUOTE_CHARS)
-Note = _text(120)
+Note = _text(180)
 
 
 class _ReplyBase(BaseModel):
@@ -283,7 +306,7 @@ class Evidence(_ReplyBase):
 class Evaluation(_ReplyBase):
     criterion_id: _text(40)
     found: bool
-    evidence: list[Evidence] = Field(max_length=4)
+    evidence: list[Evidence] = Field(max_length=5)
     note: Note
 
 
@@ -302,19 +325,19 @@ class ReviewCheck(_ReplyBase):
     criterion_id: _text(40)
     found: bool
     evidence: list[Evidence] = Field(max_length=1)
-    note: _text(110)
+    note: _text(160)
 
 
 class BulletRewrite(_ReplyBase):
     source: Evidence
-    suggestion: _text(220)
+    suggestion: _text(400)
 
 
 class WorkSampleReview(_ReplyBase):
     title: _text(60)
-    summary: _text(150)
+    summary: _text(300)
     technologies: list[_text(30)] = Field(max_length=6)
-    checks: list[ReviewCheck] = Field(max_length=9)
+    checks: list[ReviewCheck] = Field(min_length=6, max_length=9)
     bullet_rewrite: BulletRewrite | None
 
 
@@ -331,6 +354,7 @@ class ResumeReply(_ReplyBase):
 _KNOWN_FIELDS = (
     set(ResumeReply.model_fields) | set(Evaluation.model_fields) | set(Evidence.model_fields)
     | set(Recommendation.model_fields) | set(SkillRoadmap.model_fields)
+    | set(ReviewCheck.model_fields) | set(BulletRewrite.model_fields) | set(WorkSampleReview.model_fields)
 )
 
 
@@ -411,15 +435,205 @@ def _static_evaluations(pages: list[str]) -> dict:
     }
 
 
+def _capture_contract_failure(
+    debug_capture: _ResumeDebugCapture | None,
+    data: object,
+    *,
+    error: ValidationError | None = None,
+    path: str | None = None,
+    actual: object | None = None,
+    expected: object | None = None,
+    reason: str | None = None,
+) -> None:
+    """Persist a field-level contract diff only for an explicitly local debug run.
+
+    Raw model output can contain résumé text, so this must never run outside the
+    one-shot DEBUG_RESUME_VERIFIER capture. The raw response is saved separately
+    by ``on_response`` before parsing; this report explains the exact rejection.
+    """
+    if debug_capture is None:
+        return
+    failures = []
+    if error is not None:
+        schema = ResumeReply.model_json_schema()
+        def schema_at(location):
+            current = schema
+            for part in location:
+                while isinstance(current, dict) and "$ref" in current:
+                    current = schema.get("$defs", {}).get(current["$ref"].rsplit("/", 1)[-1], {})
+                if isinstance(part, int):
+                    current = current.get("items", {}) if isinstance(current, dict) else {}
+                else:
+                    current = current.get("properties", {}).get(part, {}) if isinstance(current, dict) else {}
+            return current
+        for item in error.errors(include_input=True, include_url=False, include_context=True):
+            location = list(item.get("loc", ()))
+            object_value = data
+            for part in location:
+                if isinstance(object_value, dict):
+                    object_value = object_value.get(part)
+                elif isinstance(object_value, list) and isinstance(part, int) and part < len(object_value):
+                    object_value = object_value[part]
+                else:
+                    object_value = None
+                    break
+            failures.append({
+                "path": ".".join(str(part) for part in location),
+                "error_type": item.get("type"),
+                "message": item.get("msg"),
+                "actual_value": object_value,
+                "expected_field_schema": schema_at(location),
+            })
+    else:
+        failures.append({
+            "path": path,
+            "reason": reason,
+            "actual_object": actual,
+            "expected": expected,
+            "unexpected_fields": sorted(set(actual or {}) - set(expected or {}))
+            if isinstance(actual, dict) and isinstance(expected, dict) else [],
+            "missing_fields": sorted(set(expected or {}) - set(actual or {}))
+            if isinstance(actual, dict) and isinstance(expected, dict) else [],
+        })
+    report = {
+        "failure_count": len(failures),
+        "failures": failures,
+        "expected_top_level_fields": sorted(ResumeReply.model_fields),
+        "actual_top_level_fields": sorted(data) if isinstance(data, dict) else [],
+        "expected_schema": ResumeReply.model_json_schema(),
+    }
+    debug_capture._write_json("validation-failure.json", report)
+    logger.warning(
+        "DEBUG resume contract failure saved: path=%s failures=%d",
+        debug_capture.path,
+        len(failures),
+    )
+
+
+def _clean_model_text(value, limit: int) -> str:
+    return _truncate_at_word_boundary(" ".join(str(value).split()), limit)
+
+
+def _normalize_resume_payload(data: object, rubric: dict, dropped: list[str]) -> object:
+    """Bound safe prose and discard contract noise without touching quotes."""
+    if not isinstance(data, dict):
+        return data
+    allowed = set(ResumeReply.model_fields)
+    cleaned_top_level = {}
+    for key, value in data.items():
+        if key in allowed:
+            cleaned_top_level[key] = value
+        else:
+            dropped.append(f"{key}:unknown_field")
+    data = cleaned_top_level
+    data.setdefault("recommendations", [])
+    data.setdefault("skill_roadmap", [])
+    if data.get("is_resume") is False:
+        return data
+    if isinstance(data.get("summary"), str):
+        data["summary"] = _clean_model_text(data["summary"], 350)
+
+    expected = [criterion["id"] for category in rubric["categories"]
+                for criterion in category["criteria"] if criterion["id"] not in _STATIC_CRITERIA]
+    evaluations = []
+    seen = set()
+    for item in (data.get("evaluations") or [])[:40]:
+        if not isinstance(item, dict):
+            dropped.append("evaluations:item_not_object")
+            continue
+        criterion_id = " ".join(str(item.get("criterion_id", "")).split())
+        if criterion_id not in expected or criterion_id in seen:
+            dropped.append(f"evaluations.{criterion_id or 'unknown'}:duplicate_or_unknown")
+            continue
+        seen.add(criterion_id)
+        item = {key: item.get(key) for key in Evaluation.model_fields if key in item}
+        item["criterion_id"] = criterion_id
+        item["found"] = item.get("found") is True
+        item["note"] = _clean_model_text(item.get("note", "No concise note was returned."), 180)
+        evidence = item.get("evidence") if isinstance(item.get("evidence"), list) else []
+        evidence_limit = 5 if criterion_id in {"standard_sections", "standard_headings", "section_order", "date_consistency"} else 4
+        item["evidence"] = [
+            {
+                "source": evidence_item.get("source"),
+                "page": evidence_item.get("page"),
+                "quote": evidence_item.get("quote"),
+            }
+            for evidence_item in evidence[:evidence_limit]
+            if isinstance(evidence_item, dict) and isinstance(evidence_item.get("quote"), str)
+            and len(evidence_item["quote"]) <= MAX_QUOTE_CHARS
+        ]
+        if not item["found"]:
+            item["evidence"] = []
+        if item["found"] and not item["evidence"]:
+            item["found"] = False
+            item["note"] = "No independently verifiable source excerpt was returned for this criterion."
+        evaluations.append(item)
+    for criterion_id in expected:
+        if criterion_id not in seen:
+            dropped.append(f"evaluations.{criterion_id}:missing_finding")
+            evaluations.append({
+                "criterion_id": criterion_id,
+                "found": False,
+                "evidence": [],
+                "note": "No valid structured finding was returned for this criterion.",
+            })
+    data["evaluations"] = evaluations
+
+    for field, kind in (("project_reviews", "project"), ("experience_reviews", "experience")):
+        samples = []
+        for item in (data.get(field) or [])[:3]:
+            if not isinstance(item, dict):
+                continue
+            cleaned = {key: item.get(key) for key in WorkSampleReview.model_fields if key in item}
+            cleaned["title"] = _clean_model_text(cleaned.get("title", "Untitled"), 60)
+            cleaned["summary"] = _clean_model_text(cleaned.get("summary", ""), 300)
+            technologies = cleaned.get("technologies") if isinstance(cleaned.get("technologies"), list) else []
+            cleaned["technologies"] = list(dict.fromkeys(
+                _clean_model_text(value, 30) for value in technologies if isinstance(value, str)
+            ))[:6]
+            checks = []
+            for check in (cleaned.get("checks") or [])[:9]:
+                if not isinstance(check, dict):
+                    continue
+                check = {key: check.get(key) for key in ReviewCheck.model_fields if key in check}
+                check["criterion_id"] = " ".join(str(check.get("criterion_id", "")).split())
+                check["found"] = check.get("found") is True
+                check["note"] = _clean_model_text(check.get("note", "No concise note was returned."), 160)
+                evidence = check.get("evidence") if isinstance(check.get("evidence"), list) else []
+                check["evidence"] = evidence[:1]
+                if not check["found"]:
+                    check["evidence"] = []
+                checks.append(check)
+            cleaned["checks"] = checks
+            rewrite = cleaned.get("bullet_rewrite")
+            if isinstance(rewrite, dict):
+                rewrite = {key: rewrite.get(key) for key in BulletRewrite.model_fields if key in rewrite}
+                rewrite["suggestion"] = _clean_model_text(rewrite.get("suggestion", ""), 400)
+                cleaned["bullet_rewrite"] = rewrite
+            else:
+                cleaned["bullet_rewrite"] = None
+            samples.append(cleaned)
+        data[field] = samples
+    return data
+
+
 def parse_resume_reply(text: str, rubric: dict, pages: list[str], step_positions: list[int] | int,
-                       debug_capture: _ResumeDebugCapture | None = None) -> tuple[dict, dict]:
+                       debug_capture: _ResumeDebugCapture | None = None, *, tolerant: bool = False) -> tuple[dict, dict]:
     """Validate evidence citations and exact criterion coverage; never score."""
     data = load_strict_json(text, MAX_REPLY_CHARS)
+    if tolerant and isinstance(data, dict) and isinstance(data.get("summary"), str):
+        data["summary"] = _truncate_at_word_boundary(data["summary"], 350)
     _split_verified_section_headings(data, pages)
-    _compact_verified_quotes(data, pages)
+    if tolerant:
+        normalization_drops: list[str] = []
+        data = _normalize_resume_payload(data, rubric, normalization_drops)
+    else:
+        normalization_drops = []
+    _split_verified_date_anchors(data, pages)
     try:
         reply = ResumeReply.model_validate(data)
     except ValidationError as error:
+        _capture_contract_failure(debug_capture, data, error=error)
         raise AIOutputError("schema", error_summary(error, _KNOWN_FIELDS)) from None
 
     if not reply.is_resume:
@@ -437,10 +651,23 @@ def parse_resume_reply(text: str, rubric: dict, pages: list[str], step_positions
 
     evaluation_map = _static_evaluations(pages)
     for index, item in enumerate(reply.evaluations):
+        if (item.criterion_id not in {"standard_sections", "standard_headings", "section_order", "date_consistency"}
+                and len(item.evidence) > 4):
+            raise AIOutputError("schema", f"evaluations.{index}.evidence:too_long")
         if item.found and not item.evidence:
             raise AIOutputError("schema", f"evaluations.{index}.evidence:required")
         if not item.found and item.evidence:
-            raise AIOutputError("schema", f"evaluations.{index}.evidence:unexpected")
+            if tolerant:
+                item.evidence = []
+                normalization_drops.append(f"evaluations.{item.criterion_id}.evidence:cleared_false")
+            else:
+                _capture_contract_failure(
+                    debug_capture, data, path=f"evaluations[{index}]", actual=item.model_dump(),
+                    expected={"criterion_id": "string", "found": "false", "evidence": [],
+                              "note": "string (1-180 chars)"},
+                    reason="A false evaluation must have an empty evidence array; evidence is only valid when found is true.",
+                )
+                raise AIOutputError("schema", f"evaluations.{index}.evidence:unexpected")
         for citation_index, citation in enumerate(item.evidence):
             if len(citation.quote.strip()) < MIN_QUOTE_CHARS:
                 raise AIOutputError("schema", f"evaluations.{index}.evidence.{citation_index}.quote:min_length")
@@ -476,6 +703,12 @@ def parse_resume_reply(text: str, rubric: dict, pages: list[str], step_positions
                     "RÃ©sumÃ© citation could not be verified: %s",
                     _citation_mismatch_diagnostic(citation.quote, page, citation.page),
                 )
+                if tolerant:
+                    item.found = False
+                    item.evidence = []
+                    item.note = "No independently verifiable source excerpt was returned for this criterion."
+                    normalization_drops.append(f"evaluations.{item.criterion_id}.evidence:unverified_quote")
+                    break
                 raise AIOutputError("schema", f"evaluations.{index}.evidence.{citation_index}.quote:not_in_source")
         if contains_contact_details(item.note):
             raise AIOutputError("personal_data", f"evaluations.{index}.note")
@@ -485,66 +718,114 @@ def parse_resume_reply(text: str, rubric: dict, pages: list[str], step_positions
             "note": item.note,
         }
 
-    project_reviews = _validate_work_samples(reply.project_reviews, "project", pages, debug_capture)
-    experience_reviews = _validate_work_samples(reply.experience_reviews, "experience", pages, debug_capture)
+    project_reviews, project_dropped = _validate_work_samples(reply.project_reviews, "project", pages, debug_capture)
+    experience_reviews, experience_dropped = _validate_work_samples(
+        reply.experience_reviews, "experience", pages, debug_capture
+    )
 
     recommendation_ids = {item.criterion_id for item in reply.evaluations if not item.found}
-    known_ids = expected_ids
     safe_recommendations = []
-    excluded_reference_count = 0
-    for recommendation in reply.recommendations:
-        safe_ids = [criterion_id for criterion_id in recommendation.criterion_ids
-                    if criterion_id in known_ids and criterion_id in recommendation_ids]
-        excluded_reference_count += len(recommendation.criterion_ids) - len(safe_ids)
-        if safe_ids:
-            recommendation.criterion_ids = safe_ids
-            safe_recommendations.append(recommendation)
-    reply.recommendations = safe_recommendations
-    if excluded_reference_count:
-        logger.warning("Resume recommendation references excluded: %d", excluded_reference_count)
+    dropped_recommendations = []
     for index, recommendation in enumerate(reply.recommendations):
+        ids = recommendation.criterion_ids
+        if len(ids) != len(set(ids)):
+            raise AIOutputError("schema", f"recommendations.{index}.criterion_ids:duplicate")
         if contains_contact_details(recommendation.title) or contains_contact_details(recommendation.action):
             raise AIOutputError("personal_data", f"recommendations.{index}")
+        if any(criterion_id not in expected_ids or criterion_id not in recommendation_ids
+               for criterion_id in ids):
+            # JSON Schema can constrain the ID vocabulary, but it cannot
+            # express that each ID must point to an evaluation with found=false.
+            # Drop the entire invalid suggestion (never trim or rewrite its IDs)
+            # and build safe fallback advice from the verified missing criteria.
+            dropped_recommendations.append(
+                f"recommendations.{index}.criterion_ids:invalid_reference"
+            )
+            continue
+        safe_recommendations.append(recommendation.model_dump())
 
-    skill_ids = {criterion["id"] for category in rubric["categories"]
-                 if category["id"] == "skills" for criterion in category["criteria"]}
-    roadmap_skill_ids = [item.skill_id for item in reply.skill_roadmap]
-    if len(roadmap_skill_ids) != len(set(roadmap_skill_ids)) or set(roadmap_skill_ids) != skill_ids:
-        raise AIOutputError("schema", "skill_roadmap:skill_set_mismatch")
-    allowed_positions = _allowed_roadmap_positions(step_positions)
-    for index, item in enumerate(reply.skill_roadmap):
-        if any(position not in allowed_positions for position in item.step_positions):
-            raise AIOutputError("schema", f"skill_roadmap.{index}.step_positions:out_of_range")
+    if dropped_recommendations:
+        covered_ids = {criterion_id for item in safe_recommendations for criterion_id in item["criterion_ids"]}
+        for criterion in ai_criteria:
+            criterion_id = criterion["id"]
+            if criterion_id not in recommendation_ids or criterion_id in covered_ids:
+                continue
+            label = criterion["label"]
+            safe_recommendations.append({
+                "title": label,
+                "action": (
+                    f"Add a truthful, specific example that demonstrates {label.lower()}. "
+                    "Include relevant tools, scope, or results only when accurate."
+                ),
+                "criterion_ids": [criterion_id],
+            })
+            covered_ids.add(criterion_id)
+            if len(safe_recommendations) >= 5:
+                break
+
+    if reply.skill_roadmap:
+        skill_ids = {criterion["id"] for category in rubric["categories"]
+                     if category["id"] == "skills" for criterion in category["criteria"]}
+        roadmap_skill_ids = [item.skill_id for item in reply.skill_roadmap]
+        if len(roadmap_skill_ids) != len(set(roadmap_skill_ids)) or set(roadmap_skill_ids) != skill_ids:
+            raise AIOutputError("schema", "skill_roadmap:skill_set_mismatch")
+        allowed_positions = _allowed_roadmap_positions(step_positions)
+        for index, item in enumerate(reply.skill_roadmap):
+            if len(item.step_positions) != len(set(item.step_positions)):
+                raise AIOutputError("schema", f"skill_roadmap.{index}.step_positions:duplicate")
+            if any(position not in allowed_positions for position in item.step_positions):
+                raise AIOutputError("schema", f"skill_roadmap.{index}.step_positions:out_of_range")
 
     for field, value in (("summary", reply.summary),):
         if contains_contact_details(value):
             raise AIOutputError("personal_data", field)
 
     result = reply.model_dump()
+    result["recommendations"] = safe_recommendations
     result["evaluations_by_id"] = evaluation_map
     result["project_reviews_by_item"] = project_reviews
     result["experience_reviews_by_item"] = experience_reviews
     diagnostics = {
         "strategy": "evidence_checked",
-        "items": (len(reply.evaluations) + len(reply.recommendations)
+        "items": (len(reply.evaluations) + len(safe_recommendations)
                   + sum(len(item.checks) for item in reply.project_reviews + reply.experience_reviews)),
-        "dropped": [],
+        "dropped": normalization_drops + dropped_recommendations + project_dropped + experience_dropped,
     }
     return result, diagnostics
 
 
 def _validate_work_samples(items: list[WorkSampleReview], kind: str, pages: list[str],
-                           debug_capture: _ResumeDebugCapture | None) -> list[dict]:
-    """Verify every per-project/job claim before allowing it to affect its score."""
+                           debug_capture: _ResumeDebugCapture | None) -> tuple[list[dict], list[str]]:
+    """Canonicalize and verify work-sample checks before allowing them to score.
+
+    The model can mix global rubric IDs into these narrower per-project/job
+    check lists or omit a check. Unknown or ambiguous entries are discarded;
+    omitted checks are conservatively recorded as not evidenced. Only a
+    unique expected ID with independently verified evidence can earn points.
+    """
     expected = _PROJECT_CHECK_IDS if kind == "project" else _EXPERIENCE_CHECK_IDS
+    order = _PROJECT_CHECK_ORDER if kind == "project" else _EXPERIENCE_CHECK_ORDER
+    dropped = []
+    validated = []
     for item_index, item in enumerate(items):
         path = f"{kind}_reviews.{item_index}"
         if any(contains_contact_details(value) for value in (item.title, item.summary)):
             raise AIOutputError("personal_data", path)
         check_ids = [check.criterion_id for check in item.checks]
-        if len(check_ids) != len(set(check_ids)) or set(check_ids) != expected:
-            raise AIOutputError("schema", f"{path}.checks:criterion_set_mismatch")
-        for check_index, check in enumerate(item.checks):
+        counts = {criterion_id: check_ids.count(criterion_id) for criterion_id in set(check_ids)}
+        by_id = {
+            check.criterion_id: check for check in item.checks
+            if check.criterion_id in expected and counts[check.criterion_id] == 1
+        }
+        if len(check_ids) != len(expected) or any(count != 1 for count in counts.values()) or set(check_ids) != expected:
+            dropped.append(f"{path}.checks:criterion_set_mismatch")
+        normalized_checks = [by_id.get(criterion_id) or ReviewCheck(
+            criterion_id=criterion_id,
+            found=False,
+            evidence=[],
+            note=f"Not enough independently verified {kind} evidence was returned for this check.",
+        ) for criterion_id in order]
+        for check_index, check in enumerate(normalized_checks):
             check_path = f"{path}.checks.{check_index}"
             if check.found and not check.evidence:
                 raise AIOutputError("schema", f"{check_path}.evidence:required")
@@ -612,7 +893,9 @@ def _validate_work_samples(items: list[WorkSampleReview], kind: str, pages: list
             if not suggested_numbers <= source_numbers:
                 raise AIOutputError("schema", f"{rewrite_path}.suggestion:unsupported_metric")
 
-    return [_work_sample_report(item, kind) for item in items]
+        item.checks = normalized_checks
+        validated.append(_work_sample_report(item, kind))
+    return validated, dropped
 
 
 def _work_sample_report(item: WorkSampleReview, kind: str) -> dict:
@@ -633,51 +916,6 @@ def _work_sample_report(item: WorkSampleReview, kind: str) -> dict:
         "bullet_rewrite": ({"before": rewrite.source.quote, "after": rewrite.suggestion,
                             "page": rewrite.source.page} if rewrite else None),
     }
-
-
-def _compact_verified_quotes(data: object, pages: list[str]) -> None:
-    """Shorten overlong model citations only to an independently verified excerpt.
-
-    Gemini can occasionally return a valid full sentence beyond the display
-    bound despite the prompt. A shorter prefix is accepted only when it is
-    still a contiguous, non-identifying match on the cited page; the normal
-    strict schema and citation verifier then run unchanged.
-    """
-    if not isinstance(data, dict):
-        return
-    citation_lists = []
-    for evaluation in data.get("evaluations", []):
-        if isinstance(evaluation, dict) and isinstance(evaluation.get("evidence"), list):
-            citation_lists.append(evaluation["evidence"])
-    for field in ("project_reviews", "experience_reviews"):
-        for review in data.get(field, []) if isinstance(data.get(field, []), list) else []:
-            if not isinstance(review, dict):
-                continue
-            for check in review.get("checks", []) if isinstance(review.get("checks", []), list) else []:
-                if isinstance(check, dict) and isinstance(check.get("evidence"), list):
-                    citation_lists.append(check["evidence"])
-            rewrite = review.get("bullet_rewrite")
-            if isinstance(rewrite, dict) and isinstance(rewrite.get("source"), dict):
-                citation_lists.append([rewrite["source"]])
-    for citations in citation_lists:
-        for citation in citations:
-            if not isinstance(citation, dict):
-                continue
-            quote, page_number = citation.get("quote"), citation.get("page")
-            if not isinstance(quote, str) or len(quote) <= MAX_QUOTE_CHARS:
-                continue
-            if not isinstance(page_number, int) or isinstance(page_number, bool) or not 1 <= page_number <= len(pages):
-                continue
-            page = pages[page_number - 1]
-            for end in range(min(MAX_QUOTE_CHARS, len(quote)), MIN_QUOTE_CHARS - 1, -1):
-                if end < len(quote) and not quote[end].isspace() and not quote[end - 1].isspace():
-                    continue
-                candidate = quote[:end].rstrip()
-                if (len(candidate) >= MIN_QUOTE_CHARS
-                        and not contains_contact_details(candidate)
-                        and _quote_matches_source(candidate, page)):
-                    citation["quote"] = candidate
-                    break
 
 
 _SECTION_HEADING_QUOTES = frozenset({
@@ -715,8 +953,26 @@ def _split_verified_section_headings(data: object, pages: list[str]) -> None:
         if (not isinstance(page_number, int) or isinstance(page_number, bool)
                 or not 1 <= page_number <= len(pages)):
             continue
+        quote = citation["quote"]
+        page = pages[page_number - 1]
+        if len(quote) > MAX_QUOTE_CHARS and _quote_matches_source(quote, page):
+            # Do not truncate a long contiguous block. For section-order
+            # evidence, retain only exact standard headings appearing as
+            # separate lines in both the quoted block and cited source page.
+            quoted_lines = {_normalized(line.strip()) for line in quote.splitlines()}
+            source_headings = []
+            for line_number, line in enumerate(page.splitlines()):
+                normalized = _normalized(line.strip())
+                if normalized in _SECTION_HEADING_QUOTES and normalized in quoted_lines:
+                    source_headings.append((normalized, line.strip(), line_number))
+            if 2 <= len(source_headings) <= 5:
+                evaluation["evidence"] = [
+                    {"source": "resume_text", "page": page_number, "quote": heading}
+                    for _, heading, _ in source_headings
+                ]
+                continue
         raw_lines = [line.strip().strip("`*_#>-• ") for line in citation["quote"].splitlines()]
-        if not 2 <= len(raw_lines) <= 4 or any(not line for line in raw_lines):
+        if not 2 <= len(raw_lines) <= 5 or any(not line for line in raw_lines):
             continue
         normalized_lines = [_normalized(line) for line in raw_lines]
         if any(line not in _SECTION_HEADING_QUOTES for line in normalized_lines):
@@ -738,6 +994,43 @@ def _split_verified_section_headings(data: object, pages: list[str]) -> None:
         ]
 
 
+def _split_verified_date_anchors(data: object, pages: list[str]) -> None:
+    """Expand a Gemini list of non-contiguous date-bearing section anchors.
+
+    A list such as project title/date, second project/date, role/date and
+    education/date is useful evidence for chronology, but the stitched string
+    is not itself a source quote. Split only when every non-empty line is an
+    independently verifiable substring of the cited page; the normal strict
+    citation/privacy checks then run on every resulting quote.
+    """
+    if not isinstance(data, dict):
+        return
+    for evaluation in data.get("evaluations", []):
+        if not isinstance(evaluation, dict) or evaluation.get("criterion_id") != "date_consistency":
+            continue
+        evidence = evaluation.get("evidence")
+        if not isinstance(evidence, list) or len(evidence) != 1:
+            continue
+        citation = evidence[0]
+        if (not isinstance(citation, dict) or citation.get("source") != "resume_text"
+                or not isinstance(citation.get("quote"), str)):
+            continue
+        page_number = citation.get("page")
+        if (not isinstance(page_number, int) or isinstance(page_number, bool)
+                or not 1 <= page_number <= len(pages)):
+            continue
+        quotes = [line.strip().strip("`*_#>-• ") for line in citation["quote"].splitlines()]
+        if not 2 <= len(quotes) <= 5 or any(len(quote) < MIN_QUOTE_CHARS for quote in quotes):
+            continue
+        page = pages[page_number - 1]
+        if not all(_quote_matches_source(quote, page) for quote in quotes):
+            continue
+        evaluation["evidence"] = [
+            {"source": "resume_text", "page": page_number, "quote": quote}
+            for quote in quotes
+        ]
+
+
 def _allowed_roadmap_positions(positions: list[int] | int) -> list[int]:
     """Return saved roadmap identifiers; integer input preserves test/legacy callers."""
     if isinstance(positions, int) and not isinstance(positions, bool):
@@ -745,8 +1038,13 @@ def _allowed_roadmap_positions(positions: list[int] | int) -> list[int]:
     return list(dict.fromkeys(positions))
 
 
-def _gemini_response_schema(step_positions: list[int] | int, criterion_ids: list[str] | None = None) -> dict:
-    """Bound step identifiers to the saved roadmap's numeric range."""
+def _gemini_response_schema(step_positions: list[int] | int, criterion_ids: list[str] | None = None,
+                            *, minimal: bool = False) -> dict:
+    """Send only high-value bounds that fit Gemini's serving-state budget.
+
+    Full array and string limits remain enforced by the strict Python models;
+    broad nested `maxItems` constraints exceed Flash-Lite's schema state budget.
+    """
     schema = deepcopy(ResumeAnalysisSchema.model_json_schema())
     def normalize_supported_schema(value):
         if isinstance(value, dict):
@@ -759,8 +1057,17 @@ def _gemini_response_schema(step_positions: list[int] | int, criterion_ids: list
                 normalize_supported_schema(child)
 
     normalize_supported_schema(schema)
-    schema["$defs"]["EvaluationSchema"]["properties"]["evidence"]["maxItems"] = 4
-    schema["$defs"]["ReviewCheckSchema"]["properties"]["evidence"]["maxItems"] = 1
+    if minimal:
+        for field in ("recommendations", "skill_roadmap"):
+            schema["properties"].pop(field, None)
+        schema["required"] = [field for field in schema.get("required", [])
+                               if field not in {"recommendations", "skill_roadmap"}]
+        allowed_positions = _allowed_roadmap_positions(step_positions)
+        if allowed_positions:
+            position_schema = schema["$defs"]["SkillRoadmapSchema"]["properties"]["step_positions"]["items"]
+            position_schema["minimum"] = min(allowed_positions)
+            position_schema["maximum"] = max(allowed_positions)
+        return schema
     if criterion_ids is not None:
         schema["$defs"]["RecommendationSchema"]["properties"]["criterion_ids"]["items"]["enum"] = list(
             dict.fromkeys(criterion_ids)
@@ -770,20 +1077,24 @@ def _gemini_response_schema(step_positions: list[int] | int, criterion_ids: list
         position_schema = schema["$defs"]["SkillRoadmapSchema"]["properties"]["step_positions"]["items"]
         position_schema["minimum"] = min(allowed_positions)
         position_schema["maximum"] = max(allowed_positions)
+    # Pydantic's outer list bounds are intentionally omitted by some Gemini
+    # schema translations. Add the response-contract caps explicitly so the
+    # provider can enforce them before emitting JSON (the strict Python model
+    # remains the final authority).
     return schema
 
 
 def _compact_report_evidence(evaluations: dict) -> dict:
-    """Keep one verified excerpt per criterion (four section labels for headings).
+    """Keep one verified excerpt per criterion (up to five section headings).
 
     All model citations have already passed source and privacy checks. The UI
     needs one representative excerpt for each scored finding; conventional
-    section formatting keeps up to four distinct heading excerpts.
+    section formatting keeps up to five distinct heading excerpts.
     """
     compacted = {}
     for criterion_id, evaluation in evaluations.items():
         evidence = evaluation["evidence"]
-        limit = 4 if criterion_id == "standard_sections" else 1
+        limit = 5 if criterion_id in {"standard_sections", "standard_headings", "section_order"} else 1
         compacted[criterion_id] = {**evaluation, "evidence": evidence[:limit]}
     return compacted
 
@@ -1033,20 +1344,21 @@ def analyze_resume(pdf: bytes, career: str, skills, steps) -> dict:
         for index, title in enumerate(steps or [], start=1)
     ]
     prompt = build_resume_evidence_prompt(career, rubric, roadmap_steps, pages)
+    if debug_capture is not None:
+        debug_capture.save_request({
+            "pdf_bytes": len(pdf),
+            "page_count": len(pages),
+            "extracted_chars": extracted_chars,
+            "extracted_words": extracted_words,
+            "prompt_chars": len(prompt),
+            "prompt_token_estimate": max(1, round(len(prompt) / 4)),
+            "profile": os.getenv("DEBUG_RESUME_PROFILE") or None,
+            "rubric_evaluation_count": len(ai_criterion_ids),
+            "roadmap_skill_count": len(next(
+                category["criteria"] for category in rubric["categories"] if category["id"] == "skills"
+            )),
+        })
     contents = [genai_types.Part.from_bytes(data=bytes(pdf), mime_type="application/pdf"), prompt]
-
-    def corrective_contents(error: AIOutputError):
-        if error.kind not in {"empty", "invalid_json", "not_object", "schema", "too_large"}:
-            return None
-        allowed_positions = [step["position"] for step in roadmap_steps]
-        correction = f"""
-
-Corrective retry: Your previous JSON was rejected by strict validation at `{error.detail}`. Generate a new complete JSON response from the source material; do not copy invalid fields from your prior response.
-For any evidence quote, copy one uninterrupted, contiguous 3-160 character substring from exactly the cited page's resume_pages_json text. Never join separate headings, bullets, or phrases across omitted text. Put distinct noncontiguous supporting spans into separate evidence entries (maximum four); if no safe contiguous excerpt exists, mark that criterion false with an empty evidence list.
-For project_reviews and experience_reviews, each individual check's evidence array is limited to zero or one excerpt. Select the single best contiguous source span; do not return multiple evidence entries for a check. If no single span supports it, mark the check false with an empty list.
-For every skill_roadmap.step_positions array, use only these saved roadmap positions: {json.dumps(allowed_positions)}. Do not renumber them or assume they start at 1; use [] when no listed step applies.
-Keep the summary, notes, recommendation title/action, and arrays within every stated limit."""
-        return [contents[0], prompt + correction]
 
     reply = llm.generate(
         contents,
@@ -1054,24 +1366,25 @@ Keep the summary, notes, recommendation title/action, and arrays within every st
         _gemini_response_schema(
             [step["position"] for step in roadmap_steps],
             ai_criterion_ids,
+            minimal=True,
         ),
         lambda text: parse_resume_reply(
-            text, rubric, pages, [step["position"] for step in roadmap_steps], debug_capture
+            text, rubric, pages, [step["position"] for step in roadmap_steps], debug_capture, tolerant=True
         ),
         system_instruction=RESUME_SYSTEM_INSTRUCTION,
         temperature=0,
         max_output_tokens=MAX_OUTPUT_TOKENS,
         retry_on_validation_error=False,
-        validation_retry_contents=corrective_contents,
         on_response=debug_capture.save_response if debug_capture is not None else None,
+        on_attempt=debug_capture.save_attempt if debug_capture is not None else None,
     )
     if not reply.pop("is_resume"):
         raise ResumeInputError("not_resume")
 
     evaluations = reply.pop("evaluations_by_id")
-    skill_roadmap = {item["skill_id"]: item["step_positions"] for item in reply["skill_roadmap"]}
+    skill_roadmap = build_skill_roadmap(rubric, roadmap_steps, evaluations)
     score_report = build_score_report(
-        rubric, _compact_report_evidence(evaluations), reply["recommendations"], roadmap_steps, skill_roadmap,
+        rubric, _compact_report_evidence(evaluations), None, roadmap_steps, skill_roadmap,
         sum(len(page) for page in pages), len(pages), len(_WORD.findall(" ".join(pages))),
     )
     analysis = _legacy_analysis(reply, rubric, score_report, evaluations)

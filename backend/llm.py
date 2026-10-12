@@ -183,6 +183,7 @@ def generate(
     retry_on_validation_error: bool = True,
     validation_retry_contents: Callable[[AIOutputError], object | None] | None = None,
     on_response: Callable[[str, int], None] | None = None,
+    on_attempt: Callable[[dict], None] | None = None,
 ) -> dict:
     """Generate and validate one JSON reply. Raises AIServiceError.
 
@@ -250,9 +251,21 @@ def generate(
         if on_response is not None:
             on_response(text, attempt)
         meta = _reply_meta(resp)
+        attempt_meta = {
+            "attempt": attempt,
+            "latency_seconds": round(elapsed, 3),
+            "finish": meta["finish"],
+            "prompt_tokens": meta["in_tokens"],
+            "output_tokens": meta["out_tokens"],
+            "response_chars": len(text),
+            "response_bytes": len(text.encode("utf-8")),
+        }
         try:
             result, diag = parse(text)
         except AIOutputError as e:
+            if on_attempt is not None:
+                on_attempt({**attempt_meta, "validation": "failed", "error_kind": e.kind,
+                            "error_detail": e.detail})
             logger.error(
                 "%s attempt %d: unusable reply kind=%s detail=%s finish=%s out_tokens=%s "
                 "chars=%d sha=%s (%.1fs)",
@@ -269,6 +282,9 @@ def generate(
                     continue
             raise AIServiceError("failed") from None
 
+        if on_attempt is not None:
+            on_attempt({**attempt_meta, "validation": "passed", "items": diag["items"],
+                        "dropped": diag["dropped"]})
         if diag["dropped"]:
             logger.warning("%s attempt %d: dropped invalid items %s", label, attempt, diag["dropped"][:5])
         logger.info(

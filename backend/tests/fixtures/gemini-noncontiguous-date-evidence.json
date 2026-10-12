@@ -1,0 +1,8 @@
+{
+  "capture": {
+    "source": "Actual Gemini response from fictional strong-SWE browser fixture; no real-person data",
+    "criterion_id": "date_consistency"
+  },
+  "quote": "Inventory Platform | 2025\nTransit Alerts | 2024\nSoftware Engineering Intern | 2025\nBSc Computer Science, 2026.",
+  "source_page": "Inventory Platform | 2025\nDesigned and deployed a fictional inventory service.\nTransit Alerts | 2024\nBuilt a route-alert demo.\nSoftware Engineering Intern | 2025\nAutomated release checks.\nBSc Computer Science, 2026. Capstone: distributed systems."
+}

@@ -80,7 +80,7 @@ describe("AnalysisView", () => {
     expect(screen.getByText("Not evidenced yet")).toBeTruthy();
     screen.getAllByText("Relevant technical skills")[0].click();
     expect(screen.getByText(/Used SQL for reporting\./)).toBeTruthy();
-    expect(screen.getByText("No Tableau evidence was found.")).toBeTruthy();
+    expect(screen.getAllByText("No Tableau evidence was found.").length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText("Tableau dashboards")).toBeTruthy();
     expect(screen.getByText("Add a Tableau project")).toBeTruthy();
     expect(screen.getByText(/not a measure of your ability or hiring chances/i)).toBeTruthy();

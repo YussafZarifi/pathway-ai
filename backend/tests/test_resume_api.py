@@ -142,7 +142,7 @@ def test_analysis_is_saved_and_returned(client, repo, fake_gemini):
     assert models.calls == 1
     pdf_part, text = models.prompts[0]
     assert pdf_part.inline_data.data == make_pdf()  # the upload, unchanged, sent inline
-    assert "Data Analyst" in text and "Dashboards with Tableau" in text
+    assert "Data Analyst" in text and "target career" in text
     assert "SQL" in text and "Tableau" in text
 
 
@@ -205,7 +205,7 @@ def test_each_user_gets_their_own_target_and_rows(client, repo, user_box, fake_g
     assert repo.analyses[first["id"]]["user_id"] == USER.id
     assert repo.analyses[second["id"]]["user_id"] == OTHER.id
     assert second["career"] == "Web Developer"
-    assert '\"title\": \"HTML\"' in models.prompts[1][1]
+    assert "Web Developer" in models.prompts[1][1]
 
 
 def test_history_is_kept(client, repo, fake_gemini):

@@ -1,0 +1,23 @@
+{
+  "capture": {
+    "source": "Actual Gemini response from fictional strong-SWE browser fixture; no real-person data",
+    "model": "gemini-2.5-flash-lite",
+    "issue": "one recommendation linked three found criteria and one missing criterion"
+  },
+  "evaluation_states": {
+    "project_complexity": true,
+    "project_outcome": true,
+    "project_demo": false,
+    "project_impact": true
+  },
+  "recommendation": {
+    "title": "Enhance Project Descriptions",
+    "action": "For each project, add details about the specific AI techniques used, the problem it solves, and provide a link to a repository or demo.",
+    "criterion_ids": [
+      "project_complexity",
+      "project_outcome",
+      "project_demo",
+      "project_impact"
+    ]
+  }
+}

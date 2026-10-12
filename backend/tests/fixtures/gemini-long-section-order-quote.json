@@ -1,0 +1,8 @@
+{
+  "capture": {
+    "source": "Actual Gemini response from fictional random résumé browser fixture; no real-person data",
+    "criterion_id": "section_order"
+  },
+  "quote": "Profile\nOrganized early-career professional exploring technology roles and continuing independent study.\nSkills\nExcel, Python basics, collaboration, documentation, Git\nProjects\nCommunity Resource Map | 2025\nCreated a small web map for a fictional neighborhood using HTML, JavaScript, and a public geocoding API. Documented setup steps and added sample data validation.\nExperience\nOperations Assistant | 2024\nMaintained weekly inventory spreadsheets, checked records for errors, and coordinated handoffs across a five-person team.\nEducation\nDiploma in Information Technology, 2025. Coursework: web basics, SQL, and project communication.",
+  "source_page": "Fictional Resume for Upload Reliability Test\nProfile\nOrganized early-career professional exploring technology roles and continuing independent study.\nSkills\nExcel, Python basics, collaboration, documentation, Git\nProjects\nCommunity Resource Map | 2025\nCreated a small web map for a fictional neighborhood using HTML, JavaScript, and a public geocoding API. Documented setup steps and added sample data validation.\nExperience\nOperations Assistant | 2024\nMaintained weekly inventory spreadsheets, checked records for errors, and coordinated handoffs across a five-person team.\nEducation\nDiploma in Information Technology, 2025. Coursework: web basics, SQL, and project communication.\nSource-only fixture marker: RESUME-CONTENT-private-fixture-marker"
+}

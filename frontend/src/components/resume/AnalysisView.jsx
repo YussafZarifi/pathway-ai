@@ -151,6 +151,11 @@ function ScoreReport({ analysis, currentRoadmapId }) {
     .map((criterion) => ({ ...criterion, categoryId: category.id })))
     .sort((a, b) => ({ projects: 0, experience: 1, skills: 2, education: 3, formatting: 4, ats: 5 }[a.categoryId]
       - ({ projects: 0, experience: 1, skills: 2, education: 3, formatting: 4, ats: 5 }[b.categoryId]))).slice(0, 4);
+  const weaknesses = categories.flatMap((category) => category.criteria
+    .filter((criterion) => !criterion.found)
+    .map((criterion) => ({ ...criterion, categoryLabel: category.label, categoryWeight: category.weight })))
+    .sort((a, b) => b.maxPoints - a.maxPoints)
+    .slice(0, 5);
   const linkSteps = Boolean(currentRoadmapId) && analysis.roadmapId === currentRoadmapId;
   const confidence = report.confidence || {};
   const skillCategory = categories.find((item) => item.id === "skills");
@@ -201,6 +206,15 @@ function ScoreReport({ analysis, currentRoadmapId }) {
         : <p className="resumeReportNote">No strengths could be verified from this document.</p>}
     </section>
 
+    <section className="resumeReportSection resumeWeaknessesSection" aria-labelledby={`resumeWeaknessHeading-${id}`}>
+      <div className="resumeSectionHeading"><div><p>OPPORTUNITIES</p><h3 id={`resumeWeaknessHeading-${id}`}>Weaknesses to address</h3></div>
+        {weaknesses.length > 0 && <span className="resumeSectionCount">{weaknesses.length}</span>}
+      </div>
+      {weaknesses.length ? <ul className="resumeWeaknessList">{weaknesses.map((item) => <li key={item.id}>
+        <CircleHelp size={14} aria-hidden="true" /><div><strong>{item.label}</strong><small>{item.note || `Not evidenced in ${item.categoryLabel.toLowerCase()}.`}</small></div>
+      </li>)}</ul> : <p className="resumeReportNote">No material gaps were identified in the reviewed evidence.</p>}
+    </section>
+
     {sections.map(({ key, label, items }) => <section className="resumeReportSection resumeWorkSection" key={key} aria-labelledby={`${key}ReviewHeading-${id}`}>
       <div className="resumeSectionHeading"><div><p>INDIVIDUAL REVIEW</p><h3 id={`${key}ReviewHeading-${id}`}>{label}</h3></div>
         {items.length > 0 && <span className="resumeSectionCount">{items.length}</span>}</div>
@@ -210,10 +224,9 @@ function ScoreReport({ analysis, currentRoadmapId }) {
           : "No distinct work or internship entry could be reviewed from the extracted text."}</p>}
     </section>)}
 
-    {skillCategory && <SkillMatch category={skillCategory} />}
-
     <details className="resumeMoreDetails"><summary>Scoring, ATS, source evidence, and roadmap details</summary>
       <div className="resumeMoreDetailsBody">
+        {skillCategory && <SkillMatch category={skillCategory} />}
         <div className="resumeScoreOverview">
           <section className="resumeReportSection resumeRadarPanel"><div className="resumeSectionHeading"><div><p>SCORING DETAIL</p><h3>Evidence profile</h3></div></div>
             <div className="resumeRadarLayout"><RadarChart categories={categories} /><ul className="resumeRadarLegend">{categories.map((category) => <li key={category.id}><span>{category.label}</span><strong>{category.score}%</strong></li>)}</ul></div>

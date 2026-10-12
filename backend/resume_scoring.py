@@ -121,11 +121,54 @@ def rubric_for(career: str, target_skills) -> dict:
     return {"family": family, "label": definition["label"], "categories": categories}
 
 
+_ROADMAP_STOP_WORDS = {"and", "for", "the", "with", "this", "from", "into", "your", "using"}
+
+
+def build_skill_roadmap(rubric: dict, roadmap_steps: list[dict], evaluations: dict) -> dict[str, list[int]]:
+    """Map evidenced target skills to roadmap steps without asking the model."""
+    steps = sorted(roadmap_steps, key=lambda step: step["position"])
+    result = {}
+    for skill in next(category["criteria"] for category in rubric["categories"] if category["id"] == "skills"):
+        if not evaluations.get(skill["id"], {}).get("found"):
+            result[skill["id"]] = []
+            continue
+        tokens = {
+            token.casefold() for token in re.findall(r"[a-z0-9+#.-]+", skill["label"])
+            if len(token) > 2 and token.casefold() not in _ROADMAP_STOP_WORDS
+        }
+        result[skill["id"]] = [
+            step["position"] for step in steps
+            if tokens & {
+                token.casefold() for token in re.findall(
+                    r"[a-z0-9+#.-]+",
+                    " ".join([step.get("title", ""), step.get("description", ""), *step.get("tasks", [])]),
+                )
+            }
+        ]
+    return result
+
+
+def _default_recommendations(criterion_lookup: dict) -> list[dict]:
+    """Turn missing rubric points into concise, deterministic next actions."""
+    ranked = sorted(
+        ((item["max_points"], index, item) for index, item in enumerate(criterion_lookup.values()) if not item["found"]),
+        key=lambda value: (-value[0], value[1]),
+    )
+    return [
+        {
+            "title": f"Add evidence for {item['label'].rstrip('.')}",
+            "action": f"Add one truthful, specific example that demonstrates {item['label'].lower()}.",
+            "criterion_ids": [item["id"]],
+        }
+        for _, _, item in ranked[:3]
+    ]
+
+
 def _round_points(value: float) -> float:
     return round(value + 1e-9, 2)
 
 
-def build_score_report(rubric: dict, evaluations: dict, recommendations: list[dict],
+def build_score_report(rubric: dict, evaluations: dict, recommendations: list[dict] | None,
                        roadmap_steps: list[dict], skill_step_positions: dict[str, list[int]],
                        extracted_chars: int, extracted_pages: int,
                        extracted_words: int | None = None) -> dict:
@@ -209,6 +252,8 @@ def build_score_report(rubric: dict, evaluations: dict, recommendations: list[di
     missing_points = {
         key: item["max_points"] for key, item in criterion_lookup.items() if not item["found"]
     }
+    if recommendations is None:
+        recommendations = _default_recommendations(criterion_lookup)
     ranked = []
     for index, suggestion in enumerate(recommendations):
         ids = list(dict.fromkeys(suggestion["criterion_ids"]))
@@ -223,7 +268,7 @@ def build_score_report(rubric: dict, evaluations: dict, recommendations: list[di
             "_order": index,
         })
     ranked.sort(key=lambda item: (-item["potential_points"], item["_order"]))
-    ranked = [{k: v for k, v in item.items() if k != "_order"} for item in ranked[:5]]
+    ranked = [{k: v for k, v in item.items() if k != "_order"} for item in ranked[:3]]
 
     ordered_steps = sorted(roadmap_steps, key=lambda step: step["position"])
     first_open = next((s["position"] for s in ordered_steps if not s.get("completed")), None)

@@ -173,6 +173,18 @@ test("Resume upload interaction and Coach navigation survive reload and browser 
   await page.setViewportSize({ width: 1440, height: 1000 });
   await expect(page.getByRole("button", { name: "Upload resume" })).toBeVisible();
 
+  for (const profile of ["student-1p", "swe-2p", "ai-ml", "cybersecurity", "data-science", "many-projects", "long-history"]) {
+    await page.locator("input[type=file]").setInputFiles({
+      name: `${profile}.pdf`,
+      mimeType: "application/pdf",
+      buffer: Buffer.from(`%PDF-1.4\n${(`${profile} representative resume content `).repeat(80)}\n%%EOF`),
+    });
+    await expect(page.getByText(`${profile}.pdf`)).toBeVisible();
+    await page.getByRole("button", { name: "Analyze resume" }).click();
+    await expect(page.getByText("Synthetic fixture report.")).toBeVisible();
+  }
+  await page.screenshot({ path: ".resume-playwright-artifacts/resume-analysis-seven-profile-batch.png", fullPage: true });
+
   await page.getByRole("link", { name: /Coach/ }).click();
   await expect(page).toHaveURL(/\/coach$/);
   await expect(page.getByRole("heading", { name: "Your next move, made clearer" })).toBeVisible();

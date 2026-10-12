@@ -1,0 +1,18 @@
+{
+  "capture": {
+    "source": "Actual Gemini response shape (redacted regression fixture)",
+    "failure": "evaluations.16.evidence:unexpected"
+  },
+  "evaluation": {
+    "criterion_id": "relevant_coursework",
+    "found": false,
+    "evidence": [
+      {
+        "source": "resume_text",
+        "page": 1,
+        "quote": "Built a SQL dashboard that improved weekly reporting accuracy by 20%."
+      }
+    ],
+    "note": "The source does not show relevant coursework."
+  }
+}

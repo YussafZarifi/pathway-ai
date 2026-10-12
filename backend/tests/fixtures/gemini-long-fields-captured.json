@@ -1,0 +1,20 @@
+{
+  "capture": {
+    "source": "Actual Gemini 2.5 Flash-Lite response captured locally on 2026-10-12",
+    "input": "Fictional SWE résumé generated for testing; never a real résumé",
+    "redactions": "No personal or contact information appears in these excerpts."
+  },
+  "evaluation_note": "Technologies like Spring Boot, React, PostgreSQL, Docker Compose, GitHub Actions, and TypeScript are named in project descriptions.",
+  "project_summary": "Developed a Spring Boot REST API and React dashboard for inventory tracking, incorporating JWT authentication, PostgreSQL, Docker Compose, and GitHub Actions. Included 42 JUnit tests and Playwright checks, and deployed to AWS.",
+  "project_check_note": "This project demonstrates skills in backend development, API design, database management, and deployment, aligning with a software engineer role.",
+  "bullet_rewrite_suggestion": "Developed an inventory tracking platform using a Spring Boot REST API and React dashboard, implementing JWT authentication, PostgreSQL migrations, and Docker Compose. Integrated GitHub Actions for CI/CD, wrote 42 JUnit tests and Playwright checks, and deployed to AWS, achieving support for 500 requests per minute under load.",
+  "verified_quote": "Inventory Platform | 2025\nDesigned a Spring Boot REST API and React dashboard for inventory tracking. Added JWT authentication, PostgreSQL migrations, Docker Compose, and GitHub Actions. Wrote 42 JUnit tests and Playwright browser checks. Deployed to AWS; load test supported 500 requests per minute.",
+  "technologies": [
+    "Spring Boot",
+    "React",
+    "REST API",
+    "PostgreSQL",
+    "Docker",
+    "AWS"
+  ]
+}

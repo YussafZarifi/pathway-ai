@@ -7103,3 +7103,9 @@ button.landingFeatureCard:focus-visible {
     animation: none;
   }
 }
+.resumeWeaknessList { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.resumeWeaknessList li { display: flex; align-items: flex-start; gap: 8px; min-width: 0; color: #b8a8c8; font-size: 11px; line-height: 1.45; }
+.resumeWeaknessList li > svg { flex: 0 0 auto; margin-top: 1px; color: #e4aa78; }
+.resumeWeaknessList li > div { min-width: 0; }
+.resumeWeaknessList strong { display: block; color: #e5dce9; font-size: 11px; font-weight: 600; }
+.resumeWeaknessList small { display: block; margin-top: 2px; color: #938a9d; font-size: 10px; }

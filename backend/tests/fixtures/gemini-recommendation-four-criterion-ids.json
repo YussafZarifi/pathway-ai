@@ -1,0 +1,17 @@
+{
+  "capture": {
+    "source": "Gemini 2.5 Flash-Lite response captured locally on 2026-10-12",
+    "input": "Synthetic fictional résumé only; no real résumé data",
+    "redactions": "No identifying data was present in this recommendation."
+  },
+  "recommendation": {
+    "title": "Develop AI-Specific Projects",
+    "action": "Create a project that utilizes Deep Learning or Natural Language Processing techniques, and include a link to a demo or repository.",
+    "criterion_ids": [
+      "skill_1",
+      "skill_2",
+      "relevant_project",
+      "project_demo"
+    ]
+  }
+}

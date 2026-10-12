@@ -1,0 +1,16 @@
+{
+  "capture": {
+    "source": "Actual Gemini response from fictional data-science browser fixture; no real-person data",
+    "issue": "project reviews used global rubric IDs in place of work-sample IDs"
+  },
+  "project_check_ids": [
+    "project_purpose",
+    "project_stack",
+    "project_complexity",
+    "project_deployment",
+    "project_impact",
+    "project_outcome",
+    "project_demo",
+    "project_career_fit"
+  ]
+}

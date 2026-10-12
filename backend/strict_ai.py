@@ -43,14 +43,25 @@ def text(max_length: int):
 
 
 def error_summary(error: ValidationError, known_fields: set[str]) -> str:
-    """Field paths and error types of a validation error, never values."""
+    """Field paths, error types and safe size bounds, never model values."""
     def path(loc):
         return ".".join(str(p) if isinstance(p, int) or p in known_fields else "?" for p in loc) or "(root)"
 
-    parts = [
-        f"{path(e['loc'])}:{e['type']}"
-        for e in error.errors(include_input=False, include_url=False, include_context=False)
-    ]
+    parts = []
+    for item in error.errors(include_input=True, include_url=False, include_context=True):
+        detail = f"{path(item['loc'])}:{item['type']}"
+        context = item.get("ctx") or {}
+        actual = context.get("actual_length")
+        raw_input = item.get("input")
+        if actual is None and isinstance(raw_input, (str, list, tuple, dict)):
+            actual = len(raw_input)
+        maximum = context.get("max_length")
+        minimum = context.get("min_length")
+        if item["type"] in {"too_long", "string_too_long"} and isinstance(actual, int) and isinstance(maximum, int):
+            detail += f"(max={maximum},actual={actual})"
+        elif item["type"] == "too_short" and isinstance(actual, int) and isinstance(minimum, int):
+            detail += f"(min={minimum},actual={actual})"
+        parts.append(detail)
     return ",".join(parts[:5])
 
 
