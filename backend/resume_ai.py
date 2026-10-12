@@ -139,6 +139,12 @@ class _ResumeDebugCapture:
     def save_request(self, detail: dict) -> None:
         self._write_json("request-metrics.json", detail)
 
+    def save_normalized_response(self, value) -> None:
+        self._write_json("gemini-normalized-response.json", value)
+
+    def save_validation_steps(self, value) -> None:
+        self._write_json("validation-steps.json", value)
+
     def save_comparison(self, detail: dict) -> None:
         filename = f"evidence-comparisons-attempt-{self.attempt or 1}.json"
         path = self.path / filename
@@ -579,9 +585,9 @@ def _normalize_resume_payload(data: object, rubric: dict, dropped: list[str]) ->
             })
     data["evaluations"] = evaluations
 
-    for field, kind in (("project_reviews", "project"), ("experience_reviews", "experience")):
+    for field, kind, limit in (("project_reviews", "project", 2), ("experience_reviews", "experience", 1)):
         samples = []
-        for item in (data.get(field) or [])[:3]:
+        for item in (data.get(field) or [])[:limit]:
             if not isinstance(item, dict):
                 continue
             cleaned = {key: item.get(key) for key in WorkSampleReview.model_fields if key in item}
@@ -620,7 +626,17 @@ def _normalize_resume_payload(data: object, rubric: dict, dropped: list[str]) ->
 def parse_resume_reply(text: str, rubric: dict, pages: list[str], step_positions: list[int] | int,
                        debug_capture: _ResumeDebugCapture | None = None, *, tolerant: bool = False) -> tuple[dict, dict]:
     """Validate evidence citations and exact criterion coverage; never score."""
-    data = load_strict_json(text, MAX_REPLY_CHARS)
+    try:
+        data = load_strict_json(text, MAX_REPLY_CHARS)
+    except AIOutputError as error:
+        if debug_capture is not None and hasattr(debug_capture, "save_validation_steps"):
+            debug_capture.save_validation_steps({
+                "status": "failed",
+                "stage": "json_parse",
+                "kind": error.kind,
+                "detail": error.detail,
+            })
+        raise
     if tolerant and isinstance(data, dict) and isinstance(data.get("summary"), str):
         data["summary"] = _truncate_at_word_boundary(data["summary"], 350)
     _split_verified_section_headings(data, pages)
@@ -629,6 +645,8 @@ def parse_resume_reply(text: str, rubric: dict, pages: list[str], step_positions
         data = _normalize_resume_payload(data, rubric, normalization_drops)
     else:
         normalization_drops = []
+    if debug_capture is not None and hasattr(debug_capture, "save_normalized_response"):
+        debug_capture.save_normalized_response(data)
     _split_verified_date_anchors(data, pages)
     try:
         reply = ResumeReply.model_validate(data)
@@ -791,6 +809,15 @@ def parse_resume_reply(text: str, rubric: dict, pages: list[str], step_positions
                   + sum(len(item.checks) for item in reply.project_reviews + reply.experience_reviews)),
         "dropped": normalization_drops + dropped_recommendations + project_dropped + experience_dropped,
     }
+    if debug_capture is not None and hasattr(debug_capture, "save_validation_steps"):
+        debug_capture.save_validation_steps({
+            "status": "passed",
+            "stage": "evidence_and_schema",
+            "evaluations": len(reply.evaluations),
+            "project_reviews": len(reply.project_reviews),
+            "experience_reviews": len(reply.experience_reviews),
+            "dropped": diagnostics["dropped"],
+        })
     return result, diagnostics
 
 
@@ -1062,6 +1089,8 @@ def _gemini_response_schema(step_positions: list[int] | int, criterion_ids: list
             schema["properties"].pop(field, None)
         schema["required"] = [field for field in schema.get("required", [])
                                if field not in {"recommendations", "skill_roadmap"}]
+        schema["properties"]["project_reviews"]["maxItems"] = 2
+        schema["properties"]["experience_reviews"]["maxItems"] = 1
         allowed_positions = _allowed_roadmap_positions(step_positions)
         if allowed_positions:
             position_schema = schema["$defs"]["SkillRoadmapSchema"]["properties"]["step_positions"]["items"]
