@@ -17,9 +17,9 @@ import {
 } from "lucide-react";
 import AppHeader from "../components/AppHeader";
 import Dialog from "../components/Dialog";
-import FeatureHeading from "../components/FeatureHeading";
 import AnalysisView from "../components/resume/AnalysisView";
 import { errorMessage } from "../lib/api";
+import { withTimeout } from "../lib/withTimeout";
 import { useAuth } from "../lib/authContext";
 import {
   analyze,
@@ -32,6 +32,21 @@ import {
 
 const ANALYZE_FAILED = "We couldn't analyze your résumé right now. Please try again.";
 const AVAILABILITY_FAILED = "We couldn't check whether résumé analysis is available. Please try again.";
+
+const AVAILABILITY_TIMEOUT = "The availability check took too long. Check your connection and try again.";
+const AVAILABILITY_ABORTED = "The availability check was interrupted. Please try again.";
+const AVAILABILITY_TIMEOUT_MS = 8_000;
+const HISTORY_TIMEOUT = "Loading your saved reviews took too long. Check your connection and try again.";
+
+function withAbort(promise, signal) {
+  if (!signal) return promise;
+  if (signal.aborted) return Promise.reject(new DOMException("The request was aborted.", "AbortError"));
+  return new Promise((resolve, reject) => {
+    const onAbort = () => reject(new DOMException("The request was aborted.", "AbortError"));
+    signal.addEventListener("abort", onAbort, { once: true });
+    promise.then(resolve, reject).finally(() => signal.removeEventListener("abort", onAbort));
+  });
+}
 
 function formatDate(ms) {
   return ms
@@ -59,21 +74,15 @@ function StateCard({ icon, eyebrow = "RESUME ANALYZER", title, children, action 
 
 function PrivacyCard() {
   return (
-    <aside className="dashCard resumePrivacy" aria-labelledby="resumePrivacyTitle">
-      <div className="resumePrivacyHeader">
-        <span className="resumePrivacyIcon"><ShieldCheck size={17} aria-hidden="true" /></span>
-        <div>
-          <p className="featureEyebrow">PRIVATE BY DESIGN</p>
-          <h2 id="resumePrivacyTitle">Your file stays yours</h2>
-        </div>
-      </div>
+    <details className="resumePrivacy">
+      <summary><ShieldCheck size={16} aria-hidden="true" /> Privacy and data use <ChevronDown size={15} aria-hidden="true" /></summary>
       <ul className="resumePrivacyList">
         <li><Shield size={15} aria-hidden="true" /><span>Your PDF is sent to Google Gemini once for this review.</span></li>
         <li><Lock size={15} aria-hidden="true" /><span>PathwayAI does not store the original PDF, its full text or its name.</span></li>
         <li><BadgeCheck size={15} aria-hidden="true" /><span>Your report and short, verified evidence excerpts are saved. Delete them whenever you like.</span></li>
       </ul>
-      <p className="resumeNoScore"><CircleHelp size={14} aria-hidden="true" /> Every score point is tied to resume evidence and your target career rubric.</p>
-    </aside>
+      <p className="resumeNoScore"><CircleHelp size={14} aria-hidden="true" /> Scores use verified evidence and your selected career rubric.</p>
+    </details>
   );
 }
 
@@ -116,13 +125,12 @@ function UploadCard({ career, analyzing, error, progress, onAnalyze }) {
     <form className="dashCard resumeUpload" onSubmit={submit} aria-busy={analyzing}>
       <div className="resumeUploadHeading">
         <div>
-          <p className="featureEyebrow">YOUR NEXT CAREER STEP</p>
-          <h2>Build a stronger résumé</h2>
+          <p className="featureEyebrow">PDF · MAX 2 MB</p>
+          <h2>Upload your resume</h2>
         </div>
-        <span className="resumeUploadStep">01 <span>/ 02</span></span>
       </div>
       <p className="resumeTarget">
-        Reviewed against your current roadmap: <strong>{career}</strong>
+        Review tailored to <strong>{career}</strong>
       </p>
 
       <label
@@ -136,8 +144,8 @@ function UploadCard({ career, analyzing, error, progress, onAnalyze }) {
         onDrop={handleDrop}
       >
         <span className="resumeDropIcon"><UploadCloud size={23} aria-hidden="true" /></span>
-        <span className="resumeDropTitle">{file ? "PDF ready to review" : "Drop your résumé PDF here"}</span>
-        <span className="resumeDropHint">or <span className="resumeBrowse">browse files</span></span>
+        <span className="resumeDropTitle">{file ? "PDF ready to review" : "Drop your PDF here"}</span>
+        <span className="resumeDropHint">or choose a file from your device</span>
         <span className="resumeDropMeta">Text-based PDF · up to 2 MB</span>
         <input
           ref={inputRef}
@@ -154,7 +162,7 @@ function UploadCard({ career, analyzing, error, progress, onAnalyze }) {
       {file && (
         <div className="resumeSelectedFile">
           <span className="resumeSelectedIcon"><FileText size={17} aria-hidden="true" /></span>
-          <span className="resumeSelectedCopy"><strong>PDF selected</strong><small>{formatSize(file.size)} · Private upload</small></span>
+          <span className="resumeSelectedCopy"><strong title={file.name}>{file.name}</strong><small>{formatSize(file.size)} · Private upload</small></span>
           {!analyzing && (
             <button type="button" className="resumeClearFile" onClick={() => { choose(null); if (inputRef.current) inputRef.current.value = ""; }}>
               Remove
@@ -162,6 +170,15 @@ function UploadCard({ career, analyzing, error, progress, onAnalyze }) {
           )}
         </div>
       )}
+
+      <button
+        type="button"
+        className="dashBtn resumePickButton"
+        onClick={() => inputRef.current?.click()}
+        disabled={analyzing}
+      >
+        <UploadCloud size={16} aria-hidden="true" /> Upload resume
+      </button>
 
       {analyzing && (
         <div className="resumeProgress" role="status" aria-live="polite">
@@ -179,35 +196,34 @@ function UploadCard({ career, analyzing, error, progress, onAnalyze }) {
         className="dashBtn dashBtn--primary resumeSubmit"
         disabled={analyzing || !file || Boolean(problem)}
       >
-        {analyzing ? "Creating your report…" : "Analyze résumé"}
+        {analyzing ? "Reviewing resume…" : "Analyze resume"}
         {!analyzing && <Sparkles size={16} aria-hidden="true" />}
       </button>
 
       <p id="resumeUploadMessage" className="dashError" role="alert">
         {message}
       </p>
-      <p className="resumeUploadFootnote"><Lock size={13} aria-hidden="true" /> Evidence-based scoring · No original file storage</p>
+      <p className="resumeUploadFootnote"><Lock size={13} aria-hidden="true" /> Your original PDF is not stored.</p>
     </form>
   );
 }
 
-function HistoryItem({ item, open, onToggle, onDelete, deleting, currentRoadmapId }) {
-  const panelId = `resume-review-${item.id}`;
+function HistoryItem({ item, open, onToggle, onDelete, deleting }) {
   return (
-    <li className="dashCard resumeHistoryItem">
+    <li className={`resumeHistoryItem ${open ? "is-selected" : ""}`}>
       <div className="resumeHistoryHead">
         <button
           type="button"
           className="resumeHistoryToggle"
           aria-expanded={open}
-          aria-controls={open ? panelId : undefined}
+          aria-controls="resume-current-report"
           onClick={onToggle}
         >
           <span className="resumeHistoryIcon"><FileText size={17} aria-hidden="true" /></span>
           <span className="resumeHistoryMeta">
             <span className="resumeHistoryTopline"><span className="resumeHistoryCareer">{item.career}</span><span className="resumeHistoryDate">{formatDate(item.createdAt)}</span></span>
             {!open && <span className="resumeHistorySummary">{item.summary}</span>}
-            <span className="resumeHistoryView">{open ? "Close report" : "Open report"}</span>
+            <span className="resumeHistoryView">{open ? "Viewing report" : "View report"}</span>
           </span>
           <ChevronDown size={18} className={`resumeChevron ${open ? "resumeChevron--open" : ""}`} aria-hidden="true" />
         </button>
@@ -222,11 +238,6 @@ function HistoryItem({ item, open, onToggle, onDelete, deleting, currentRoadmapI
           <span>Delete</span>
         </button>
       </div>
-      {open && (
-        <div id={panelId}>
-          <AnalysisView analysis={item} currentRoadmapId={currentRoadmapId} />
-        </div>
-      )}
     </li>
   );
 }
@@ -246,35 +257,84 @@ export default function Resume() {
   const [deletingId, setDeletingId] = useState(null);
   const [historyError, setHistoryError] = useState("");
   const analyzeAbort = useRef(null);
+  const availabilityRequest = useRef(0);
+  const historyRequest = useRef(0);
+  const [authTimedOut, setAuthTimedOut] = useState(false);
+  const [activeDataUser, setActiveDataUser] = useState(null);
 
   const refreshAvailability = useCallback(async (signal) => {
-    setAvailability((prev) => ({ ...prev, status: prev.data ? "ready" : "loading" }));
+    const requestId = ++availabilityRequest.current;
+    const controller = new AbortController();
+    let timedOut = false;
+    const abortFromCaller = () => controller.abort();
+    if (signal?.aborted) abortFromCaller();
+    signal?.addEventListener("abort", abortFromCaller, { once: true });
+    const timeout = setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+    }, AVAILABILITY_TIMEOUT_MS);
+    setAvailability({ status: "loading", data: null });
     try {
-      const data = await checkAvailability({ signal });
-      setAvailability({ status: "ready", data });
+      const data = await withAbort(checkAvailability({ signal: controller.signal }), controller.signal);
+      if (requestId === availabilityRequest.current) setAvailability({ status: "ready", data });
     } catch (e) {
-      if (signal?.aborted) return;
-      setAvailability({ status: "error", data: null, error: errorMessage(e, AVAILABILITY_FAILED) });
+      if (requestId !== availabilityRequest.current) return;
+      const message = timedOut
+        ? AVAILABILITY_TIMEOUT
+        : signal?.aborted
+          ? AVAILABILITY_ABORTED
+          : errorMessage(e, AVAILABILITY_FAILED);
+      setAvailability({
+        status: e?.status === 401 ? "signed_out" : "error",
+        data: null,
+        error: message,
+      });
+    } finally {
+      clearTimeout(timeout);
+      signal?.removeEventListener("abort", abortFromCaller);
     }
   }, []);
 
   const loadHistory = useCallback(async () => {
+    const requestId = ++historyRequest.current;
     setHistory((prev) => ({ ...prev, status: "loading", error: "" }));
     try {
-      const items = await listAnalyses();
-      setHistory({ status: "ready", items, error: "" });
+      const items = await withTimeout(listAnalyses(), AVAILABILITY_TIMEOUT_MS, HISTORY_TIMEOUT);
+      if (requestId === historyRequest.current) setHistory({ status: "ready", items, error: "" });
     } catch (e) {
-      setHistory({ status: "error", items: [], error: errorMessage(e, "We couldn't load your previous reviews.") });
+      if (requestId === historyRequest.current) {
+        const message = e?.message === HISTORY_TIMEOUT ? HISTORY_TIMEOUT : errorMessage(e, "We couldn't load your previous reviews.");
+        setHistory({ status: "error", items: [], error: message });
+      }
     }
   }, []);
 
   useEffect(() => {
-    if (!userId) return undefined;
+    if (!userId) {
+      availabilityRequest.current += 1;
+      historyRequest.current += 1;
+      setAvailability({ status: "loading", data: null });
+      setHistory({ status: "loading", items: [], error: "" });
+      setActiveDataUser(null);
+      return undefined;
+    }
+    setActiveDataUser(userId);
+    setAvailability({ status: "loading", data: null });
+    setHistory({ status: "loading", items: [], error: "" });
     const controller = new AbortController();
     refreshAvailability(controller.signal);
     loadHistory();
     return () => controller.abort();
   }, [userId, refreshAvailability, loadHistory]);
+
+  useEffect(() => {
+    if (!authLoading) {
+      setAuthTimedOut(false);
+      return undefined;
+    }
+    const timeout = setTimeout(() => setAuthTimedOut(true), AVAILABILITY_TIMEOUT_MS);
+    return () => clearTimeout(timeout);
+  }, [authLoading]);
 
   // Cancel an analysis in flight when leaving the page.
   useEffect(() => () => analyzeAbort.current?.abort(), []);
@@ -322,6 +382,8 @@ export default function Resume() {
     }
   }
 
+  const selectedAnalysis = history.items.find((item) => item.id === openId) || null;
+
   function renderStatus() {
     if (availability.status === "loading") {
       return (
@@ -335,14 +397,20 @@ export default function Resume() {
         </section>
       );
     }
-    if (availability.status === "error") {
+    if (availability.status === "error" || availability.status === "signed_out") {
       return (
         <StateCard
-          icon={<FileText size={26} />}
-          title="Couldn't check résumé analysis"
+          icon={availability.status === "signed_out" ? <UserRound size={26} /> : <FileText size={26} />}
+          title={availability.status === "signed_out" ? "Sign in again to continue" : "Couldn't check résumé analysis"}
           action={
-            <button type="button" className="homePrimaryBtn" onClick={() => refreshAvailability()}>
-              Try again
+            <button
+              type="button"
+              className="homePrimaryBtn"
+              onClick={() => availability.status === "signed_out"
+                ? navigate("/login", { state: { from: "/resume" } })
+                : refreshAvailability()}
+            >
+              {availability.status === "signed_out" ? "Sign in again" : "Try again"}
             </button>
           }
         >
@@ -396,7 +464,7 @@ export default function Resume() {
         <p>Reviews are saved to your account, and accounts aren&apos;t available in this version of PathwayAI.</p>
       </StateCard>
     );
-  } else if (authLoading) {
+  } else if (authLoading && !authTimedOut) {
     content = (
       <section className="dashCard resumeUpload" aria-busy="true">
         <p className="dashMuted" role="status">
@@ -404,36 +472,44 @@ export default function Resume() {
         </p>
       </section>
     );
-  } else if (!user) {
+  } else if (!user || authTimedOut) {
     content = (
       <StateCard
         icon={<UserRound size={26} />}
-        title="Sign in to review your résumé"
+        title={authTimedOut ? "Sign-in check is taking too long" : "Sign in to review your résumé"}
         action={
           <button
             type="button"
             className="homePrimaryBtn"
             onClick={() => navigate("/login", { state: { from: "/resume" } })}
           >
-            Sign in
+            {authTimedOut ? "Retry sign in" : "Sign in"}
           </button>
         }
       >
-        <p>Résumé reviews are saved to your account so you can come back to them, and delete them, on any device.</p>
+        <p>{authTimedOut ? "We couldn't confirm your session. Please sign in again to continue." : "Résumé reviews are saved to your account so you can come back to them, and delete them, on any device."}</p>
       </StateCard>
     );
+  } else if (activeDataUser !== userId) {
+    content = <section className="dashCard resumeLoading" aria-busy="true"><span className="resumeSkeleton resumeSkeleton--title" /><span className="resumeSkeleton resumeSkeleton--body" /><span className="resumeSkeleton resumeSkeleton--drop" /><p className="srOnly" role="status">Loading your résumé workspace…</p></section>;
   } else {
     content = (
       <>
-        <div className="resumeTop">
+        <div className="resumeWorkspace">
           {renderStatus()}
-          <PrivacyCard />
+          {availability.data?.available && <PrivacyCard />}
         </div>
+
+        {selectedAnalysis && <section id="resume-current-report" className="resumeCurrentReport" aria-labelledby="resumeCurrentReportTitle">
+          <div className="resumeCurrentReportHead"><div><p>YOUR REVIEW</p><h2 id="resumeCurrentReportTitle">{selectedAnalysis.career}</h2></div>
+            <span>{formatDate(selectedAnalysis.createdAt)}</span></div>
+          <AnalysisView analysis={selectedAnalysis} currentRoadmapId={availability.data?.roadmap_id || null} />
+        </section>}
 
         <section className="resumeHistory" aria-labelledby="resumeHistoryTitle">
           <div className="dashSectionHead">
             <h2 id="resumeHistoryTitle" className="dashSectionTitle">
-              Your reviews
+              Review history
             </h2>
             {history.status === "ready" && (
               <span className="resumeHistoryCount">{history.items.length} saved</span>
@@ -477,7 +553,6 @@ export default function Resume() {
                   onToggle={() => setOpenId(openId === item.id ? null : item.id)}
                   onDelete={() => setConfirmDelete(item)}
                   deleting={deletingId === item.id}
-                  currentRoadmapId={availability.data?.roadmap_id || null}
                 />
               ))}
             </ul>
@@ -491,13 +566,10 @@ export default function Resume() {
     <div className="homePage">
       <AppHeader />
       <main className="dashMain featureMain">
-        <FeatureHeading
-          icon={<FileText size={22} />}
-          eyebrow="CAREER TOOLKIT · 01"
-          title="Resume Analyzer"
-          description="Turn your roadmap into a focused résumé review—with strengths to lead with, gaps to close, and edits you can use."
-          context="Grounded in your roadmap"
-        />
+        <header className="resumePageIntro">
+          <h1>Resume Analyzer</h1>
+          <p>Upload your resume and receive an evidence-based review tailored to your selected career.</p>
+        </header>
         {content}
       </main>
 

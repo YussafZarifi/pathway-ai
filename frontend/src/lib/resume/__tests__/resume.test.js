@@ -61,6 +61,11 @@ describe("normalizeAnalysis", () => {
         summary: "S", matched_skills: ["SQL"], missing_skills: ["Tableau"], strengths: ["Good"],
         gaps: [{ skill: "Tableau", why: "w", how_to_close: "h", related_step: 3 }],
         suggestions: [{ section: "projects", text: "t" }],
+        project_reviews: [{ title: "SQL dashboard", summary: "Improved reporting.", score: 60,
+          technologies: ["SQL"], found_checks: ["project_stack"], missing_checks: ["project_testing"],
+          evidence: { quote: "Built a SQL dashboard.", page: 1 },
+          bullet_rewrite: { before: "Built a dashboard.", after: "Built a SQL dashboard.", page: 1 } }],
+        experience_reviews: [{ title: "Volunteer coordinator", score: 45 }],
         score_report: { overall: 86, categories: [] },
       },
     });
@@ -68,6 +73,12 @@ describe("normalizeAnalysis", () => {
       id: "1", roadmapId: "r", career: "Data Analyst", summary: "S",
       matchedSkills: ["SQL"], gaps: [{ skill: "Tableau", howToClose: "h", relatedStep: 3 }],
       suggestions: [{ section: "projects", text: "t" }],
+      projectReviews: [{ title: "SQL dashboard", summary: "Improved reporting.", score: 60,
+        technologies: ["SQL"], foundChecks: ["project_stack"], missingChecks: ["project_testing"],
+        evidence: { quote: "Built a SQL dashboard.", page: 1 },
+        bulletRewrite: { before: "Built a dashboard.", after: "Built a SQL dashboard.", page: 1 } }],
+      experienceReviews: [{ title: "Volunteer coordinator", summary: "", score: 45,
+        technologies: [], foundChecks: [], missingChecks: [], evidence: null, bulletRewrite: null }],
       scoreReport: { overall: 86, categories: [] },
     });
     expect(item.createdAt).toBe(Date.parse("2026-10-07T12:00:00Z"));
@@ -83,6 +94,8 @@ describe("normalizeAnalysis", () => {
     expect(item.suggestions).toEqual([{ section: "other", text: "t" }]);
     expect(item.roadmapId).toBeNull();
     expect(item.scoreReport).toBeNull();
+    expect(item.projectReviews).toEqual([]);
+    expect(item.experienceReviews).toEqual([]);
   });
 });
 

@@ -119,7 +119,10 @@ def _request_summary(model: str, contents, config) -> str:
             content_parts.append({"kind": type(part).__name__})
 
     schema = getattr(config, "response_schema", None)
-    schema_json = schema.model_json_schema() if hasattr(schema, "model_json_schema") else {}
+    schema_json = (
+        schema.model_json_schema() if hasattr(schema, "model_json_schema")
+        else schema if isinstance(schema, dict) else {}
+    )
     return json.dumps({
         "model": model,
         "contents": content_parts,
@@ -179,6 +182,7 @@ def generate(
     max_output_tokens: int | None = None,
     retry_on_validation_error: bool = True,
     validation_retry_contents: Callable[[AIOutputError], object | None] | None = None,
+    on_response: Callable[[str, int], None] | None = None,
 ) -> dict:
     """Generate and validate one JSON reply. Raises AIServiceError.
 
@@ -243,6 +247,8 @@ def generate(
 
         elapsed = time.perf_counter() - started
         text = resp.text or ""
+        if on_response is not None:
+            on_response(text, attempt)
         meta = _reply_meta(resp)
         try:
             result, diag = parse(text)

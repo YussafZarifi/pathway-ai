@@ -1,5 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { ApiError } from "../../lib/api";
 
@@ -69,7 +69,7 @@ async function chooseAndAnalyze(file = pdf()) {
     return el;
   });
   fireEvent.change(input, { target: { files: [file] } });
-  fireEvent.click(screen.getByRole("button", { name: /Analyze résumé/ }));
+  fireEvent.click(screen.getByRole("button", { name: /Analyze resume/ }));
 }
 
 beforeEach(() => {
@@ -80,6 +80,10 @@ beforeEach(() => {
   auth.loading = false;
   auth.user = null;
   localStorage.clear();
+});
+
+afterEach(() => {
+  vi.useRealTimers();
 });
 
 describe("/resume access", () => {
@@ -124,8 +128,71 @@ describe("/resume availability", () => {
     api.checkAvailability.mockRejectedValueOnce(new ApiError("Please sign in again.", 401));
     renderPage();
     expect(await screen.findByText("Please sign in again.")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Sign in again" })).toBeTruthy();
+  });
+
+  it("times out a stalled availability request and offers retry", async () => {
+    signIn();
+    vi.useFakeTimers();
+    let requestSignal;
+    api.checkAvailability.mockImplementation(({ signal }) => {
+      requestSignal = signal;
+      return new Promise(() => {});
+    });
+    renderPage();
+    await act(async () => { await vi.advanceTimersByTimeAsync(8_000); });
+    expect(screen.getByText("The availability check took too long. Check your connection and try again.")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Try again" })).toBeTruthy();
+    expect(requestSignal.aborted).toBe(true);
+    vi.useRealTimers();
+  });
+
+  it("shows a retry state for a network error", async () => {
+    signIn();
+    api.checkAvailability.mockRejectedValueOnce(new TypeError("Failed to fetch"));
+    renderPage();
+    expect(await screen.findByRole("alert")).toBeTruthy();
+    expect(screen.getByRole("alert").textContent).toContain("We couldn't check whether");
+    api.checkAvailability.mockResolvedValueOnce(AVAILABLE);
     fireEvent.click(screen.getByRole("button", { name: "Try again" }));
-    expect(await screen.findByText(/Reviewed against your current roadmap/)).toBeTruthy();
+    expect(await screen.findByText(/Review tailored to/)).toBeTruthy();
+    expect(api.checkAvailability).toHaveBeenCalledTimes(2);
+  });
+
+  it("treats an expired session as sign-in required", async () => {
+    signIn();
+    api.checkAvailability.mockRejectedValueOnce(new ApiError("Please sign in again.", 401));
+    renderPage();
+    expect(await screen.findByText("Please sign in again.")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Sign in again" })).toBeTruthy();
+    expect(document.querySelector("input[type=file]")).toBeNull();
+  });
+
+  it("recovers after an availability request is aborted during auth change", async () => {
+    signIn();
+    api.checkAvailability.mockImplementationOnce(({ signal }) => new Promise((_resolve, reject) => {
+      signal.addEventListener("abort", () => reject(new DOMException("Aborted", "AbortError")), { once: true });
+    }));
+    const view = renderPage();
+    await waitFor(() => expect(api.checkAvailability).toHaveBeenCalledTimes(1));
+    auth.user = null;
+    view.rerender(<MemoryRouter><Resume /></MemoryRouter>);
+    expect(await screen.findByText(/Sign in to review your/)).toBeTruthy();
+    signIn();
+    api.checkAvailability.mockResolvedValueOnce(AVAILABLE);
+    view.rerender(<MemoryRouter><Resume /></MemoryRouter>);
+    expect(await screen.findByText(/Review tailored to/)).toBeTruthy();
+  });
+
+  it("ends an auth session check that never resolves", async () => {
+    auth.enabled = true;
+    auth.loading = true;
+    vi.useFakeTimers();
+    renderPage();
+    await act(async () => { await vi.advanceTimersByTimeAsync(8_000); });
+    expect(screen.getByText("Sign-in check is taking too long")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Retry sign in" })).toBeTruthy();
+    vi.useRealTimers();
   });
 
   it("available: shows the career and the privacy note", async () => {
@@ -133,8 +200,10 @@ describe("/resume availability", () => {
     renderPage();
     expect(await screen.findByText("Data Analyst")).toBeTruthy();
     expect(screen.getByText(/does not store the original PDF, its full text or its name/)).toBeTruthy();
-    expect(screen.getByText(/Every score point is tied to resume evidence/)).toBeTruthy();
+    fireEvent.click(screen.getByText("Privacy and data use"));
+    expect(screen.getByText(/Scores use verified evidence and your selected career rubric/)).toBeTruthy();
     expect(await screen.findByText(/No reviews yet/)).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Upload resume" })).toBeTruthy();
   });
 });
 
@@ -147,10 +216,35 @@ describe("/resume upload", () => {
     const message = () => document.getElementById("resumeUploadMessage").textContent;
     fireEvent.change(input, { target: { files: [pdf(4096, "notes.txt", "text/plain")] } });
     expect(message()).toContain("Please choose a PDF");
-    expect(screen.getByRole("button", { name: /Analyze résumé/ }).disabled).toBe(true);
+    expect(screen.getByRole("button", { name: /Analyze resume/ }).disabled).toBe(true);
     fireEvent.change(input, { target: { files: [pdf(3 * 1024 * 1024)] } });
     expect(message()).toContain("larger than 2 MB");
     expect(api.analyze).not.toHaveBeenCalled();
+  });
+
+  it("shows the chosen file name and size, supports removal, and gates Analyze", async () => {
+    signIn();
+    renderPage();
+    await screen.findByText("Data Analyst");
+    const analyzeButton = document.querySelector(".resumeSubmit");
+    expect(analyzeButton.disabled).toBe(true);
+    fireEvent.change(document.querySelector("input[type=file]"), { target: { files: [pdf(4096, "jane-doe-cv.pdf")] } });
+    expect(screen.getByText("jane-doe-cv.pdf")).toBeTruthy();
+    expect(screen.getByText(/4 KB/)).toBeTruthy();
+    expect(analyzeButton.disabled).toBe(false);
+    fireEvent.click(screen.getByRole("button", { name: "Remove" }));
+    expect(screen.queryByText("jane-doe-cv.pdf")).toBeNull();
+    expect(analyzeButton.disabled).toBe(true);
+  });
+
+  it("opens the native file picker from the prominent upload button", async () => {
+    signIn();
+    renderPage();
+    await screen.findByText("Data Analyst");
+    const input = document.querySelector("input[type=file]");
+    const click = vi.spyOn(input, "click");
+    fireEvent.click(screen.getByRole("button", { name: "Upload resume" }));
+    expect(click).toHaveBeenCalledTimes(1);
   });
 
   it("uploads, then shows the saved review expanded with a step link", async () => {
@@ -184,16 +278,15 @@ describe("/resume upload", () => {
     expect(await screen.findByText("Solid SQL.")).toBeTruthy();
   });
 
-  it("never shows, stores or logs the file name", async () => {
+  it("shows the selected file name locally but never stores or logs it", async () => {
     signIn();
     api.analyze.mockResolvedValue(ROW);
     const log = vi.spyOn(console, "log");
     const err = vi.spyOn(console, "error");
     const { container } = renderPage();
     await screen.findByText("Data Analyst");
-    await chooseAndAnalyze(pdf(4096, "jane-doe-cv.pdf"));
-    await screen.findByText("Solid SQL.");
-    expect(container.textContent).not.toContain("jane-doe");
+    fireEvent.change(document.querySelector("input[type=file]"), { target: { files: [pdf(4096, "jane-doe-cv.pdf")] } });
+    expect(container.textContent).toContain("jane-doe-cv.pdf");
     expect(JSON.stringify({ ...localStorage })).not.toContain("jane-doe");
     expect(JSON.stringify({ ...sessionStorage })).not.toContain("jane-doe");
     expect([...log.mock.calls, ...err.mock.calls].flat().join(" ")).not.toContain("jane-doe");
@@ -241,6 +334,19 @@ describe("/resume upload", () => {
 });
 
 describe("/resume history", () => {
+  it("times out a stalled history request and offers retry", async () => {
+    signIn();
+    vi.useFakeTimers();
+    api.listAnalyses.mockImplementationOnce(() => new Promise(() => {}));
+    renderPage();
+    await act(async () => { await vi.advanceTimersByTimeAsync(8_000); });
+    expect(screen.getByText("Loading your saved reviews took too long. Check your connection and try again.")).toBeTruthy();
+    api.listAnalyses.mockResolvedValueOnce([]);
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+    await act(async () => { await Promise.resolve(); });
+    expect(screen.getByText("No reviews yet")).toBeTruthy();
+  });
+
   it("shows a load error with retry", async () => {
     signIn();
     api.listAnalyses.mockRejectedValueOnce(new ApiError("We couldn't load your previous reviews. Please try again.", 503));

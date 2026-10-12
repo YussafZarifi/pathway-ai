@@ -110,6 +110,10 @@ DB_POOL_MAX = _int("DB_POOL_MAX", 5)
 # unpaid-tier terms forbid sending personal information. While off,
 # POST /api/resume-analyses returns 503 before reading any upload.
 RESUME_ANALYSIS_ENABLED = _bool("RESUME_ANALYSIS_ENABLED", False)
+# Local-only, one-upload forensic capture for evidence-verifier debugging.
+# Captures résumé text and Gemini output in backend/.resume-debug; never enable
+# this on a deployed service.
+DEBUG_RESUME_VERIFIER = _bool("DEBUG_RESUME_VERIFIER", False)
 # Per signed-in user, plus a global daily cap (each analysis is a Gemini
 # call with a whole PDF).
 RESUME_LIMIT_PER_HOUR = _int("RESUME_LIMIT_PER_HOUR", 3)

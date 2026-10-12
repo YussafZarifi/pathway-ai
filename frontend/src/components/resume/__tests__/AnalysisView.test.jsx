@@ -34,7 +34,7 @@ describe("Resume Analyzer score report", () => {
     expect(screen.getByText("Not scored")).toBeTruthy();
     expect(screen.getByText(/very low confidence/i)).toBeTruthy();
     expect(screen.getByText(/5\/100/)).toBeTruthy();
-    expect(screen.getByText(/not enough readable résumé content/i)).toBeTruthy();
+    expect(screen.getByText(/not enough readable, verifiable resume evidence/i)).toBeTruthy();
     expect(screen.queryByRole("img", { name: /Resume evidence score: 0 out of 100/ })).toBeNull();
   });
 
@@ -42,7 +42,7 @@ describe("Resume Analyzer score report", () => {
     show();
     const details = document.querySelector(".resumeMoreDetails");
     expect(details.open).toBe(false);
-    expect(screen.getByText("Evidence, ATS, and roadmap details")).toBeTruthy();
-    expect(screen.getByText("Not evidenced means the document did not support the skill; it is not a claim that you lack it.")).toBeTruthy();
+    expect(screen.getByText("Scoring, ATS, source evidence, and roadmap details")).toBeTruthy();
+    expect(screen.getByText(/describes the PDF, not your actual ability/)).toBeTruthy();
   });
 });

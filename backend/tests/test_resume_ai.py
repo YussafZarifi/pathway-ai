@@ -14,7 +14,7 @@ from conftest import SECRET
 from prompts import RESUME_SYSTEM_INSTRUCTION, build_resume_evidence_prompt
 from resume_ai import ResumeInputError, analyze_resume, check_pdf, extract_resume_pages, parse_resume_reply
 from resume_scoring import rubric_for
-from resume_fixtures import CAREER, RESUME_PAGES, SKILLS, STEPS, make_pdf, reply
+from resume_fixtures import CAREER, RESUME_PAGES, SKILLS, STEPS, make_pdf, reply, sample_work_reviews
 
 
 def rubric():
@@ -52,6 +52,119 @@ def test_success_returns_legacy_fields_plus_server_computed_score_report(fake_ge
     assert result["career"] == CAREER and result["prompt_version"] == "r2"
     assert result["model"] == resume_ai.config.GEMINI_MODEL
     assert models.calls == 1
+
+
+def test_project_and_experience_scores_are_computed_from_verified_checks():
+    projects, experience = sample_work_reviews()
+    data = reply(project_reviews=projects, experience_reviews=experience)
+
+    parsed, diagnostics = parse_resume_reply(
+        json.dumps(data), rubric(), RESUME_PAGES, list(range(1, len(STEPS) + 1))
+    )
+
+    assert parsed["project_reviews_by_item"][0]["score"] == 60
+    assert parsed["experience_reviews_by_item"][0]["score"] == 45
+    assert parsed["project_reviews_by_item"][0]["technologies"] == ["SQL"]
+    assert parsed["project_reviews_by_item"][0]["found_checks"] == [
+        "project_purpose", "project_stack", "project_complexity", "project_impact", "project_career_fit",
+    ]
+    assert parsed["project_reviews_by_item"][0]["bullet_rewrite"]["after"].endswith("20%.")
+    assert diagnostics["items"] > len(data["evaluations"])
+    assert "score" not in data["project_reviews"][0]
+
+
+def test_work_sample_technology_tags_keep_only_terms_in_that_items_verified_evidence():
+    projects, experience = sample_work_reviews()
+    projects[0]["technologies"] = ["SQL", "Python", "Kotlin"]
+    experience[0]["technologies"] = ["Docker"]
+
+    parsed, _ = parse_resume_reply(
+        json.dumps(reply(project_reviews=projects, experience_reviews=experience)),
+        rubric(), RESUME_PAGES, list(range(1, len(STEPS) + 1)),
+    )
+
+    assert parsed["project_reviews_by_item"][0]["technologies"] == ["SQL"]
+    assert parsed["experience_reviews_by_item"][0]["technologies"] == []
+
+
+def test_recommendations_keep_only_known_missing_evaluation_references():
+    data = reply(recommendations=[
+        {"title": "Add a demo", "action": "Deploy a truthful project demo.",
+         "criterion_ids": ["project_demo", "relevant_project", "experience_career_fit"]},
+        {"title": "Repeat a strength", "action": "Add another example.",
+         "criterion_ids": ["relevant_project"]},
+    ])
+
+    parsed, _ = parse_resume_reply(json.dumps(data), rubric(), RESUME_PAGES, len(STEPS))
+
+    assert [item["criterion_ids"] for item in parsed["recommendations"]] == [["project_demo"]]
+
+
+def test_storage_compaction_keeps_all_score_groups_and_verified_short_citations():
+    quote = "Led project delivery using SQL and Python to improve reporting accuracy by 20%."
+    pages = [quote]
+    criteria = [{
+        "id": f"criterion_{index}", "label": f"Criterion {index}", "category": "projects",
+        "found": True, "max_points": 3.0, "points": 3.0,
+        "note": "Verified evidence supports this finding. " * 2,
+        "evidence": [{"source": "resume_text", "page": 1, "quote": quote}],
+    } for index in range(32)]
+    card = {
+        "title": "Project review", "summary": "Supported project details. " * 5, "score": 80,
+        "technologies": ["SQL", "Python"], "found_checks": ["project_stack"],
+        "missing_checks": ["project_testing"], "evidence": {"quote": quote, "page": 1},
+        "bullet_rewrite": {"before": quote, "after": "Led project delivery with SQL and Python; add verified results.", "page": 1},
+    }
+    analysis = {
+        "summary": "Evidence-led report. " * 15,
+        "matched_skills": ["SQL", "Python"], "missing_skills": ["Docker"],
+        "strengths": ["Strong work. " * 10], "gaps": [{"skill": "Docker", "why": "Not present. " * 8,
+            "how_to_close": "Add a truthful example. " * 8, "related_step": 1}],
+        "suggestions": [{"section": "projects", "text": "Improve project detail. " * 8}],
+        "project_reviews": [dict(card, title=f"Project {index}") for index in range(3)],
+        "experience_reviews": [dict(card, title=f"Role {index}") for index in range(3)],
+        "score_report": {
+            "overall": 82, "ats": {"score": 78}, "readiness": {"internship": 82},
+            "rubric": {"family": "software_engineering", "label": "Software engineering"},
+            "categories": [{"id": "projects", "label": "Projects", "weight": 20, "earned": 16,
+                "score": 80, "criteria": criteria}],
+            "recommendations": [{"title": "Add tests", "action": "Show verified testing.",
+                "criterion_ids": ["criterion_1"], "potential_points": 3}],
+            "extracted_chars": 3000, "extracted_pages": 2, "extracted_words": 400,
+        },
+    }
+    before = len(json.dumps(analysis, ensure_ascii=False).encode("utf-8"))
+
+    compact = resume_ai._compact_analysis_for_storage(analysis, pages, 16_000)
+
+    assert before > 16_000
+    assert len(json.dumps(compact, ensure_ascii=False).encode("utf-8")) <= 16_000
+    assert compact["score_report"]["overall"] == 82
+    assert compact["score_report"]["categories"][0]["score"] == 80
+    assert len(compact["project_reviews"]) == len(compact["experience_reviews"]) == 3
+    assert all(resume_ai._quote_matches_source(item["evidence"]["quote"], pages[0])
+               for item in compact["project_reviews"] + compact["experience_reviews"])
+    assert all(resume_ai._quote_matches_source(evidence["quote"], pages[0])
+               for item in compact["score_report"]["categories"][0]["criteria"]
+               for evidence in item["evidence"])
+
+
+def test_project_review_rejects_an_unverifiable_citation():
+    projects, experience = sample_work_reviews()
+    projects[0]["checks"][0]["evidence"][0]["quote"] = "Built a different application."
+
+    with pytest.raises(AIOutputError, match="quote:not_in_source"):
+        parse_resume_reply(json.dumps(reply(project_reviews=projects, experience_reviews=experience)),
+                           rubric(), RESUME_PAGES, STEPS)
+
+
+def test_bullet_rewrite_cannot_invent_a_metric():
+    projects, experience = sample_work_reviews()
+    projects[0]["bullet_rewrite"]["suggestion"] += " Reduced costs by 40%."
+
+    with pytest.raises(AIOutputError, match="unsupported_metric"):
+        parse_resume_reply(json.dumps(reply(project_reviews=projects, experience_reviews=experience)),
+                           rubric(), RESUME_PAGES, STEPS)
 
 
 def test_debug_capture_saves_exact_local_artifacts_and_claims_only_once(tmp_path, monkeypatch):
@@ -92,6 +205,10 @@ def test_gemini_gets_pdf_target_checklist_and_page_text_but_never_a_score(fake_g
     schema = models.configs[0].response_schema
     positions = schema["$defs"]["SkillRoadmapSchema"]["properties"]["step_positions"]["items"]
     assert positions["minimum"] == 1 and positions["maximum"] == len(STEPS)
+    allowed_recommendation_ids = schema["$defs"]["RecommendationSchema"]["properties"]["criterion_ids"]["items"]["enum"]
+    assert "project_demo" in allowed_recommendation_ids
+    assert "contact_information" not in allowed_recommendation_ids
+    assert "experience_career_fit" not in allowed_recommendation_ids
     assert models.configs[0].automatic_function_calling.disable is True
 
 
@@ -108,11 +225,16 @@ def test_gemini_resume_schema_uses_only_the_minimal_provider_shape():
             for item in value:
                 walk(item)
 
-    walk(resume_ai._gemini_response_schema(len(STEPS)))
-    positions = resume_ai._gemini_response_schema(len(STEPS))["$defs"]["SkillRoadmapSchema"]["properties"]["step_positions"]["items"]
+    schema = resume_ai._gemini_response_schema(len(STEPS), ["skill_1", "project_demo"])
+    walk(schema)
+    positions = schema["$defs"]["SkillRoadmapSchema"]["properties"]["step_positions"]["items"]
     assert positions["minimum"] == 1 and positions["maximum"] == len(STEPS)
-    evidence_schema = resume_ai._gemini_response_schema(len(STEPS))["$defs"]["EvaluationSchema"]["properties"]["evidence"]
+    evidence_schema = schema["$defs"]["EvaluationSchema"]["properties"]["evidence"]
     assert evidence_schema["maxItems"] == 4
+    work_evidence_schema = schema["$defs"]["ReviewCheckSchema"]["properties"]["evidence"]
+    assert work_evidence_schema["maxItems"] == 1
+    recommendation_ids = schema["$defs"]["RecommendationSchema"]["properties"]["criterion_ids"]["items"]["enum"]
+    assert recommendation_ids == ["skill_1", "project_demo"]
 
 
 def test_gemini_rejection_log_has_complete_safe_error_and_request_shape(fake_gemini, caplog):
@@ -153,6 +275,7 @@ def test_resume_prompt_states_every_free_text_limit():
     assert "single uninterrupted, contiguous substring" in prompt
     assert "1–4 independently verifiable evidence excerpts" in prompt
     assert "put each span in a separate evidence entry" in prompt
+    assert "Each project/job check may contain at most one evidence entry" in prompt
     assert "Allowed roadmap step position values (use exactly as listed; do not renumber): [1, 2, 3]" in prompt
     assert "may start at 0" in RESUME_SYSTEM_INSTRUCTION
 
@@ -178,19 +301,63 @@ def test_invalid_resume_schema_reply_uses_one_corrective_regeneration(fake_gemin
     assert "Corrective retry" in models.prompts[1][1]
 
 
-def test_noncontiguous_heading_quote_gets_a_specific_corrective_prompt(fake_gemini):
+def test_unverifiable_section_quote_gets_specific_corrective_prompt(fake_gemini):
     bad = reply()
     item = next(e for e in bad["evaluations"] if e["criterion_id"] == "standard_sections")
-    item["evidence"][0]["quote"] = "SKILLS\nEXPERIENCE\nPROJECTS\nEDUCATION"
+    item["evidence"][0]["quote"] = "Skills\nInvented achievement\nProjects"
     models = fake_gemini(bad, reply())
 
     result = run()
 
     assert result["analysis"]["score_report"]["overall"] >= 0
+    assert models.calls == 2
     retry_prompt = models.prompts[1][1]
     assert "quote:not_in_source" in retry_prompt
     assert "one uninterrupted, contiguous" in retry_prompt
-    assert "Allowed roadmap step position values (use exactly as listed; do not renumber): [1, 2, 3]" in retry_prompt
+
+
+@pytest.mark.parametrize("criterion_id", ["standard_sections", "standard_headings", "section_order"])
+def test_noncontiguous_section_headings_split_into_individually_verified_quotes(criterion_id):
+    source = RESUME_PAGES[0]
+    pages = extract_resume_pages(make_pdf(pages=[source]))
+    data = reply()
+    item = next(e for e in data["evaluations"] if e["criterion_id"] == criterion_id)
+    item["found"] = True
+    item["evidence"] = [{
+        "source": "resume_text", "page": 1,
+        "quote": "Skills\nProjects\nExperience\nEducation",
+    }]
+
+    parsed, _ = parse_resume_reply(json.dumps(data), rubric(), pages, len(STEPS))
+
+    evidence = parsed["evaluations_by_id"][criterion_id]["evidence"]
+    assert [item["quote"] for item in evidence] == ["Skills", "Projects", "Experience", "Education"]
+    assert all(resume_ai._quote_matches_source(item["quote"], pages[0]) for item in evidence)
+
+
+def test_section_order_heading_split_preserves_the_document_order():
+    data = reply()
+    item = next(e for e in data["evaluations"] if e["criterion_id"] == "section_order")
+    item["found"] = True
+    item["evidence"] = [{
+        "source": "resume_text", "page": 1,
+        "quote": "Education\nProjects\nExperience\nSkills",
+    }]
+
+    with pytest.raises(AIOutputError, match="quote:not_in_source"):
+        parse(data)
+
+
+def test_heading_split_does_not_accept_invented_text_between_real_headings():
+    data = reply()
+    item = next(e for e in data["evaluations"] if e["criterion_id"] == "standard_sections")
+    item["evidence"] = [{
+        "source": "resume_text", "page": 1,
+        "quote": "Skills\nInvented achievement\nProjects",
+    }]
+
+    with pytest.raises(AIOutputError, match="quote:not_in_source"):
+        parse(data)
 
 
 def test_out_of_range_skill_position_gets_exact_saved_position_correction(fake_gemini):
@@ -431,15 +598,15 @@ def test_pdf_size_bounds_and_signature_are_checked_before_parsing():
         assert error.value.kind == kind
 
 
-def test_recommendations_must_point_only_to_missing_rubric_criteria():
+def test_recommendations_with_only_invalid_rubric_references_are_omitted():
     data = reply()
     data["recommendations"][0]["criterion_ids"] = ["project_outcome"]
-    with pytest.raises(AIOutputError, match="not_missing"):
-        parse(data)
+    parsed, _ = parse(data)
+    assert all("project_outcome" not in item["criterion_ids"] for item in parsed["recommendations"])
     data = reply()
     data["recommendations"][0]["criterion_ids"] = ["not_a_criterion"]
-    with pytest.raises(AIOutputError, match="unknown"):
-        parse(data)
+    parsed, _ = parse(data)
+    assert all("not_a_criterion" not in item["criterion_ids"] for item in parsed["recommendations"])
 
 
 def test_roadmap_skill_links_must_use_real_skill_ids_and_steps():

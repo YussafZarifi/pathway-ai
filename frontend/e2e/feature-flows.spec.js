@@ -68,9 +68,9 @@ test("Resume upload interaction and Coach navigation survive reload and browser 
   await signedInPage(page);
 
   await page.goto("/resume");
-  await expect(page.getByRole("heading", { name: /Build a stronger/ })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Upload Resume (PDF)" })).toBeVisible();
-  await expect(page.getByRole("button", { name: /Analyze résumé/ })).toBeDisabled();
+  await expect(page.getByRole("heading", { name: "Resume Analyzer", level: 1 })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Upload resume" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Analyze resume" })).toBeDisabled();
   await page.waitForTimeout(400);
   await page.screenshot({ path: ".resume-playwright-artifacts/resume-upload-before-selection.png", fullPage: true });
   await page.setViewportSize({ width: 390, height: 844 });
@@ -87,9 +87,9 @@ test("Resume upload interaction and Coach navigation survive reload and browser 
   await expect(page.getByText("synthetic-resume.pdf")).toBeVisible();
   await expect(page.getByText(/3 KB/)).toBeVisible();
   await page.screenshot({ path: ".resume-playwright-artifacts/resume-selected-file.png", fullPage: true });
-  await expect(page.getByRole("button", { name: /Analyze résumé/ })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "Analyze resume" })).toBeEnabled();
   await page.getByRole("button", { name: "Remove" }).click();
-  await expect(page.getByRole("button", { name: /Analyze résumé/ })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Analyze resume" })).toBeDisabled();
   await page.locator("input[type=file]").setInputFiles({
     name: "synthetic-resume.pdf",
     mimeType: "application/pdf",
@@ -110,6 +110,26 @@ test("Resume upload interaction and Coach navigation survive reload and browser 
         analysis: {
           summary: "Synthetic fixture report.", matched_skills: ["Python"], missing_skills: ["Testing"],
           strengths: [], gaps: [], suggestions: [],
+          project_reviews: [{
+            title: "Inventory dashboard",
+            summary: "Tracked stock changes across two warehouse locations.",
+            score: 62,
+            technologies: ["React", "REST APIs"],
+            found_checks: ["project_purpose", "project_stack", "project_apis"],
+            missing_checks: ["project_testing", "project_deployment", "project_impact"],
+            evidence: { quote: "Built an inventory dashboard using React and REST APIs.", page: 1 },
+            bullet_rewrite: { before: "Built an inventory dashboard.", after: "Built a React inventory dashboard using REST APIs; add a verified outcome.", page: 1 },
+          }],
+          experience_reviews: [{
+            title: "Software developer intern",
+            summary: "Supported feature work and API integration.",
+            score: 55,
+            technologies: [],
+            found_checks: ["experience_actions", "experience_relevance"],
+            missing_checks: ["experience_results", "experience_ownership"],
+            evidence: { quote: "Supported feature development and integrated REST APIs.", page: 1 },
+            bullet_rewrite: null,
+          }],
           score_report: {
             status: "scored",
             overall: 72,
@@ -134,11 +154,24 @@ test("Resume upload interaction and Coach navigation survive reload and browser 
       }),
     });
   });
-  await page.getByRole("button", { name: /Analyze résumé/ }).click();
+  await page.getByRole("button", { name: "Analyze resume" }).click();
   await expect(page.getByText("Synthetic fixture report.")).toBeVisible();
-  await expect(page.getByText("Resume evidence score")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Top improvements" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Projects" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Experience" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Inventory dashboard" })).toBeVisible();
   await page.screenshot({ path: ".resume-playwright-artifacts/resume-analysis-result.png", fullPage: true });
-  await expect(page.getByRole("button", { name: /Upload Resume \(PDF\)/ })).toBeVisible();
+  for (const viewport of [
+    { name: "desktop", width: 1440, height: 1000 },
+    { name: "tablet", width: 768, height: 1024 },
+    { name: "mobile", width: 390, height: 844 },
+  ]) {
+    await page.setViewportSize({ width: viewport.width, height: viewport.height });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), `${viewport.name} horizontal overflow`).toBe(true);
+    await page.screenshot({ path: `.resume-playwright-artifacts/resume-report-${viewport.name}.png`, fullPage: true });
+  }
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await expect(page.getByRole("button", { name: "Upload resume" })).toBeVisible();
 
   await page.getByRole("link", { name: /Coach/ }).click();
   await expect(page).toHaveURL(/\/coach$/);
@@ -164,7 +197,7 @@ test("sparse PDF upload renders a no-score warning instead of a zero-point gauge
   page.on("pageerror", (error) => browserErrors.push(error.message));
   await signedInPage(page);
   await page.goto("/resume");
-  await expect(page.getByRole("heading", { name: /Build a stronger/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Resume Analyzer", level: 1 })).toBeVisible();
   await page.locator("input[type=file]").setInputFiles({
     name: "synthetic-brief-profile.pdf",
     mimeType: "application/pdf",
@@ -193,7 +226,7 @@ test("sparse PDF upload renders a no-score warning instead of a zero-point gauge
       },
     }),
   }));
-  await page.getByRole("button", { name: /Analyze/ }).click();
+  await page.getByRole("button", { name: "Analyze resume" }).click();
   await expect(page.getByRole("heading", { name: "Not enough content to score reliably" })).toBeVisible();
   await expect(page.getByText("Not scored")).toBeVisible();
   await expect(page.getByText("very low confidence")).toBeVisible();

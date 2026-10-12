@@ -72,16 +72,41 @@ describe("AnalysisView", () => {
     const { container } = render(
       <MemoryRouter><AnalysisView analysis={{ ...ANALYSIS, scoreReport: SCORE_REPORT }} currentRoadmapId="r1" /></MemoryRouter>
     );
-    expect(screen.getByRole("img", { name: "Resume evidence score: 76 out of 100" })).toBeTruthy();
-    screen.getByText("Evidence, ATS, and roadmap details").click();
-    expect(screen.getByRole("heading", { name: "Skill match" })).toBeTruthy();
-    expect(screen.getAllByText("Evidence found").length).toBe(2);
-    expect(screen.getAllByText("Not evidenced yet").length).toBe(2);
+    expect(screen.getByText("76")).toBeTruthy();
+    expect(screen.getByText("Good foundation")).toBeTruthy();
+    screen.getByText("Scoring, ATS, source evidence, and roadmap details").click();
+    expect(screen.getByRole("heading", { name: "Skills in your roadmap" })).toBeTruthy();
+    expect(screen.getByText("Demonstrated")).toBeTruthy();
+    expect(screen.getByText("Not evidenced yet")).toBeTruthy();
+    screen.getAllByText("Relevant technical skills")[0].click();
     expect(screen.getByText(/Used SQL for reporting\./)).toBeTruthy();
-    expect(screen.getAllByText("No Tableau evidence was found.").length).toBe(2);
+    expect(screen.getByText("No Tableau evidence was found.")).toBeTruthy();
     expect(screen.getByText("Tableau dashboards")).toBeTruthy();
     expect(screen.getByText("Add a Tableau project")).toBeTruthy();
     expect(screen.getByText(/not a measure of your ability or hiring chances/i)).toBeTruthy();
     expect(container.querySelector('svg[aria-label^="Category evidence profile"]')).toBeTruthy();
+  });
+
+  it("renders separately verified project and experience cards without invented scores", () => {
+    view({ currentRoadmapId: "r1", analysis: {
+      ...ANALYSIS,
+      scoreReport: SCORE_REPORT,
+      projectReviews: [{ title: "Inventory system", summary: "Tracked stock across locations.", score: 62,
+        technologies: ["Spring Boot", "React"], foundChecks: ["project_purpose", "project_stack"],
+        missingChecks: ["project_testing", "project_deployment"],
+        evidence: { quote: "Built an inventory system with Spring Boot and React.", page: 1 },
+        bulletRewrite: { before: "Built an inventory system.", after: "Built a Spring Boot inventory system; add a measured outcome.", page: 1 } }],
+      experienceReviews: [{ title: "Software developer intern", summary: "Built API integrations.", score: 45,
+        technologies: [], foundChecks: ["experience_actions"], missingChecks: ["experience_results"],
+        evidence: null, bulletRewrite: null }],
+    } });
+    expect(screen.getByRole("heading", { name: "Projects" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Experience" })).toBeTruthy();
+    expect(screen.getByText("Inventory system")).toBeTruthy();
+    expect(screen.getByText("Software developer intern")).toBeTruthy();
+    expect(screen.getByText("Spring Boot")).toBeTruthy();
+    expect(screen.getByText("Testing is documented")).toBeTruthy();
+    expect(screen.getByText("Built a Spring Boot inventory system; add a measured outcome.")).toBeTruthy();
+    expect(screen.getByText("62")).toBeTruthy();
   });
 });

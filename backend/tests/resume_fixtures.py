@@ -117,6 +117,64 @@ def reply(career=CAREER, skills=SKILLS, steps=STEPS, **overrides):
             for category in rubric["categories"] if category["id"] == "skills"
             for item in category["criteria"]
         ],
+        "project_reviews": [],
+        "experience_reviews": [],
     }
     data.update(overrides)
     return data
+
+
+def sample_work_reviews():
+    """Verified per-item reviews for the source quotes in RESUME_PAGES."""
+    project_quote = "Built a SQL dashboard that improved weekly reporting accuracy by 20%."
+    project_checks = {
+        "project_purpose": (True, "Builds a dashboard for weekly reporting."),
+        "project_stack": (True, "SQL is named in the project bullet."),
+        "project_complexity": (True, "It targets reporting accuracy."),
+        "project_architecture": (False, "Describe how the dashboard is structured."),
+        "project_apis": (False, "No API integration is described."),
+        "project_deployment": (False, "State whether the dashboard is deployed."),
+        "project_testing": (False, "Add validation or testing details."),
+        "project_impact": (True, "The bullet reports a 20% accuracy improvement."),
+        "project_career_fit": (True, "Reporting accuracy is relevant to data analysis."),
+    }
+    project = {
+        "title": "SQL reporting dashboard",
+        "summary": "A dashboard built to improve weekly reporting accuracy.",
+        "technologies": ["SQL"],
+        "checks": [
+            {"criterion_id": key, "found": found,
+             "evidence": ([{"source": "resume_text", "page": 1, "quote": project_quote}] if found else []),
+             "note": note}
+            for key, (found, note) in project_checks.items()
+        ],
+        "bullet_rewrite": {
+            "source": {"source": "resume_text", "page": 1, "quote": project_quote},
+            "suggestion": "Built a SQL dashboard, improving weekly reporting accuracy by 20%.",
+        },
+    }
+    experience_quote = "Coordinated a five-person volunteer team for a community event."
+    experience_checks = {
+        "experience_relevance": (False, "Connect transferable coordination to technical work."),
+        "experience_ownership": (True, "The bullet shows direct coordination responsibility."),
+        "experience_actions": (True, "Coordinated is a specific action verb."),
+        "experience_results": (False, "Add a verifiable outcome where possible."),
+        "experience_transferable": (True, "Team coordination is a transferable skill."),
+        "experience_career_fit": (False, "Explain the connection to the target role."),
+    }
+    experience = {
+        "title": "Volunteer team coordinator",
+        "summary": "Coordinated a team for a community event.",
+        "technologies": [],
+        "checks": [
+            {"criterion_id": key, "found": found,
+             "evidence": ([{"source": "resume_text", "page": 1, "quote": experience_quote}] if found else []),
+             "note": note}
+            for key, (found, note) in experience_checks.items()
+        ],
+        "bullet_rewrite": {
+            "source": {"source": "resume_text", "page": 1, "quote": experience_quote},
+            "suggestion": "Coordinated a five-person volunteer team for a community event; add a measured outcome if available.",
+        },
+    }
+    return [project], [experience]

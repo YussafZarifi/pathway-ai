@@ -62,6 +62,27 @@ function list(value) {
   return Array.isArray(value) ? value.filter((v) => typeof v === "string" && v) : [];
 }
 
+function normalizeWorkSamples(value) {
+  return (Array.isArray(value) ? value : [])
+    .filter((item) => item && typeof item.title === "string")
+    .map((item) => ({
+      title: item.title,
+      summary: typeof item.summary === "string" ? item.summary : "",
+      score: Number.isFinite(item.score) ? Math.max(0, Math.min(100, item.score)) : null,
+      technologies: list(item.technologies),
+      foundChecks: list(item.found_checks),
+      missingChecks: list(item.missing_checks),
+      evidence: item.evidence && typeof item.evidence.quote === "string"
+        ? { quote: item.evidence.quote, page: Number.isInteger(item.evidence.page) ? item.evidence.page : null }
+        : null,
+      bulletRewrite: item.bullet_rewrite && typeof item.bullet_rewrite === "object"
+        && typeof item.bullet_rewrite.before === "string" && typeof item.bullet_rewrite.after === "string"
+        ? { before: item.bullet_rewrite.before, after: item.bullet_rewrite.after,
+            page: Number.isInteger(item.bullet_rewrite.page) ? item.bullet_rewrite.page : null }
+        : null,
+    }));
+}
+
 /** A saved row in the shape the page renders, tolerating missing fields. */
 export function normalizeAnalysis(row) {
   const a = row?.analysis && typeof row.analysis === "object" ? row.analysis : {};
@@ -85,6 +106,8 @@ export function normalizeAnalysis(row) {
     suggestions: (Array.isArray(a.suggestions) ? a.suggestions : [])
       .filter((s) => s && typeof s.text === "string")
       .map((s) => ({ section: SECTION_LABELS[s.section] ? s.section : "other", text: s.text })),
+    projectReviews: normalizeWorkSamples(a.project_reviews),
+    experienceReviews: normalizeWorkSamples(a.experience_reviews),
     scoreReport: a.score_report && typeof a.score_report === "object"
       && Array.isArray(a.score_report.categories)
       ? a.score_report

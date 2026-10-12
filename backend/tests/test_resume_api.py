@@ -26,7 +26,7 @@ from conftest import SECRET
 from generation import AI_BUSY, AI_QUOTA, AI_UNAVAILABLE
 from repositories.resume_analyses import InMemoryResumeAnalysisRepository
 from routers import resume_analyses as resume_router
-from resume_fixtures import CAREER, RESUME_PAGES, SKILLS, STEPS, make_pdf, reply
+from resume_fixtures import CAREER, RESUME_PAGES, SKILLS, STEPS, make_pdf, reply, sample_work_reviews
 
 USER = AuthUser(id="00000000-0000-4000-8000-00000000000a", email="a@example.com")
 OTHER = AuthUser(id="00000000-0000-4000-8000-00000000000b", email="b@example.com")
@@ -42,7 +42,8 @@ TARGET = {
         {"position": 3, "title": STEPS[2], "description": "Build dashboards.", "tasks": [], "completed": False},
     ],
 }
-ANALYSIS_FIELDS = {"summary", "matched_skills", "missing_skills", "strengths", "gaps", "suggestions", "score_report"}
+ANALYSIS_FIELDS = {"summary", "matched_skills", "missing_skills", "strengths", "gaps", "suggestions",
+                   "project_reviews", "experience_reviews", "score_report"}
 URL = "/api/resume-analyses"
 FILENAME = f"jane-doe-{SECRET}.pdf"
 PDF_SECRET = b"RESUME-CONTENT-private-fixture-marker"
@@ -143,6 +144,52 @@ def test_analysis_is_saved_and_returned(client, repo, fake_gemini):
     assert pdf_part.inline_data.data == make_pdf()  # the upload, unchanged, sent inline
     assert "Data Analyst" in text and "Dashboards with Tableau" in text
     assert "SQL" in text and "Tableau" in text
+
+
+def test_verified_project_and_experience_reviews_are_saved(client, repo, fake_gemini):
+    projects, experience = sample_work_reviews()
+    fake_gemini(reply(project_reviews=projects, experience_reviews=experience))
+
+    response = post(client)
+
+    assert response.status_code == 201
+    analysis = response.json()["analysis"]
+    assert analysis["project_reviews"][0]["score"] == 60
+    assert analysis["project_reviews"][0]["technologies"] == ["SQL"]
+    assert analysis["experience_reviews"][0]["score"] == 45
+    assert repo.analyses[response.json()["id"]]["analysis"] == analysis
+
+
+def test_stale_debug_capture_claim_never_blocks_a_valid_upload(
+    client, repo, monkeypatch, fake_gemini, tmp_path
+):
+    """Optional local diagnostics must not turn a valid upload into a 500."""
+    import os
+
+    monkeypatch.setattr(config, "DEBUG_RESUME_VERIFIER", True)
+    monkeypatch.setattr(resume_ai, "_DEBUG_CAPTURE_ROOT", tmp_path / ".resume-debug")
+    capture_root = resume_ai._DEBUG_CAPTURE_ROOT
+    capture_root.mkdir(parents=True)
+    (capture_root / f".capture-claimed-{os.getpid()}").write_text("previous capture")
+    models = fake_gemini(reply())
+
+    response = post(client)
+
+    assert response.status_code == 201
+    assert len(repo.analyses) == 1
+    assert models.calls == 1
+
+
+def test_unknown_pdf_classification_returns_a_friendly_error_not_a_500(client, monkeypatch):
+    def unexpected_classification(*_args, **_kwargs):
+        raise resume_ai.ResumeInputError("future_unmapped_kind")
+
+    monkeypatch.setattr(resume_ai, "analyze_resume", unexpected_classification)
+
+    response = post(client)
+
+    assert response.status_code == 502
+    assert response.json()["detail"] == resume_router.ANALYSIS_FAILED
 
 
 def test_each_user_gets_their_own_target_and_rows(client, repo, user_box, fake_gemini):

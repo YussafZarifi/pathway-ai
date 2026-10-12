@@ -17,6 +17,13 @@ dist/
 dist-ssr/
 .vite/
 *.local
+backend/.resume-debug/
+frontend/test-results/
+frontend/playwright-report/
+frontend/playwright-artifacts/
+frontend/.resume-playwright-artifacts/
+frontend/.resume-playwright-output/
+.playwright-cli/
 
 # Logs
 *.log

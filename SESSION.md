@@ -4,18 +4,42 @@
 
 ---
 
-## Current session — 2026-10-09 · M3-X evidence-based Resume Analyzer
+## Current session - 2026-10-11 - Resume Analyzer end-to-end reliability
 
 ### Summary
-- Replaced invented-score expectations with eight explicit career-family rubrics. Gemini now returns only binary findings, page-cited excerpts, notes, roadmap links and recommendations; the backend verifies every positive excerpt against extracted PDF text and calculates all weighted points, ATS/readiness coverage and missing-criterion point gains.
-- Added bounded in-memory PDF text extraction with pypdf. The original PDF and full text remain transient; the existing JSONB analysis stores the structured report and short verified excerpts. The API response is additive; old history without score_report still renders.
-- Redesigned the report as a responsive evidence dashboard with score gauge, radar, rubric/category evidence, ATS/readiness coverage, roadmap progress, strengths, gaps and ranked improvements. Updated privacy copy and ADR-024 plus API/AI/frontend/testing docs.
-- Backend: 536 passed. Frontend: 152 passed. Lint passed. Production build passed with the existing large-chunk warning. No dependency audit run. No push or deployment.
+- Reproduced the production failure through a signed-in browser upload using a wholly fictional, local-only PDF (`backend/.resume-debug/fictional-riley-chen-resume.pdf`). Gemini returned HTTP 200; strict reply validation then rejected several model-output contract mismatches, which the API surfaced as 502 before saving anything.
+- Root causes: the prompt allowed multiple spans for work checks while the strict model allowed one; Gemini stitched separate real section headings into one non-contiguous quote; technologies listed for a project/job could be real but absent from the single stack quote; recommendation references included work-check IDs or criteria already found. The strict verifier was correctly refusing the latter unsafe evidence/reference shapes, but the request contract and safe output handling were inconsistent.
+- Fixed without disabling evidence verification: encode the one-citation work-check limit in Gemini's supported `maxItems` schema and prompt; enumerate recommendation IDs from the current career rubric; retain only known, missing-evaluation links and omit recommendations with no valid links; keep technology tags only when present in that item's own independently verified citations; split a multi-line section-heading quote only when each line is an allowlisted heading that occurs verbatim as an extracted page line (and preserve order for `section_order`). Non-heading paraphrases and invented lines continue to fail closed.
+- Real browser verification: the visible signed-in Playwright browser uploaded the synthetic PDF through `/resume` using the normal picker. Gemini logged HTTP 200; FastAPI returned 201 after DB save. The page rendered overall 60/100, medium confidence (65/100), two project reviews and one experience review; optional details rendered roadmap alignment and readiness coverage (internship 58%, junior 63%, mid-level 55%; ATS-optimization rubric category 50%). After reload, history showed 3 saved analyses and the new report reopened from Supabase. Final tab console had no errors; backend had no exception.
+- Final checks: backend 584 passed; frontend 171 passed; Playwright regression 5 passed; lint passed; production build passed (existing large-chunk warning). The synthetic PDF and DEBUG verifier captures are under ignored `backend/.resume-debug/`; no actual résumé was used and no PDF, raw response, or extracted text is tracked.
+- No push or deployment. Local commit follows the user's instruction after final checks.
 
-### Remaining work and next task
-- Commit this completed M3-X work locally, then continue with owner review and owner-side launch actions. Push or deploy only with explicit approval.
+### Remaining work
+- None for this reliability pass. The user's own résumé was not used; this pass proves the complete authenticated upload path with a fictional PDF.
 
+### 2026-10-09 - Resume upload and initialization hardening
+
+### Summary
+- Restored a visible, keyboard-accessible “Upload Resume (PDF)” button alongside drag-and-drop. Selection shows the local filename and size, supports removal, and keeps Analyze disabled until the PDF passes existing type and size checks. The filename stays out of API requests, browser storage, and logs.
+- Bounded the shared initial Supabase session check, Resume availability/history, and Coach availability/thread/conversation loading. Timeouts, network/availability errors, aborted or stale requests, and expired sessions now leave loading and offer retry or sign-in. Workspace state resets across sign-out/sign-in and account changes.
+- Added stable loading skeletons and a responsive upload action. Playwright uses a synthetic session, mocked local APIs, and a synthetic PDF; it verifies upload, report rendering, refresh, Back/Forward, mobile overflow, and a clean browser console. No real résumé or Gemini request was used.
+- Frontend: 168 passed; lint passed; production build passed (existing large-chunk warning). Backend: 540 passed with one upstream Starlette/httpx deprecation warning. Chromium E2E: 4 passed. Screenshots are in ignored `frontend/playwright-artifacts/`.
+- No commit, push, or deployment.
+
+### Remaining work
+- None for the requested fixes. E2E report and upload fixtures stay synthetic and do not exercise a live Gemini request.
+
+### Follow-up - availability hang investigation
+- Reproduced the real browser request: `GET http://127.0.0.1:8000/api/resume-analyses/availability` left Chromium, then hung until the page aborted it at ~8.1 s. `/health` and `/` on the same listener also returned no bytes, proving the request was stuck before route/auth/DB/Gemini logic.
+- Root cause: port 8000 belonged to a nonresponsive `python3.11.exe` process from the Windows Store Python install (PID 25920; ~7,634 CPU seconds). Its command line/stack could not be inspected because Windows denied CIM access. Replaced it with this repo's `backend/.venv` Uvicorn process; `/health` now returns 200 in ~4 ms. The same browser request with an intentionally invalid synthetic token now returns 401 in 171 ms, leaving loading for the honest sign-in state rather than timing out.
+- Also found `RESUME_ANALYSIS_ENABLED` was absent locally and therefore defaulted off despite the paid Gemini key being configured. Set `RESUME_ANALYSIS_ENABLED=true` in ignored `backend/.env` and restarted the backend. Availability does not call Gemini; when enabled it checks the authenticated user's active roadmap. A read-only query using a synthetic user ID reached the configured Postgres pool in 355 ms and found no roadmap for that ID.
+- Playwright E2E: 4 passed (upload control, file selection/removal, synthetic report rendering, refresh, Back/Forward, mobile layout, no console errors); an additional browser sign-out/sign-in flow passed. The UI success/report path uses synthetic auth/API fixtures; no real account token or résumé was available, so live user-specific availability and Gemini analysis remain unverified.
+- Backend: 540 passed; frontend: 168 passed; lint passed; production build passed (large-chunk warning). One Starlette/httpx deprecation warning remains. No tracked source changes or commit; local backend is running on :8000 and the feature switch is enabled locally only.
 ## History
+
+### 2026-10-09 - M3-X evidence-based Resume Analyzer
+- Implemented the weighted evidence-based scoring report, verified citations, roadmap comparison and premium report dashboard. Backend 540 and frontend 157 tests now pass after the loading fix; lint and build pass.
+
 
 ### 2026-10-09 · Resume Analyzer and AI Coach UI polish
 - Reworked the signed-in tools with a shared responsive style: accessible drag-and-drop upload, real upload progress, privacy and loading states, report-style history, and polished AI Coach conversation surfaces. API and business logic were unchanged for this UI-only pass.

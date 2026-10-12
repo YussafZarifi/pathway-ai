@@ -38,6 +38,7 @@ import config
 import db
 import llm
 import resume_ai
+from ai_output import AIOutputError
 from auth import AuthUser, current_user
 from session_check import live_user
 from body_limit import TOO_LARGE
@@ -165,12 +166,20 @@ def create_analysis(
         )
     except resume_ai.ResumeInputError as e:
         logger.info("Résumé rejected: %s (%d bytes)", e.kind, size)
-        status, detail = INPUT_ERRORS[e.kind]
+        mapped_error = INPUT_ERRORS.get(e.kind)
+        if mapped_error is None:
+            logger.error("Resume returned an unmapped input classification: %s", e.kind)
+            raise HTTPException(status_code=502, detail=ANALYSIS_FAILED) from None
+        status, detail = mapped_error
         raise HTTPException(status_code=status, detail=detail) from None
     except llm.AIServiceError as e:
         logger.warning("Résumé analysis failed: %s (%d bytes, %.1fs)", e.kind, size,
                        time.perf_counter() - started)
         raise ai_http_error(e, ANALYSIS_FAILED) from None
+    except AIOutputError as e:
+        logger.warning("Resume report rejected: %s (%d bytes, %.1fs)", e.kind, size,
+                       time.perf_counter() - started)
+        raise ai_http_error(llm.AIServiceError("failed"), ANALYSIS_FAILED) from None
 
     try:
         saved = repo.create(user.id, roadmap_id=target["roadmap_id"], **result)
