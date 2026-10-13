@@ -86,19 +86,7 @@ function reviewCandidates(analysis) {
   return items;
 }
 
-function keywordsFromReport(report) {
-  const category = (report?.categories || []).find((item) => item.id === "skills" || item.id === "ats");
-  return (category?.criteria || []).slice(0, 10).map((item) => ({
-    label: item.label,
-    status: item.found ? "matched" : Number(item.maxPoints) >= 8 ? "missing" : "partial",
-  }));
-}
-
-function scorePercent(category) {
-  return Math.max(0, Math.min(100, Number(category?.score) || 0));
-}
-
-function PdfPage({ page, highlights, selectedId, accepted, onSelect }) {
+function PdfPage({ page, highlights, selectedId, accepted, acceptedEdits, onSelect }) {
   const [rendered, setRendered] = useState(null);
   const [pdfjs, setPdfjs] = useState(null);
 
@@ -155,6 +143,7 @@ function PdfPage({ page, highlights, selectedId, accepted, onSelect }) {
       {placed.map((highlight) => {
         const { item } = highlight;
         const isAccepted = accepted.has(highlight.id);
+        const acceptedText = acceptedEdits.get(highlight.id) || highlight.after;
         return (
           <button
             type="button"
@@ -165,7 +154,7 @@ function PdfPage({ page, highlights, selectedId, accepted, onSelect }) {
             onClick={() => onSelect(highlight.id)}
             aria-label={`${highlight.title}. ${isAccepted ? "Accepted" : "Open suggestion"}`}
           >
-            {isAccepted && <span className="resumeAcceptedPatch">{highlight.after}</span>}
+            {isAccepted && <span className="resumeAcceptedPatch">{acceptedText}</span>}
           </button>
         );
       })}
@@ -173,7 +162,7 @@ function PdfPage({ page, highlights, selectedId, accepted, onSelect }) {
   );
 }
 
-function PdfDocument({ file, highlights, selectedId, accepted, onSelect }) {
+function PdfDocument({ file, highlights, selectedId, accepted, acceptedEdits, onSelect }) {
   const [pages, setPages] = useState([]);
   const [error, setError] = useState("");
   const [pdfjs, setPdfjs] = useState(null);
@@ -206,50 +195,70 @@ function PdfDocument({ file, highlights, selectedId, accepted, onSelect }) {
     return () => window.cancelAnimationFrame(frame);
   }, [selectedId, pages]);
   if (error) return <p className="resumePdfError" role="alert">{error}</p>;
-  return <div className="resumePdfDocument" data-page-count={pages.length}>{pages.map((page) => <PdfPage key={page.pageNumber} page={page} highlights={highlights.filter((item) => !item.page || item.page === page.pageNumber)} selectedId={selectedId} accepted={accepted} onSelect={onSelect} />)}</div>;
-}
-
-function KeywordStatus({ keyword }) {
-  return <li className={`resumeKeyword resumeKeyword--${keyword.status}`}><span aria-hidden="true" />{keyword.label}<strong>{keyword.status === "matched" ? "Matched" : keyword.status === "partial" ? "Partial" : "Missing"}</strong></li>;
+  return <div className="resumePdfDocument" data-page-count={pages.length}>{pages.map((page) => <PdfPage key={page.pageNumber} page={page} highlights={highlights.filter((item) => !item.page || item.page === page.pageNumber)} selectedId={selectedId} accepted={accepted} acceptedEdits={acceptedEdits} onSelect={onSelect} />)}</div>;
 }
 
 export default function ResumeReviewWorkspace({ analysis, file }) {
   const [selectedId, setSelectedId] = useState(null);
   const [accepted, setAccepted] = useState(() => new Set());
+  const [acceptedEdits, setAcceptedEdits] = useState(() => new Map());
+  const [skipped, setSkipped] = useState(() => new Set());
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState("");
   const report = analysis.scoreReport || {};
   const highlights = useMemo(() => reviewCandidates(analysis), [analysis]);
-  const selected = highlights.find((item) => item.id === selectedId) || highlights[0] || null;
+  const visibleHighlights = highlights.filter((item) => !skipped.has(item.id));
+  const selected = visibleHighlights.find((item) => item.id === selectedId) || visibleHighlights[0] || null;
+  const overallScore = Number(report.display_overall ?? report.overall ?? 0);
   const atsScore = Number(report.ats?.display_score ?? report.ats?.score ?? report.categories?.find((item) => item.id === "ats")?.score ?? 0);
-  const keywords = keywordsFromReport(report);
+  const confidence = report.confidence || {};
+  const selectedIdForEffect = selected?.id;
+  const selectedSuggestedText = selected ? acceptedEdits.get(selected.id) || selected.after || "" : "";
 
-  function acceptSelected() {
-    if (!selected || !selected.after) return;
+  useEffect(() => {
+    setDraft(selectedSuggestedText);
+    setEditing(false);
+  }, [selectedIdForEffect, selectedSuggestedText]);
+
+  function acceptSelected(text = selected?.after) {
+    if (!selected || !text?.trim()) return;
+    setAcceptedEdits((current) => new Map(current).set(selected.id, text.trim()));
     setAccepted((current) => new Set([...current, selected.id]));
+    setEditing(false);
+  }
+
+  function skipSelected() {
+    if (!selected) return;
+    setSkipped((current) => new Set([...current, selected.id]));
+    setSelectedId(null);
   }
 
   return (
     <section className="resumeReviewWorkspace" aria-label="Resume review workspace">
       <div className="resumeReviewSummary">
-        <div><span className="resumeReviewKicker"><Sparkles size={14} aria-hidden="true" /> Live document review</span><h3>Make your resume sharper</h3><p>Click a highlight to jump to the exact line and review one finding at a time.</p></div>
-        <div className="resumeAtsScore"><span>ATS score</span><strong>{atsScore}<small>/100</small></strong><em>Keyword and structure fit</em></div>
-      </div>
-      <div className="resumeSectionScores" aria-label="Resume section scores">
-        {(report.categories || []).slice(0, 5).map((category) => <div className="resumeSectionScore" key={category.id}><span>{category.label}</span><strong>{scorePercent(category)}%</strong><div><i style={{ width: `${scorePercent(category)}%` }} /></div></div>)}
+        <div><span className="resumeReviewKicker"><Sparkles size={14} aria-hidden="true" /> Resume coach</span><h3>Edit what matters</h3><p>Work through grounded feedback line by line. Your original PDF stays unchanged.</p></div>
+        <div className="resumeScoreCluster">
+          <div className="resumeAtsScore"><span>Overall score</span><strong>{overallScore}<small>/100</small></strong><em>{confidence.level ? `${String(confidence.level).replaceAll("_", " ")} confidence` : "Evidence-based review"}</em></div>
+          <div className="resumeAtsMini"><span>ATS fit</span><strong>{atsScore}/100</strong></div>
+        </div>
       </div>
       <div className="resumeReviewGrid">
         <div className="resumeDocumentPane">
           <div className="resumePaneHead"><span><FileText size={16} aria-hidden="true" /> {file?.name || "Resume preview"}</span><small><Lock size={13} aria-hidden="true" /> Local preview</small></div>
-          {file ? <PdfDocument file={file} highlights={highlights} selectedId={selected?.id} accepted={accepted} onSelect={setSelectedId} /> : <div className="resumeDocumentEmpty"><FileText size={28} /><p>Upload this PDF again to reopen the document view.</p><small>Saved reports remain available below.</small></div>}
+          {file ? <PdfDocument file={file} highlights={visibleHighlights} selectedId={selected?.id} accepted={accepted} acceptedEdits={acceptedEdits} onSelect={setSelectedId} /> : <div className="resumeDocumentEmpty"><FileText size={28} /><p>Upload this PDF again to reopen the document view.</p><small>Saved reports remain available below.</small></div>}
         </div>
         <aside className="resumeSuggestionPane" aria-label="Resume suggestions">
-          <div className="resumePaneHead"><span><Lightbulb size={16} aria-hidden="true" /> Suggestions</span><small>{highlights.length} findings</small></div>
+          <div className="resumePaneHead"><span><Lightbulb size={16} aria-hidden="true" /> Line feedback</span><small>{visibleHighlights.length} open</small></div>
           {selected ? <>
             <div className="resumeSuggestionTitle"><span className={`resumeSuggestionBadge ${selected.kind === "suggestion" ? "is-warning" : ""}`}>{selected.kind === "suggestion" ? "Improve" : "Review"}</span><h4>{selected.title}</h4><p>{selected.description}</p></div>
             <dl className="resumeFindingDetails"><div><dt>Problem</dt><dd>{selected.problem}</dd></div><div><dt>Why it matters</dt><dd>{selected.why}</dd></div><div><dt>Expected impact</dt><dd>{selected.impact}</dd></div></dl>
-            {selected.before && <div className="resumeSuggestionDiff"><span>Current text</span><blockquote>{selected.before}</blockquote>{selected.after && <><span>Suggested revision</span><blockquote className="is-after">{accepted.has(selected.id) ? selected.after : selected.after}</blockquote></>}</div>}
-            {selected.after ? <button type="button" className="resumeAcceptButton" onClick={acceptSelected} disabled={accepted.has(selected.id)}>{accepted.has(selected.id) ? <><Check size={15} /> Accepted</> : <>Accept suggestion <ChevronRight size={15} /></>}</button> : <p className="resumeSuggestionNote">Use the highlighted evidence as a prompt to add a grounded detail. Do not add claims you cannot verify.</p>}
-          </> : <div className="resumeSuggestionEmpty"><Check size={22} /><p>Your resume is ready for review.</p></div>}
-          {keywords.length > 0 && <div className="resumeKeywordSection"><div className="resumeKeywordHead"><h4>ATS keyword match</h4><span>Role fit</span></div><ul>{keywords.map((keyword) => <KeywordStatus key={keyword.label} keyword={keyword} />)}</ul><div className="resumeKeywordLegend"><span><i className="is-green" />Matched</span><span><i className="is-yellow" />Partial</span><span><i className="is-red" />Missing</span></div></div>}
+            {selected.before && <div className="resumeSuggestionDiff"><span>Current text</span><blockquote>{selected.before}</blockquote>{selected.after && <><span>Suggested rewrite</span>{editing ? <textarea className="resumeEditField" value={draft} onChange={(event) => setDraft(event.target.value)} aria-label="Edit suggested rewrite" /> : <blockquote className="is-after">{acceptedEdits.get(selected.id) || selected.after}</blockquote>}</>}</div>}
+            {selected.after ? <div className="resumeSuggestionActions">
+              {editing ? <button type="button" className="resumeAcceptButton" onClick={() => acceptSelected(draft)} disabled={!draft.trim()}><Check size={15} /> Save edit</button> : <button type="button" className="resumeAcceptButton" onClick={() => acceptSelected()} disabled={accepted.has(selected.id)}>{accepted.has(selected.id) ? <><Check size={15} /> Accepted</> : <>Accept suggestion <ChevronRight size={15} /></>}</button>}
+              {!editing && <button type="button" className="resumeSecondaryButton" onClick={() => setEditing(true)}><FileText size={15} /> Edit</button>}
+              <button type="button" className="resumeSkipButton" onClick={skipSelected}>Skip</button>
+            </div> : <button type="button" className="resumeSkipButton resumeSkipButton--full" onClick={skipSelected}>Mark as reviewed</button>}
+          </> : <div className="resumeSuggestionEmpty"><Check size={22} /><p>All feedback is reviewed.</p><small>Your resume is ready for another pass.</small></div>}
         </aside>
       </div>
     </section>

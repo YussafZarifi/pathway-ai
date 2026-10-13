@@ -325,7 +325,9 @@ test("actual resume renders the full review workspace and keeps navigation stabl
   await expect(highlight).toHaveClass(/is-selected/);
   await expect(page.getByText("Expected impact")).toBeVisible();
   await page.screenshot({ path: "output/playwright/resume-highlight-selected.png", fullPage: true });
-  await page.getByRole("button", { name: /Accept suggestion/ }).click();
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await page.getByRole("textbox", { name: "Edit suggested rewrite" }).fill("PathwayAI — AI Career Guidance Platform");
+  await page.getByRole("button", { name: "Save edit", exact: true }).click();
   await expect(page.getByRole("button", { name: "Accepted", exact: true })).toBeVisible();
   await page.screenshot({ path: "output/playwright/resume-final-report.png", fullPage: true });
 
