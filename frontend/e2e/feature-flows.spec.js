@@ -54,11 +54,9 @@ async function signedInPage(page) {
     body: JSON.stringify({ available: true, reason: null }),
   }));
 
-  // Sign in through the real form and SDK, with only the auth server stubbed.
-  await page.goto("/login");
-  await page.getByLabel("Email").fill(user.email);
-  await page.getByLabel("Password").fill("e2e-only-password");
-  await page.getByRole("button", { name: "Sign in", exact: true }).last().click();
+  // The authenticated session is loaded from Playwright storageState; only
+  // the auth API is stubbed here so each test starts without a login flow.
+  await page.goto("/home");
   await expect(page).toHaveURL(/\/home$/);
 }
 
