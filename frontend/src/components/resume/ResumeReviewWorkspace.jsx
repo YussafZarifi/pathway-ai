@@ -247,17 +247,24 @@ export default function ResumeReviewWorkspace({ analysis, file }) {
           <div className="resumePaneHead"><span><FileText size={16} aria-hidden="true" /> {file?.name || "Resume preview"}</span><small><Lock size={13} aria-hidden="true" /> Local preview</small></div>
           {file ? <PdfDocument file={file} highlights={visibleHighlights} selectedId={selected?.id} accepted={accepted} acceptedEdits={acceptedEdits} onSelect={setSelectedId} /> : <div className="resumeDocumentEmpty"><FileText size={28} /><p>Upload this PDF again to reopen the document view.</p><small>Saved reports remain available below.</small></div>}
         </div>
-        <aside className="resumeSuggestionPane" aria-label="Resume suggestions">
+        <aside className="resumeSuggestionPane" aria-label="Resume feedback">
           <div className="resumePaneHead"><span><Lightbulb size={16} aria-hidden="true" /> Line feedback</span><small>{visibleHighlights.length} open</small></div>
           {selected ? <>
             <div className="resumeSuggestionTitle"><span className={`resumeSuggestionBadge ${selected.kind === "suggestion" ? "is-warning" : ""}`}>{selected.kind === "suggestion" ? "Improve" : "Review"}</span><h4>{selected.title}</h4><p>{selected.description}</p></div>
-            <dl className="resumeFindingDetails"><div><dt>Problem</dt><dd>{selected.problem}</dd></div><div><dt>Why it matters</dt><dd>{selected.why}</dd></div><div><dt>Expected impact</dt><dd>{selected.impact}</dd></div></dl>
+            <dl className="resumeFindingDetails"><div><dt>Why this improves the resume</dt><dd>{selected.why}</dd></div></dl>
+            <details className="resumeFindingContext">
+              <summary>View analysis context</summary>
+              <div className="resumeFindingContextBody">
+                <div><dt>Problem</dt><dd>{selected.problem}</dd></div>
+                <div><dt>Expected impact</dt><dd>{selected.impact}</dd></div>
+              </div>
+            </details>
             {selected.before && <div className="resumeSuggestionDiff"><span>Current text</span><blockquote>{selected.before}</blockquote>{selected.after && <><span>Suggested rewrite</span>{editing ? <textarea className="resumeEditField" value={draft} onChange={(event) => setDraft(event.target.value)} aria-label="Edit suggested rewrite" /> : <blockquote className="is-after">{acceptedEdits.get(selected.id) || selected.after}</blockquote>}</>}</div>}
             {selected.after ? <div className="resumeSuggestionActions">
               {editing ? <button type="button" className="resumeAcceptButton" onClick={() => acceptSelected(draft)} disabled={!draft.trim()}><Check size={15} /> Save edit</button> : <button type="button" className="resumeAcceptButton" onClick={() => acceptSelected()} disabled={accepted.has(selected.id)}>{accepted.has(selected.id) ? <><Check size={15} /> Accepted</> : <>Accept suggestion <ChevronRight size={15} /></>}</button>}
               {!editing && <button type="button" className="resumeSecondaryButton" onClick={() => setEditing(true)}><FileText size={15} /> Edit</button>}
-              <button type="button" className="resumeSkipButton" onClick={skipSelected}>Skip</button>
-            </div> : <button type="button" className="resumeSkipButton resumeSkipButton--full" onClick={skipSelected}>Mark as reviewed</button>}
+              <button type="button" className="resumeIgnoreButton" onClick={skipSelected}>Ignore</button>
+            </div> : <button type="button" className="resumeIgnoreButton resumeIgnoreButton--full" onClick={skipSelected}>Ignore</button>}
           </> : <div className="resumeSuggestionEmpty"><Check size={22} /><p>All feedback is reviewed.</p><small>Your resume is ready for another pass.</small></div>}
         </aside>
       </div>

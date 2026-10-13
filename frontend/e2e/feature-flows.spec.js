@@ -321,13 +321,31 @@ test("actual resume renders the full review workspace and keeps navigation stabl
   await expect(highlight).toBeVisible();
   await highlight.click();
   await expect(highlight).toHaveClass(/is-selected/);
-  await expect(page.getByText("Expected impact")).toBeVisible();
+  await expect(page.getByText("Why this improves the resume")).toBeVisible();
+  await expect(page.locator(".resumeFindingContext")).not.toHaveAttribute("open", "");
+  expect(await page.locator(".resumeSuggestionPane").evaluate((element) => getComputedStyle(element).position)).toBe("sticky");
   await page.screenshot({ path: "output/playwright/resume-highlight-selected.png", fullPage: true });
   await page.getByRole("button", { name: "Edit", exact: true }).click();
   await page.getByRole("textbox", { name: "Edit suggested rewrite" }).fill("PathwayAI — AI Career Guidance Platform");
   await page.getByRole("button", { name: "Save edit", exact: true }).click();
   await expect(page.getByRole("button", { name: "Accepted", exact: true })).toBeVisible();
   await page.screenshot({ path: "output/playwright/resume-final-report.png", fullPage: true });
+
+  for (const viewport of [
+    { name: "desktop", width: 1440, height: 1000 },
+    { name: "tablet", width: 768, height: 1024 },
+    { name: "mobile", width: 390, height: 844 },
+  ]) {
+    await page.setViewportSize({ width: viewport.width, height: viewport.height });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), `${viewport.name} horizontal overflow`).toBe(true);
+    if (viewport.name === "desktop") {
+      expect(await page.locator(".resumeSuggestionPane").evaluate((element) => getComputedStyle(element).position)).toBe("sticky");
+    } else {
+      expect(await page.locator(".resumeSuggestionPane").evaluate((element) => getComputedStyle(element).position)).toBe("static");
+    }
+    await page.screenshot({ path: `output/playwright/resume-reference-${viewport.name}.png`, fullPage: true });
+  }
+  await page.setViewportSize({ width: 1440, height: 1000 });
 
   await page.reload();
   await expect(page.getByText("A grounded review of the uploaded resume.")).toBeVisible({ timeout: 15_000 });

@@ -4479,7 +4479,7 @@ body.theme-landing .badge {
 .resumeSectionScore i { display: block; height: 100%; border-radius: inherit; background: var(--review-blue); }
 .resumeReviewGrid { display: grid; grid-template-columns: minmax(0, 2.33fr) minmax(300px, 1fr); min-height: min(860px, calc(100dvh - 250px)); }
 .resumeDocumentPane { display: grid; grid-template-rows: auto minmax(0, 1fr); min-width: 0; min-height: 0; padding: 20px; background: #e4e4e7; }
-.resumeSuggestionPane { min-width: 0; min-height: 0; overflow: auto; padding: 20px; background: #fff; border-left: 1px solid var(--review-border); }
+.resumeSuggestionPane { position: sticky; top: 18px; align-self: start; min-width: 0; max-height: calc(100dvh - 36px); min-height: 0; overflow: auto; padding: 20px; background: #fff; border-left: 1px solid var(--review-border); }
 .resumePaneHead { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 24px; margin-bottom: 14px; color: var(--review-ink); font-size: 12px; font-weight: 700; }
 .resumePaneHead span, .resumePaneHead small { display: inline-flex; align-items: center; gap: 7px; }
 .resumePaneHead small { color: var(--review-muted); font-size: 11px; font-weight: 500; }
@@ -4502,6 +4502,15 @@ body.theme-landing .badge {
 .resumeFindingDetails > div { padding: 10px 12px; border: 1px solid #eef0f4; border-radius: 10px; background: #fafafa; }
 .resumeFindingDetails dt { color: var(--review-muted); font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
 .resumeFindingDetails dd { margin: 4px 0 0; color: #3f3f46; font-size: 12px; line-height: 1.5; }
+.resumeFindingContext { margin-top: 10px; border-top: 1px solid #eef0f4; }
+.resumeFindingContext summary { display: flex; align-items: center; justify-content: space-between; padding: 12px 0 2px; color: var(--review-muted); font-size: 11px; font-weight: 750; cursor: pointer; list-style: none; }
+.resumeFindingContext summary::-webkit-details-marker { display: none; }
+.resumeFindingContext summary::after { content: "+"; color: #a1a1aa; font-size: 16px; font-weight: 400; }
+.resumeFindingContext[open] summary::after { content: "−"; }
+.resumeFindingContextBody { display: grid; gap: 10px; padding: 8px 0 2px; }
+.resumeFindingContextBody > div { padding: 10px 12px; border: 1px solid #f0f0f2; border-radius: 10px; background: #fcfcfd; }
+.resumeFindingContextBody dt { color: var(--review-muted); font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.resumeFindingContextBody dd { margin: 4px 0 0; color: #52525b; font-size: 12px; line-height: 1.5; }
 .resumeSuggestionDiff { display: grid; gap: 7px; padding: 18px 0; }
 .resumeSuggestionDiff > span { color: var(--review-muted); font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
 .resumeSuggestionDiff blockquote { margin: 0 0 6px; padding: 10px 12px; border-left: 3px solid #fda4af; background: #fff1f2; color: #52525b; font-size: 12px; line-height: 1.5; }
@@ -4511,9 +4520,9 @@ body.theme-landing .badge {
 .resumeAcceptButton { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 42px; width: 100%; border: 0; border-radius: 10px; background: var(--review-blue); color: #fff; font: inherit; font-size: 13px; font-weight: 750; cursor: pointer; transition: transform .18s ease, background .18s ease; }
 .resumeAcceptButton:hover { background: #2563eb; transform: translateY(-1px); }
 .resumeAcceptButton:disabled { background: #d1fae5; color: #047857; cursor: default; transform: none; }
-.resumeSecondaryButton, .resumeSkipButton { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 42px; padding: 0 12px; border: 1px solid #d4d4d8; border-radius: 10px; background: #fff; color: #52525b; font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
-.resumeSecondaryButton:hover, .resumeSkipButton:hover { border-color: #a1a1aa; background: #fafafa; }
-.resumeSkipButton--full { width: 100%; margin-top: 6px; }
+.resumeSecondaryButton, .resumeIgnoreButton { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 42px; padding: 0 12px; border: 1px solid #d4d4d8; border-radius: 10px; background: #fff; color: #52525b; font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
+.resumeSecondaryButton:hover, .resumeIgnoreButton:hover { border-color: #a1a1aa; background: #fafafa; }
+.resumeIgnoreButton--full { width: 100%; margin-top: 6px; }
 .resumeSuggestionNote { padding: 14px 0 20px; }
 .resumeKeywordSection { margin-top: 26px; padding-top: 20px; border-top: 1px solid var(--review-border); }
 .resumeKeywordHead { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
@@ -4536,7 +4545,7 @@ body.theme-landing .badge {
 @keyframes resumePdfShimmer { to { background-position: -200% 0; } }
 @media (max-width: 900px) {
   .resumeReviewGrid { grid-template-columns: 1fr; }
-  .resumeSuggestionPane { border-top: 1px solid var(--review-border); border-left: 0; }
+  .resumeSuggestionPane { position: static; max-height: none; overflow: visible; border-top: 1px solid var(--review-border); border-left: 0; }
   .resumeReviewGrid { min-height: 0; }
   .resumePdfDocument { height: min(70dvh, 720px); }
 }
