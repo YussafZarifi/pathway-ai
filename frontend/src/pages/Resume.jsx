@@ -18,6 +18,7 @@ import {
 import AppHeader from "../components/AppHeader";
 import Dialog from "../components/Dialog";
 import AnalysisView from "../components/resume/AnalysisView";
+import ResumeReviewWorkspace from "../components/resume/ResumeReviewWorkspace";
 import { errorMessage } from "../lib/api";
 import { withTimeout } from "../lib/withTimeout";
 import { useAuth } from "../lib/authContext";
@@ -261,6 +262,7 @@ export default function Resume() {
   const historyRequest = useRef(0);
   const [authTimedOut, setAuthTimedOut] = useState(false);
   const [activeDataUser, setActiveDataUser] = useState(null);
+  const [activeFile, setActiveFile] = useState(null);
 
   const refreshAvailability = useCallback(async (signal) => {
     const requestId = ++availabilityRequest.current;
@@ -341,6 +343,7 @@ export default function Resume() {
 
   async function runAnalysis(file, onUploadProgress) {
     setAnalyzing(true);
+    setActiveFile(file);
     setUploadProgress({ phase: "uploading", percent: 0 });
     setUploadError("");
     const controller = new AbortController();
@@ -503,6 +506,7 @@ export default function Resume() {
         {selectedAnalysis && <section id="resume-current-report" className="resumeCurrentReport" aria-labelledby="resumeCurrentReportTitle">
           <div className="resumeCurrentReportHead"><div><p>YOUR REVIEW</p><h2 id="resumeCurrentReportTitle">{selectedAnalysis.career}</h2></div>
             <span>{formatDate(selectedAnalysis.createdAt)}</span></div>
+          <ResumeReviewWorkspace analysis={selectedAnalysis} file={selectedAnalysis.id === openId ? activeFile : null} />
           <AnalysisView analysis={selectedAnalysis} currentRoadmapId={availability.data?.roadmap_id || null} />
         </section>}
 

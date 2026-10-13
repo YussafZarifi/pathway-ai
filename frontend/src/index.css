@@ -4448,6 +4448,91 @@ body.theme-landing .badge {
 }
 
 /* Resume Analyzer (Resume.jsx, AnalysisView.jsx; ADR-020) */
+.resumeReviewWorkspace {
+  --review-ink: #18181b;
+  --review-muted: #71717a;
+  --review-border: rgba(226, 232, 240, .8);
+  --review-blue: #3b82f6;
+  margin: 18px 0 24px;
+  overflow: hidden;
+  border: 1px solid var(--review-border);
+  border-radius: 24px;
+  background: #f9fafb;
+  color: var(--review-ink);
+  box-shadow: 0 20px 40px -15px rgba(0, 0, 0, .18);
+}
+.resumeReviewSummary { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 24px; align-items: center; padding: 26px 30px 22px; background: #fff; border-bottom: 1px solid var(--review-border); }
+.resumeReviewKicker { display: inline-flex; align-items: center; gap: 7px; color: var(--review-blue); font-size: 11px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+.resumeReviewSummary h3 { margin: 7px 0 4px; font-size: 23px; letter-spacing: -.035em; }
+.resumeReviewSummary p { margin: 0; color: var(--review-muted); font-size: 13px; }
+.resumeAtsScore { display: grid; justify-items: end; gap: 2px; min-width: 108px; }
+.resumeAtsScore span, .resumeAtsScore em { color: var(--review-muted); font-size: 11px; font-style: normal; }
+.resumeAtsScore strong { font-size: 32px; letter-spacing: -.05em; }
+.resumeAtsScore small { margin-left: 2px; color: var(--review-muted); font-size: 12px; font-weight: 500; letter-spacing: 0; }
+.resumeSectionScores { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 18px; padding: 16px 30px 18px; background: #fff; border-bottom: 1px solid var(--review-border); }
+.resumeSectionScore { display: grid; grid-template-columns: 1fr auto; gap: 5px 10px; align-items: center; color: var(--review-muted); font-size: 11px; }
+.resumeSectionScore strong { color: var(--review-ink); font-size: 12px; }
+.resumeSectionScore > div { grid-column: 1 / -1; height: 4px; overflow: hidden; border-radius: 999px; background: #e4e4e7; }
+.resumeSectionScore i { display: block; height: 100%; border-radius: inherit; background: var(--review-blue); }
+.resumeReviewGrid { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(300px, .7fr); min-height: 680px; }
+.resumeDocumentPane { min-width: 0; padding: 20px; background: #e4e4e7; }
+.resumeSuggestionPane { min-width: 0; padding: 20px; background: #fff; border-left: 1px solid var(--review-border); }
+.resumePaneHead { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 24px; margin-bottom: 14px; color: var(--review-ink); font-size: 12px; font-weight: 700; }
+.resumePaneHead span, .resumePaneHead small { display: inline-flex; align-items: center; gap: 7px; }
+.resumePaneHead small { color: var(--review-muted); font-size: 11px; font-weight: 500; }
+.resumePdfDocument { display: grid; gap: 18px; justify-items: center; max-height: 760px; overflow: auto; padding: 4px; }
+.resumePdfPage { position: relative; width: min(100%, 720px); overflow: hidden; background: #fff; box-shadow: 0 12px 24px -16px rgba(24, 24, 27, .55); }
+.resumePdfPage--loading { min-height: 680px; background: linear-gradient(100deg, #fff 35%, #f4f4f5 50%, #fff 65%); background-size: 200% 100%; animation: resumePdfShimmer 1.6s ease-in-out infinite; }
+.resumePdfCanvas { display: block; width: 100%; height: 100%; }
+.resumePdfHighlight { position: absolute; display: block; min-width: 10px; padding: 0; border: 0; border-radius: 3px; background: rgba(245, 158, 11, .22); box-shadow: inset 0 -2px rgba(245, 158, 11, .8); cursor: pointer; transition: background .18s ease, box-shadow .18s ease; }
+.resumePdfHighlight.is-problem { background: rgba(225, 29, 72, .16); box-shadow: inset 0 -2px #e11d48; }
+.resumePdfHighlight.is-selected { outline: 2px solid var(--review-blue); outline-offset: 2px; }
+.resumePdfHighlight.is-accepted { background: rgba(16, 185, 129, .18); box-shadow: inset 0 -2px #10b981; }
+.resumeAcceptedPatch { position: absolute; top: calc(100% + 5px); left: 0; z-index: 2; display: block; width: max-content; max-width: 280px; padding: 5px 7px; border: 1px solid rgba(16, 185, 129, .35); border-radius: 6px; background: #ecfdf5; color: #047857; font-size: 10px; font-weight: 700; text-align: left; box-shadow: 0 6px 16px rgba(16, 185, 129, .18); }
+.resumeSuggestionTitle { padding: 6px 0 18px; border-bottom: 1px solid var(--review-border); }
+.resumeSuggestionBadge { display: inline-flex; padding: 4px 7px; border-radius: 999px; background: #eff6ff; color: #2563eb; font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.resumeSuggestionBadge.is-warning { background: #fff1f2; color: #be123c; }
+.resumeSuggestionTitle h4 { margin: 11px 0 5px; font-size: 18px; letter-spacing: -.025em; }
+.resumeSuggestionTitle p, .resumeSuggestionNote { margin: 0; color: var(--review-muted); font-size: 13px; line-height: 1.6; }
+.resumeSuggestionDiff { display: grid; gap: 7px; padding: 18px 0; }
+.resumeSuggestionDiff > span { color: var(--review-muted); font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.resumeSuggestionDiff blockquote { margin: 0 0 6px; padding: 10px 12px; border-left: 3px solid #fda4af; background: #fff1f2; color: #52525b; font-size: 12px; line-height: 1.5; }
+.resumeSuggestionDiff blockquote.is-after { border-left-color: #6ee7b7; background: #ecfdf5; color: #065f46; }
+.resumeAcceptButton { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 42px; width: 100%; border: 0; border-radius: 10px; background: var(--review-blue); color: #fff; font: inherit; font-size: 13px; font-weight: 750; cursor: pointer; transition: transform .18s ease, background .18s ease; }
+.resumeAcceptButton:hover { background: #2563eb; transform: translateY(-1px); }
+.resumeAcceptButton:disabled { background: #d1fae5; color: #047857; cursor: default; transform: none; }
+.resumeSuggestionNote { padding: 14px 0 20px; }
+.resumeKeywordSection { margin-top: 26px; padding-top: 20px; border-top: 1px solid var(--review-border); }
+.resumeKeywordHead { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.resumeKeywordHead h4 { margin: 0; font-size: 14px; }
+.resumeKeywordHead span { color: var(--review-muted); font-size: 11px; }
+.resumeKeywordSection ul { display: grid; gap: 8px; margin: 14px 0 12px; padding: 0; list-style: none; }
+.resumeKeyword { display: grid; grid-template-columns: 7px minmax(0, 1fr) auto; gap: 8px; align-items: center; color: #52525b; font-size: 12px; }
+.resumeKeyword > span, .resumeKeywordLegend i { width: 7px; height: 7px; border-radius: 50%; background: #10b981; }
+.resumeKeyword--partial > span { background: #f59e0b; }
+.resumeKeyword--missing > span { background: #e11d48; }
+.resumeKeyword strong { color: var(--review-muted); font-size: 10px; font-weight: 650; }
+.resumeKeywordLegend { display: flex; flex-wrap: wrap; gap: 10px; color: var(--review-muted); font-size: 10px; }
+.resumeKeywordLegend span { display: inline-flex; align-items: center; gap: 5px; }
+.resumeKeywordLegend .is-yellow { background: #f59e0b; }
+.resumeKeywordLegend .is-red { background: #e11d48; }
+.resumeDocumentEmpty, .resumeSuggestionEmpty { display: grid; justify-items: center; align-content: center; min-height: 400px; gap: 8px; color: var(--review-muted); text-align: center; }
+.resumeDocumentEmpty p, .resumeSuggestionEmpty p { margin: 0; font-size: 13px; }
+.resumeDocumentEmpty small { font-size: 11px; }
+.resumePdfError { margin: 30px; color: #be123c; font-size: 13px; }
+@keyframes resumePdfShimmer { to { background-position: -200% 0; } }
+@media (max-width: 900px) {
+  .resumeReviewGrid { grid-template-columns: 1fr; }
+  .resumeSuggestionPane { border-top: 1px solid var(--review-border); border-left: 0; }
+  .resumePdfDocument { max-height: none; }
+}
+@media (max-width: 640px) {
+  .resumeReviewSummary { grid-template-columns: 1fr; padding: 22px 18px 18px; }
+  .resumeAtsScore { justify-items: start; }
+  .resumeSectionScores { grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 14px 18px 16px; }
+  .resumeDocumentPane, .resumeSuggestionPane { padding: 16px; }
+  .resumeReviewWorkspace { border-radius: 18px; }
+}
 .resumeIntro {
   margin-bottom: 22px;
 }

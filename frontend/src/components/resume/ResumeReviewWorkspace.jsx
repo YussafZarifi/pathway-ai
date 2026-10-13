@@ -1,0 +1,219 @@
+import { useEffect, useMemo, useState } from "react";
+import { Check, ChevronRight, FileText, Lightbulb, Lock, Sparkles } from "lucide-react";
+import workerSrc from "pdfjs-dist/build/pdf.worker.min.mjs?url";
+
+let pdfjsPromise;
+function loadPdfJs() {
+  pdfjsPromise ||= import("pdfjs-dist").then((module) => {
+    module.GlobalWorkerOptions.workerSrc = workerSrc;
+    return module;
+  });
+  return pdfjsPromise;
+}
+
+function clean(value) {
+  return String(value || "").replace(/\s+/g, " ").trim().toLowerCase();
+}
+
+function reviewCandidates(analysis) {
+  const items = [];
+  const work = [...(analysis.projectReviews || []), ...(analysis.experienceReviews || [])];
+  work.forEach((item, index) => {
+    if (item.bulletRewrite?.before) {
+      items.push({
+        id: `rewrite-${index}`,
+        title: `Strengthen ${item.title}`,
+        description: "Make this line more specific and outcome-led.",
+        before: item.bulletRewrite.before,
+        after: item.bulletRewrite.after,
+        page: item.bulletRewrite.page,
+        kind: "suggestion",
+      });
+    } else if (item.evidence?.quote) {
+      items.push({
+        id: `evidence-${index}`,
+        title: `Review ${item.title}`,
+        description: "This evidence is relevant, but could communicate more technical depth.",
+        before: item.evidence.quote,
+        after: null,
+        page: item.evidence.page,
+        kind: "review",
+      });
+    }
+  });
+
+  const recommendations = analysis.scoreReport?.recommendations || [];
+  recommendations.slice(0, Math.max(0, 4 - items.length)).forEach((item, index) => {
+    items.push({
+      id: `recommendation-${index}`,
+      title: item.title || "Resume improvement",
+      description: item.action || "Add clearer evidence to this section.",
+      before: null,
+      after: null,
+      page: null,
+      kind: "recommendation",
+    });
+  });
+  return items;
+}
+
+function keywordsFromReport(report) {
+  const category = (report?.categories || []).find((item) => item.id === "skills" || item.id === "ats");
+  return (category?.criteria || []).slice(0, 10).map((item) => ({
+    label: item.label,
+    status: item.found ? "matched" : Number(item.maxPoints) >= 8 ? "missing" : "partial",
+  }));
+}
+
+function scorePercent(category) {
+  return Math.max(0, Math.min(100, Number(category?.score) || 0));
+}
+
+function PdfPage({ page, highlights, selectedId, accepted, onSelect }) {
+  const [rendered, setRendered] = useState(null);
+  const [pdfjs, setPdfjs] = useState(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.DOMMatrix) return undefined;
+    loadPdfJs().then(setPdfjs).catch(() => {});
+    return undefined;
+  }, []);
+
+  useEffect(() => {
+    if (!pdfjs) return undefined;
+    let cancelled = false;
+    let task;
+    async function render() {
+      const viewport = page.getViewport({ scale: 1.35 });
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.ceil(viewport.width);
+      canvas.height = Math.ceil(viewport.height);
+      task = page.render({ canvasContext: canvas.getContext("2d"), viewport });
+      await task.promise;
+      const content = await page.getTextContent();
+      const textItems = content.items.map((item) => {
+        const transform = pdfjs.Util.transform(viewport.transform, item.transform);
+        const height = Math.max(8, Math.sqrt(transform[2] ** 2 + transform[3] ** 2));
+        return {
+          text: item.str,
+          normalized: clean(item.str),
+          left: transform[4],
+          top: transform[5] - height,
+          width: Math.max(2, item.width * viewport.scale),
+          height,
+        };
+      });
+      if (!cancelled) setRendered({ canvas, width: viewport.width, height: viewport.height, textItems });
+    }
+    render().catch(() => { if (!cancelled) setRendered(null); });
+    return () => { cancelled = true; task?.cancel(); };
+  }, [page, pdfjs]);
+
+  const placed = useMemo(() => {
+    if (!rendered) return [];
+    return highlights.map((highlight) => {
+      const token = clean(highlight.before).split(" ").filter((word) => word.length > 3)[0];
+      const item = rendered.textItems.find((candidate) => candidate.normalized.includes(token || "__never__"));
+      if (!item) return null;
+      return { ...highlight, item };
+    }).filter(Boolean);
+  }, [highlights, rendered]);
+
+  if (!rendered) return <div className="resumePdfPage resumePdfPage--loading" aria-label={`Loading page ${page.pageNumber}`} />;
+  return (
+    <div className="resumePdfPage" style={{ aspectRatio: `${rendered.width} / ${rendered.height}` }}>
+      <img className="resumePdfCanvas" src={rendered.canvas.toDataURL()} alt={`Resume page ${page.pageNumber}`} />
+      {placed.map((highlight) => {
+        const { item } = highlight;
+        const isAccepted = accepted.has(highlight.id);
+        return (
+          <button
+            type="button"
+            className={`resumePdfHighlight ${highlight.kind === "suggestion" ? "is-problem" : "is-review"} ${selectedId === highlight.id ? "is-selected" : ""} ${isAccepted ? "is-accepted" : ""}`}
+            key={highlight.id}
+            style={{ left: `${(item.left / rendered.width) * 100}%`, top: `${(item.top / rendered.height) * 100}%`, width: `${(item.width / rendered.width) * 100}%`, height: `${Math.max(item.height, 18) / rendered.height * 100}%` }}
+            onClick={() => onSelect(highlight.id)}
+            aria-label={`${highlight.title}. ${isAccepted ? "Accepted" : "Open suggestion"}`}
+          >
+            {isAccepted && <span className="resumeAcceptedPatch">{highlight.after}</span>}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function PdfDocument({ file, highlights, selectedId, accepted, onSelect }) {
+  const [pages, setPages] = useState([]);
+  const [error, setError] = useState("");
+  const [pdfjs, setPdfjs] = useState(null);
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.DOMMatrix) return undefined;
+    loadPdfJs().then(setPdfjs).catch(() => {});
+    return undefined;
+  }, []);
+  useEffect(() => {
+    if (!pdfjs) return undefined;
+    let cancelled = false;
+    let loading;
+    file.arrayBuffer().then((data) => {
+      if (cancelled) return null;
+      loading = pdfjs.getDocument({ data });
+      return loading.promise;
+    }).then(async (pdf) => {
+      if (!pdf) return;
+      const next = [];
+      for (let number = 1; number <= pdf.numPages; number += 1) next.push(await pdf.getPage(number));
+      if (!cancelled) setPages(next);
+    }).catch(() => { if (!cancelled) setError("This PDF could not be rendered in the review workspace."); });
+    return () => { cancelled = true; loading?.destroy(); };
+  }, [file, pdfjs]);
+  if (error) return <p className="resumePdfError" role="alert">{error}</p>;
+  return <div className="resumePdfDocument">{pages.map((page) => <PdfPage key={page.pageNumber} page={page} highlights={highlights.filter((item) => !item.page || item.page === page.pageNumber)} selectedId={selectedId} accepted={accepted} onSelect={onSelect} />)}</div>;
+}
+
+function KeywordStatus({ keyword }) {
+  return <li className={`resumeKeyword resumeKeyword--${keyword.status}`}><span aria-hidden="true" />{keyword.label}<strong>{keyword.status === "matched" ? "Matched" : keyword.status === "partial" ? "Partial" : "Missing"}</strong></li>;
+}
+
+export default function ResumeReviewWorkspace({ analysis, file }) {
+  const [selectedId, setSelectedId] = useState(null);
+  const [accepted, setAccepted] = useState(() => new Set());
+  const report = analysis.scoreReport || {};
+  const highlights = useMemo(() => reviewCandidates(analysis), [analysis]);
+  const selected = highlights.find((item) => item.id === selectedId) || highlights[0] || null;
+  const atsScore = Number(report.ats?.score ?? report.categories?.find((item) => item.id === "ats")?.score ?? 0);
+  const keywords = keywordsFromReport(report);
+
+  function acceptSelected() {
+    if (!selected || !selected.after) return;
+    setAccepted((current) => new Set([...current, selected.id]));
+  }
+
+  return (
+    <section className="resumeReviewWorkspace" aria-label="Resume review workspace">
+      <div className="resumeReviewSummary">
+        <div><span className="resumeReviewKicker"><Sparkles size={14} aria-hidden="true" /> Live document review</span><h3>Make your resume sharper</h3><p>Review each highlighted line against the role you are targeting.</p></div>
+        <div className="resumeAtsScore"><span>ATS score</span><strong>{atsScore}<small>/100</small></strong><em>Keyword and structure fit</em></div>
+      </div>
+      <div className="resumeSectionScores" aria-label="Resume section scores">
+        {(report.categories || []).slice(0, 5).map((category) => <div className="resumeSectionScore" key={category.id}><span>{category.label}</span><strong>{scorePercent(category)}%</strong><div><i style={{ width: `${scorePercent(category)}%` }} /></div></div>)}
+      </div>
+      <div className="resumeReviewGrid">
+        <div className="resumeDocumentPane">
+          <div className="resumePaneHead"><span><FileText size={16} aria-hidden="true" /> {file?.name || "Resume preview"}</span><small><Lock size={13} aria-hidden="true" /> Local preview</small></div>
+          {file ? <PdfDocument file={file} highlights={highlights} selectedId={selected?.id} accepted={accepted} onSelect={setSelectedId} /> : <div className="resumeDocumentEmpty"><FileText size={28} /><p>Upload this PDF again to reopen the document view.</p><small>Saved reports remain available below.</small></div>}
+        </div>
+        <aside className="resumeSuggestionPane" aria-label="Resume suggestions">
+          <div className="resumePaneHead"><span><Lightbulb size={16} aria-hidden="true" /> Suggestions</span><small>{highlights.length} findings</small></div>
+          {selected ? <>
+            <div className="resumeSuggestionTitle"><span className={`resumeSuggestionBadge ${selected.kind === "suggestion" ? "is-warning" : ""}`}>{selected.kind === "suggestion" ? "Improve" : "Review"}</span><h4>{selected.title}</h4><p>{selected.description}</p></div>
+            {selected.before && <div className="resumeSuggestionDiff"><span>Current text</span><blockquote>{selected.before}</blockquote>{selected.after && <><span>Suggested revision</span><blockquote className="is-after">{accepted.has(selected.id) ? selected.after : selected.after}</blockquote></>}</div>}
+            {selected.after ? <button type="button" className="resumeAcceptButton" onClick={acceptSelected} disabled={accepted.has(selected.id)}>{accepted.has(selected.id) ? <><Check size={15} /> Accepted</> : <>Accept suggestion <ChevronRight size={15} /></>}</button> : <p className="resumeSuggestionNote">Use the highlighted evidence as a prompt to add a grounded detail. Do not add claims you cannot verify.</p>}
+          </> : <div className="resumeSuggestionEmpty"><Check size={22} /><p>Your resume is ready for review.</p></div>}
+          {keywords.length > 0 && <div className="resumeKeywordSection"><div className="resumeKeywordHead"><h4>ATS keyword match</h4><span>Role fit</span></div><ul>{keywords.map((keyword) => <KeywordStatus key={keyword.label} keyword={keyword} />)}</ul><div className="resumeKeywordLegend"><span><i className="is-green" />Matched</span><span><i className="is-yellow" />Partial</span><span><i className="is-red" />Missing</span></div></div>}
+        </aside>
+      </div>
+    </section>
+  );
+}
