@@ -299,10 +299,26 @@ def build_score_report(rubric: dict, evaluations: dict, recommendations: list[di
         confidence = {"level": "low", "reason": "The PDF text is sparse; some resume details may not be represented in the score."}
     confidence["score"] = {"very_low": 5, "low": 40, "medium": 65, "high": 90}[confidence["level"]]
 
+    # Keep the raw rubric total for diagnostics, but expose a conservative
+    # display score when the document is not fully evidenced. This prevents a
+    # nearly complete-looking score from implying certainty that the source
+    # does not support, while still allowing a genuinely complete rubric to
+    # reach 100.
+    measurable = [item for item in criterion_lookup.values()
+                  if item["id"] not in {"contact_information", "text_parseability"}]
+    all_measurable_found = bool(measurable) and all(item["found"] for item in measurable)
+    confidence_factor = 0.8 + (0.2 * confidence["score"] / 100)
+    display_total = total if all_measurable_found else min(99, round(total * confidence_factor))
+    ats_measurable = [item for item in ats["criteria"]
+                      if item["id"] not in {"contact_information", "text_parseability"}]
+    ats_complete = bool(ats_measurable) and all(item["found"] for item in ats_measurable)
+    display_ats = ats["score"] if ats_complete else min(99, round(ats["score"] * confidence_factor))
+
     return {
         "status": "scored" if scoreable else "insufficient_evidence",
         "overall": total,
-        "ats": {"score": ats["score"], "earned": ats["earned"], "weight": ats["weight"]},
+        "display_overall": display_total,
+        "ats": {"score": ats["score"], "display_score": display_ats, "earned": ats["earned"], "weight": ats["weight"]},
         "readiness": readiness,
         "confidence": confidence,
         "insufficient_reasons": insufficient_reasons,

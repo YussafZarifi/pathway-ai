@@ -186,5 +186,6 @@ def test_high_score_requires_broad_verified_quality_evidence_and_substantial_sou
     report = _report_for("Software Engineer", all_ids, chars=2400, words=360)
     assert report["status"] == "scored"
     assert report["overall"] == 100
+    assert report["display_overall"] == 100
     assert report["confidence"]["level"] == "high"
     assert report["confidence"]["score"] == 90

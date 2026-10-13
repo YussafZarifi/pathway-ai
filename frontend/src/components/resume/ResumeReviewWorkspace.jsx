@@ -15,15 +15,38 @@ function clean(value) {
   return String(value || "").replace(/\s+/g, " ").trim().toLowerCase();
 }
 
+const CHECK_LABELS = {
+  project_purpose: ["Problem", "The project description does not make the user or problem clear.", "A clear purpose helps a reviewer understand the value quickly."],
+  project_stack: ["Missing technologies", "The implementation stack is only partially named.", "Specific frameworks and technologies make the work easier to assess."],
+  project_apis: ["Missing framework detail", "The project does not show enough of its application or integration layer.", "Framework and API detail signals implementation depth."],
+  project_testing: ["Missing testing", "No testing approach is visible in this project review.", "Testing evidence increases confidence in production readiness."],
+  project_deployment: ["Missing deployment", "A deployment target or delivery path is not evidenced.", "Deployment context turns a project into a more credible shipped result."],
+  project_impact: ["Missing impact metric", "The project does not include a measurable outcome.", "A metric gives the reviewer a concrete sense of scale or improvement."],
+  experience_actions: ["Use stronger action verbs", "The bullet does not lead with a specific ownership-oriented action.", "Sharper verbs make contribution and scope immediately legible."],
+  experience_relevance: ["Make relevance explicit", "The connection to the target role is not clear from the cited line.", "Role-specific language improves both ATS matching and human review."],
+  experience_results: ["Missing measurable achievement", "The bullet does not show a result, scale, or outcome.", "Results distinguish activity from impact."],
+  experience_ownership: ["Clarify ownership", "The work described does not show what you personally owned.", "Ownership helps reviewers separate contribution from team context."],
+};
+
+function findingDetails(item) {
+  const missing = item.missingChecks || [];
+  const [label, problem, why] = CHECK_LABELS[missing[0]] || ["Add grounded detail", "This finding needs more specific evidence.", "Specific evidence makes the claim easier to verify."];
+  return { problem: label, why, impact: missing.length ? `Addressing this may also improve ${missing.length} related review signal${missing.length === 1 ? "" : "s"}.` : "A clearer, measurable line will be easier to scan and verify." , missing: problem };
+}
+
 function reviewCandidates(analysis) {
   const items = [];
   const work = [...(analysis.projectReviews || []), ...(analysis.experienceReviews || [])];
   work.forEach((item, index) => {
+    const details = findingDetails(item);
     if (item.bulletRewrite?.before) {
       items.push({
         id: `rewrite-${index}`,
         title: `Strengthen ${item.title}`,
-        description: "Make this line more specific and outcome-led.",
+        description: item.summary || "Make this line more specific and outcome-led.",
+        problem: details.missing,
+        why: details.why,
+        impact: details.impact,
         before: item.bulletRewrite.before,
         after: item.bulletRewrite.after,
         page: item.bulletRewrite.page,
@@ -33,7 +56,10 @@ function reviewCandidates(analysis) {
       items.push({
         id: `evidence-${index}`,
         title: `Review ${item.title}`,
-        description: "This evidence is relevant, but could communicate more technical depth.",
+        description: item.summary || "This evidence is relevant, but could communicate more technical depth.",
+        problem: details.missing,
+        why: details.why,
+        impact: details.impact,
         before: item.evidence.quote,
         after: null,
         page: item.evidence.page,
@@ -48,6 +74,9 @@ function reviewCandidates(analysis) {
       id: `recommendation-${index}`,
       title: item.title || "Resume improvement",
       description: item.action || "Add clearer evidence to this section.",
+      problem: "Priority improvement",
+      why: "This is a measurable gap in the role rubric.",
+      impact: "Closing it can improve the role-fit signal.",
       before: null,
       after: null,
       page: null,
@@ -74,7 +103,7 @@ function PdfPage({ page, highlights, selectedId, accepted, onSelect }) {
   const [pdfjs, setPdfjs] = useState(null);
 
   useEffect(() => {
-    if (typeof window === "undefined" || !window.DOMMatrix) return undefined;
+    if (typeof window === "undefined") return undefined;
     loadPdfJs().then(setPdfjs).catch(() => {});
     return undefined;
   }, []);
@@ -131,6 +160,7 @@ function PdfPage({ page, highlights, selectedId, accepted, onSelect }) {
             type="button"
             className={`resumePdfHighlight ${highlight.kind === "suggestion" ? "is-problem" : "is-review"} ${selectedId === highlight.id ? "is-selected" : ""} ${isAccepted ? "is-accepted" : ""}`}
             key={highlight.id}
+            data-highlight-id={highlight.id}
             style={{ left: `${(item.left / rendered.width) * 100}%`, top: `${(item.top / rendered.height) * 100}%`, width: `${(item.width / rendered.width) * 100}%`, height: `${Math.max(item.height, 18) / rendered.height * 100}%` }}
             onClick={() => onSelect(highlight.id)}
             aria-label={`${highlight.title}. ${isAccepted ? "Accepted" : "Open suggestion"}`}
@@ -148,7 +178,7 @@ function PdfDocument({ file, highlights, selectedId, accepted, onSelect }) {
   const [error, setError] = useState("");
   const [pdfjs, setPdfjs] = useState(null);
   useEffect(() => {
-    if (typeof window === "undefined" || !window.DOMMatrix) return undefined;
+    if (typeof window === "undefined") return undefined;
     loadPdfJs().then(setPdfjs).catch(() => {});
     return undefined;
   }, []);
@@ -168,8 +198,15 @@ function PdfDocument({ file, highlights, selectedId, accepted, onSelect }) {
     }).catch(() => { if (!cancelled) setError("This PDF could not be rendered in the review workspace."); });
     return () => { cancelled = true; loading?.destroy(); };
   }, [file, pdfjs]);
+  useEffect(() => {
+    if (!selectedId) return undefined;
+    const frame = window.requestAnimationFrame(() => {
+      document.querySelector(`[data-highlight-id="${CSS.escape(selectedId)}"]`)?.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [selectedId, pages]);
   if (error) return <p className="resumePdfError" role="alert">{error}</p>;
-  return <div className="resumePdfDocument">{pages.map((page) => <PdfPage key={page.pageNumber} page={page} highlights={highlights.filter((item) => !item.page || item.page === page.pageNumber)} selectedId={selectedId} accepted={accepted} onSelect={onSelect} />)}</div>;
+  return <div className="resumePdfDocument" data-page-count={pages.length}>{pages.map((page) => <PdfPage key={page.pageNumber} page={page} highlights={highlights.filter((item) => !item.page || item.page === page.pageNumber)} selectedId={selectedId} accepted={accepted} onSelect={onSelect} />)}</div>;
 }
 
 function KeywordStatus({ keyword }) {
@@ -182,7 +219,7 @@ export default function ResumeReviewWorkspace({ analysis, file }) {
   const report = analysis.scoreReport || {};
   const highlights = useMemo(() => reviewCandidates(analysis), [analysis]);
   const selected = highlights.find((item) => item.id === selectedId) || highlights[0] || null;
-  const atsScore = Number(report.ats?.score ?? report.categories?.find((item) => item.id === "ats")?.score ?? 0);
+  const atsScore = Number(report.ats?.display_score ?? report.ats?.score ?? report.categories?.find((item) => item.id === "ats")?.score ?? 0);
   const keywords = keywordsFromReport(report);
 
   function acceptSelected() {
@@ -193,7 +230,7 @@ export default function ResumeReviewWorkspace({ analysis, file }) {
   return (
     <section className="resumeReviewWorkspace" aria-label="Resume review workspace">
       <div className="resumeReviewSummary">
-        <div><span className="resumeReviewKicker"><Sparkles size={14} aria-hidden="true" /> Live document review</span><h3>Make your resume sharper</h3><p>Review each highlighted line against the role you are targeting.</p></div>
+        <div><span className="resumeReviewKicker"><Sparkles size={14} aria-hidden="true" /> Live document review</span><h3>Make your resume sharper</h3><p>Click a highlight to jump to the exact line and review one finding at a time.</p></div>
         <div className="resumeAtsScore"><span>ATS score</span><strong>{atsScore}<small>/100</small></strong><em>Keyword and structure fit</em></div>
       </div>
       <div className="resumeSectionScores" aria-label="Resume section scores">
@@ -208,6 +245,7 @@ export default function ResumeReviewWorkspace({ analysis, file }) {
           <div className="resumePaneHead"><span><Lightbulb size={16} aria-hidden="true" /> Suggestions</span><small>{highlights.length} findings</small></div>
           {selected ? <>
             <div className="resumeSuggestionTitle"><span className={`resumeSuggestionBadge ${selected.kind === "suggestion" ? "is-warning" : ""}`}>{selected.kind === "suggestion" ? "Improve" : "Review"}</span><h4>{selected.title}</h4><p>{selected.description}</p></div>
+            <dl className="resumeFindingDetails"><div><dt>Problem</dt><dd>{selected.problem}</dd></div><div><dt>Why it matters</dt><dd>{selected.why}</dd></div><div><dt>Expected impact</dt><dd>{selected.impact}</dd></div></dl>
             {selected.before && <div className="resumeSuggestionDiff"><span>Current text</span><blockquote>{selected.before}</blockquote>{selected.after && <><span>Suggested revision</span><blockquote className="is-after">{accepted.has(selected.id) ? selected.after : selected.after}</blockquote></>}</div>}
             {selected.after ? <button type="button" className="resumeAcceptButton" onClick={acceptSelected} disabled={accepted.has(selected.id)}>{accepted.has(selected.id) ? <><Check size={15} /> Accepted</> : <>Accept suggestion <ChevronRight size={15} /></>}</button> : <p className="resumeSuggestionNote">Use the highlighted evidence as a prompt to add a grounded detail. Do not add claims you cannot verify.</p>}
           </> : <div className="resumeSuggestionEmpty"><Check size={22} /><p>Your resume is ready for review.</p></div>}

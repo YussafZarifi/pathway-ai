@@ -160,7 +160,7 @@ function ScoreReport({ analysis, currentRoadmapId }) {
   const confidence = report.confidence || {};
   const skillCategory = categories.find((item) => item.id === "skills");
   const insufficient = report.status === "insufficient_evidence";
-  const score = Number(report.overall) || 0;
+  const score = Number(report.display_overall ?? report.overall) || 0;
   const recommendations = report.recommendations?.length
     ? report.recommendations.slice(0, 5)
     : (report.insufficient_reasons || []).slice(0, 5).map((action, index) => ({
