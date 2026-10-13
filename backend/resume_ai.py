@@ -16,6 +16,7 @@ import threading
 import unicodedata
 from copy import deepcopy
 from datetime import datetime, timezone
+from difflib import SequenceMatcher
 from pathlib import Path
 from typing import Literal
 from uuid import uuid4
@@ -113,6 +114,7 @@ class _ResumeDebugCapture:
             self.path.mkdir()
         self._write_json("upload-metadata.json", {
             "pdf_bytes": len(pdf),
+            "pdf_sha256": hashlib.sha256(bytes(pdf)).hexdigest(),
             "page_count": len(pages),
             "capture_utc": datetime.now(timezone.utc).isoformat(),
         })
@@ -405,15 +407,45 @@ def _citation_mismatch_diagnostic(quote: str, page: str, page_number: int) -> di
     """
     quote_normalized = _normalized(quote)
     page_normalized = _normalized(page)
+    quote_tokens = _normalized_tokens(quote)
+    page_tokens = _normalized_tokens(page)
+    mismatch = _first_sequence_mismatch(list(quote_tokens), list(page_tokens))
+    longest = SequenceMatcher(None, quote_tokens, page_tokens, autojunk=False).find_longest_match(
+        0, len(quote_tokens), 0, len(page_tokens)
+    )
+    source_start = longest.b
+    normalized_page = _normalized(page)
+    source_position = normalized_page.find(" ".join(page_tokens[source_start:source_start + longest.size]))
+    if source_position < 0:
+        source_position = 0
+    surrounding = normalized_page[max(0, source_position - 500):source_position + 500]
     return {
         "page": page_number,
         "quote_chars": len(quote),
         "page_chars": len(page),
-        "quote_tokens": len(_normalized_tokens(quote)),
-        "page_tokens": len(_normalized_tokens(page)),
+        "quote_tokens": len(quote_tokens),
+        "page_tokens": len(page_tokens),
         "quote_normalized_sha256": hashlib.sha256(quote_normalized.encode()).hexdigest()[:12],
         "page_normalized_sha256": hashlib.sha256(page_normalized.encode()).hexdigest()[:12],
-        "contiguous_word_match": False,
+        "contiguous_word_match": _quote_matches_source(quote, page),
+        "first_mismatch": mismatch,
+        "first_mismatch_normalized_quote_char": (
+            len(" ".join(quote_tokens[:mismatch["quote_token_index"]]))
+            + (1 if mismatch and mismatch["quote_token_index"] else 0)
+            if mismatch and mismatch.get("quote_token_index") is not None else None
+        ),
+        "longest_matching_subsequence": {
+            "quote_start_token": longest.a,
+            "source_start_token": longest.b,
+            "token_count": longest.size,
+            "tokens": list(quote_tokens[longest.a:longest.a + longest.size]),
+        },
+        "surrounding_page_text": surrounding,
+        "why_contiguous_matching_failed": (
+            "The normalized quote is not a contiguous source span. The shared run ends before the quote ends, so accepting it would allow a paraphrase, reordered text, or omitted source words."
+            if longest.size and longest.size < len(quote_tokens)
+            else "No normalized source span matched the citation."
+        ),
     }
 
 
@@ -698,8 +730,6 @@ def parse_resume_reply(text: str, rubric: dict, pages: list[str], step_positions
             normalized_page = _normalized(page)
             matches = _quote_matches_source(citation.quote, page)
             if debug_capture is not None:
-                quote_tokens = normalized_quote.split()
-                page_tokens = normalized_page.split()
                 debug_capture.save_comparison({
                     "evaluation_index": index,
                     "criterion_id": item.criterion_id,
@@ -714,7 +744,8 @@ def parse_resume_reply(text: str, rubric: dict, pages: list[str], step_positions
                         "normalized quote words occur contiguously and in order"
                         if matches else "normalized quote word sequence is absent from normalized cited page"
                     ),
-                    "first_mismatch": _first_sequence_mismatch(quote_tokens, page_tokens),
+                    "forensic_diagnostic": _citation_mismatch_diagnostic(citation.quote, page, citation.page)
+                    if not matches else None,
                 })
             if not matches:
                 logger.warning(
@@ -736,9 +767,11 @@ def parse_resume_reply(text: str, rubric: dict, pages: list[str], step_positions
             "note": item.note,
         }
 
-    project_reviews, project_dropped = _validate_work_samples(reply.project_reviews, "project", pages, debug_capture)
+    project_reviews, project_dropped = _validate_work_samples(
+        reply.project_reviews, "project", pages, debug_capture, tolerant=tolerant
+    )
     experience_reviews, experience_dropped = _validate_work_samples(
-        reply.experience_reviews, "experience", pages, debug_capture
+        reply.experience_reviews, "experience", pages, debug_capture, tolerant=tolerant
     )
 
     recommendation_ids = {item.criterion_id for item in reply.evaluations if not item.found}
@@ -822,7 +855,8 @@ def parse_resume_reply(text: str, rubric: dict, pages: list[str], step_positions
 
 
 def _validate_work_samples(items: list[WorkSampleReview], kind: str, pages: list[str],
-                           debug_capture: _ResumeDebugCapture | None) -> tuple[list[dict], list[str]]:
+                           debug_capture: _ResumeDebugCapture | None,
+                           *, tolerant: bool = False) -> tuple[list[dict], list[str]]:
     """Canonicalize and verify work-sample checks before allowing them to score.
 
     The model can mix global rubric IDs into these narrower per-project/job
@@ -884,9 +918,25 @@ def _validate_work_samples(items: list[WorkSampleReview], kind: str, pages: list
                         "matches": matches,
                         "first_mismatch": _first_sequence_mismatch(
                             normalized_quote.split(), normalized_page.split()
-                        ),
+                        ) if not matches else None,
+                        "forensic_diagnostic": _citation_mismatch_diagnostic(
+                            evidence.quote, page, evidence.page
+                        ) if not matches else None,
                     })
                 if not matches:
+                    if debug_capture is not None and not tolerant:
+                        debug_capture.save_validation_steps({
+                            "status": "failed",
+                            "stage": "work_sample_evidence",
+                            "path": evidence_path,
+                            "reason": "quote:not_in_source",
+                        })
+                    if tolerant:
+                        check.found = False
+                        check.evidence = []
+                        check.note = "No independently verifiable source excerpt was returned for this check."
+                        dropped.append(f"{evidence_path}:unverified_quote")
+                        continue
                     raise AIOutputError("schema", f"{evidence_path}.quote:not_in_source")
 
         cited_item_text = " ".join(
@@ -911,6 +961,17 @@ def _validate_work_samples(items: list[WorkSampleReview], kind: str, pages: list
                 raise AIOutputError("personal_data" if contains_contact_details(source.quote)
                                     else "schema", f"{rewrite_path}.source")
             if not _quote_matches_source(source.quote, pages[source.page - 1]):
+                if debug_capture is not None and not tolerant:
+                    debug_capture.save_validation_steps({
+                        "status": "failed",
+                        "stage": "work_sample_bullet_rewrite",
+                        "path": f"{rewrite_path}.source.quote",
+                        "reason": "quote:not_in_source",
+                    })
+                if tolerant:
+                    item.bullet_rewrite = None
+                    dropped.append(f"{rewrite_path}.source:unverified_quote")
+                    continue
                 raise AIOutputError("schema", f"{rewrite_path}.source.quote:not_in_source")
             suggestion = item.bullet_rewrite.suggestion
             if contains_contact_details(suggestion):

@@ -236,6 +236,36 @@ def test_project_review_rejects_an_unverifiable_citation():
                            rubric(), RESUME_PAGES, STEPS)
 
 
+def test_tolerant_project_review_drops_only_an_unverifiable_evidence_item():
+    projects, experience = sample_work_reviews()
+    projects[0]["checks"][0]["evidence"][0]["quote"] = "Built a different application."
+
+    parsed, diagnostics = parse_resume_reply(
+        json.dumps(reply(project_reviews=projects, experience_reviews=experience)),
+        rubric(), RESUME_PAGES, list(range(1, len(STEPS) + 1)), tolerant=True,
+    )
+
+    review = parsed["project_reviews_by_item"][0]
+    assert "project_purpose" in review["missing_checks"]
+    assert review["score"] == 48
+    assert review["title"] == "SQL reporting dashboard"
+    assert any("unverified_quote" in item for item in diagnostics["dropped"])
+
+
+def test_citation_diagnostic_explains_a_noncontiguous_quote():
+    diagnostic = resume_ai._citation_mismatch_diagnostic(
+        "Built a SQL dashboard with excellent reporting accuracy.",
+        RESUME_PAGES[0],
+        1,
+    )
+
+    assert diagnostic["contiguous_word_match"] is False
+    assert diagnostic["first_mismatch"]["expected"] == "with"
+    assert diagnostic["longest_matching_subsequence"]["token_count"] >= 3
+    assert len(diagnostic["surrounding_page_text"]) <= 1000
+    assert "not a contiguous source span" in diagnostic["why_contiguous_matching_failed"]
+
+
 def test_bullet_rewrite_cannot_invent_a_metric():
     projects, experience = sample_work_reviews()
     projects[0]["bullet_rewrite"]["suggestion"] += " Reduced costs by 40%."
