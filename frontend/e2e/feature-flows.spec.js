@@ -160,7 +160,7 @@ test("Resume upload interaction and Coach navigation survive reload and browser 
   await expect(page.getByRole("heading", { name: "Top improvements" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Projects" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Experience" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Inventory dashboard" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Inventory dashboard", exact: true })).toBeVisible();
   await page.screenshot({ path: ".resume-playwright-artifacts/resume-analysis-result.png", fullPage: true });
   for (const viewport of [
     { name: "desktop", width: 1440, height: 1000 },
@@ -242,7 +242,7 @@ test("sparse PDF upload renders a no-score warning instead of a zero-point gauge
   await page.getByRole("button", { name: "Analyze resume" }).click();
   await expect(page.getByRole("heading", { name: "Not enough content to score reliably" })).toBeVisible();
   await expect(page.getByText("Not scored")).toBeVisible();
-  await expect(page.getByText("very low confidence")).toBeVisible();
+  await expect(page.getByRole("strong").filter({ hasText: "very low confidence" })).toBeVisible();
   await expect(page.getByRole("img", { name: /Resume evidence score: 0 out of 100/ })).toHaveCount(0);
   await expect(page.locator(".resumeMoreDetails")).not.toHaveAttribute("open", "");
   expect(browserErrors).toEqual([]);
