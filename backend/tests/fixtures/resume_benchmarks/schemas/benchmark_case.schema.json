@@ -1,0 +1,196 @@
+{
+  "$defs": {
+    "BenchmarkFinding": {
+      "additionalProperties": false,
+      "properties": {
+        "criterion_id": {
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "title": "Criterion Id",
+          "type": "string"
+        },
+        "page": {
+          "minimum": 1,
+          "title": "Page",
+          "type": "integer"
+        },
+        "alternative_pages": {
+          "items": {
+            "type": "integer"
+          },
+          "maxItems": 7,
+          "title": "Alternative Pages",
+          "type": "array"
+        },
+        "evidence_contains": {
+          "maxLength": 320,
+          "minLength": 3,
+          "title": "Evidence Contains",
+          "type": "string"
+        }
+      },
+      "required": [
+        "criterion_id",
+        "page",
+        "evidence_contains"
+      ],
+      "title": "BenchmarkFinding",
+      "type": "object"
+    },
+    "ExpectedSignals": {
+      "additionalProperties": false,
+      "properties": {
+        "expected_titles": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 8,
+          "title": "Expected Titles",
+          "type": "array"
+        },
+        "expected_skills": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 8,
+          "title": "Expected Skills",
+          "type": "array"
+        },
+        "expected_bullets": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 8,
+          "title": "Expected Bullets",
+          "type": "array"
+        },
+        "findings": {
+          "items": {
+            "$ref": "#/$defs/BenchmarkFinding"
+          },
+          "maxItems": 30,
+          "title": "Findings",
+          "type": "array"
+        },
+        "minimum_score": {
+          "maximum": 100,
+          "minimum": 0,
+          "title": "Minimum Score",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "expected_titles",
+        "expected_skills",
+        "expected_bullets",
+        "findings",
+        "minimum_score"
+      ],
+      "title": "ExpectedSignals",
+      "type": "object"
+    },
+    "ResumeProfile": {
+      "additionalProperties": false,
+      "properties": {
+        "pages": {
+          "maximum": 8,
+          "minimum": 1,
+          "title": "Pages",
+          "type": "integer"
+        },
+        "expected_sections": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 10,
+          "minItems": 1,
+          "title": "Expected Sections",
+          "type": "array"
+        },
+        "formatting_flags": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 8,
+          "title": "Formatting Flags",
+          "type": "array"
+        }
+      },
+      "required": [
+        "pages",
+        "expected_sections",
+        "formatting_flags"
+      ],
+      "title": "ResumeProfile",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "The fixture contract; this model generates the checked-in JSON schema.",
+  "properties": {
+    "id": {
+      "pattern": "^[a-z][a-z0-9_]*$",
+      "title": "Id",
+      "type": "string"
+    },
+    "synthetic": {
+      "const": true,
+      "title": "Synthetic",
+      "type": "boolean"
+    },
+    "target_role": {
+      "maxLength": 100,
+      "minLength": 3,
+      "title": "Target Role",
+      "type": "string"
+    },
+    "category": {
+      "title": "Category",
+      "type": "string"
+    },
+    "target_skills": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 8,
+      "minItems": 1,
+      "title": "Target Skills",
+      "type": "array"
+    },
+    "expected_outcome": {
+      "enum": [
+        "scored",
+        "insufficient_evidence"
+      ],
+      "title": "Expected Outcome",
+      "type": "string"
+    },
+    "resume_profile": {
+      "$ref": "#/$defs/ResumeProfile"
+    },
+    "expected_signals": {
+      "$ref": "#/$defs/ExpectedSignals"
+    },
+    "must_not_appear": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 12,
+      "minItems": 1,
+      "title": "Must Not Appear",
+      "type": "array"
+    }
+  },
+  "required": [
+    "id",
+    "synthetic",
+    "target_role",
+    "category",
+    "target_skills",
+    "expected_outcome",
+    "resume_profile",
+    "expected_signals",
+    "must_not_appear"
+  ],
+  "title": "BenchmarkCase",
+  "type": "object"
+}

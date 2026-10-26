@@ -1,0 +1,13 @@
+{
+  "collection": "ats_guidance",
+  "source": "PathwayAI editorial guidance",
+  "title": "Readable, ATS-safe resume structure",
+  "version": "v2",
+  "role": "all",
+  "level": "all",
+  "sections": [
+    {"title": "Conventional, parseable structure", "topic": "ats structure", "criterion_ids": ["standard_sections", "standard_headings", "section_order", "text_parseability"], "text": "Use familiar headings such as Skills, Projects, Experience, and Education. Keep dates, titles, and bullets as selectable text in a simple reading order. Avoid hiding core information in images, text boxes, columns that scramble when extracted, or decorative labels that replace section headings."},
+    {"title": "Scannable action bullets", "topic": "bullet readability", "criterion_ids": ["bullet_readability", "action_language"], "text": "Keep each bullet focused on one contribution. Start with a precise action verb, then name the object, method, and result where space allows. Cut setup phrases and vague verbs such as helped or worked on when the resume can truthfully say what the candidate built, analyzed, improved, or coordinated."},
+    {"title": "Truthful role keywords", "topic": "keyword context", "criterion_ids": ["keyword_coverage", "keyword_balance"], "text": "Use role-relevant terms where they describe actual skills, coursework, projects, or experience. Pair a keyword with context: the tool, task, or outcome. Repeating terms in a skills list without evidence can look unsupported to both a reviewer and an ATS-oriented screen."}
+  ]
+}

@@ -32,6 +32,13 @@ def _bool(name: str, default: bool) -> bool:
     raise RuntimeError(f"{name} must be true or false")
 
 
+def _choice(name: str, default: str, choices: set[str]) -> str:
+    value = os.getenv(name, "").strip().lower() or default
+    if value not in choices:
+        raise RuntimeError(f"{name} must be one of {', '.join(sorted(choices))}")
+    return value
+
+
 def _origins(raw: str) -> list[str]:
     # Browsers send origins without a trailing slash; tolerate one in config.
     return [o.strip().rstrip("/") for o in raw.split(",") if o.strip()]
@@ -119,6 +126,14 @@ DEBUG_RESUME_VERIFIER = _bool("DEBUG_RESUME_VERIFIER", False)
 RESUME_LIMIT_PER_HOUR = _int("RESUME_LIMIT_PER_HOUR", 3)
 RESUME_LIMIT_PER_DAY = _int("RESUME_LIMIT_PER_DAY", 10)
 RESUME_GLOBAL_LIMIT_PER_DAY = _int("RESUME_GLOBAL_LIMIT_PER_DAY", 100)
+
+# RAG coaching runs after deterministic analysis using this selected retriever.
+RAG_RETRIEVER = _choice("RAG_RETRIEVER", "langchain", {"native", "langchain"})
+RAG_COACHING_ENABLED = _bool("RAG_COACHING_ENABLED", True)
+RAG_COACHING_TIMEOUT_SECONDS = _int("RAG_COACHING_TIMEOUT_SECONDS", 5)
+RAG_EMBEDDING_PROVIDER = _choice("RAG_EMBEDDING_PROVIDER", "gemini", {"gemini"})
+GEMINI_EMBEDDING_MODEL = os.getenv("GEMINI_EMBEDDING_MODEL", "").strip() or "gemini-embedding-001"
+GEMINI_EMBEDDING_DIMENSIONS = _int("GEMINI_EMBEDDING_DIMENSIONS", 768)
 
 # AI Coach (ADR-021): signed-in chat about the user's roadmap. On by
 # default (messages are the user's own career questions, like the quiz's

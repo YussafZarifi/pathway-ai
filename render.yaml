@@ -41,6 +41,11 @@ services:
       # project (the unpaid tier's terms forbid personal information).
       - key: RESUME_ANALYSIS_ENABLED
         value: "false"
+      # Grounded RAG coaching runs after deterministic resume analysis.
+      - key: RAG_RETRIEVER
+        value: "langchain"
+      - key: RAG_COACHING_ENABLED
+        value: "true"
       # Drop clearly broken AI resource links (link_check.py; SSRF-safe).
       - key: LINK_CHECK_ENABLED
         value: "true"

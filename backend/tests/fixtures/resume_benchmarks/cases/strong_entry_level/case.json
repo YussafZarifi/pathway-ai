@@ -1,0 +1,97 @@
+{
+  "id": "strong_entry_level",
+  "synthetic": true,
+  "target_role": "Data Analyst",
+  "category": "strong_entry_level",
+  "target_skills": [
+    "SQL"
+  ],
+  "expected_outcome": "scored",
+  "resume_profile": {
+    "pages": 1,
+    "expected_sections": [
+      "Skills",
+      "Projects",
+      "Experience",
+      "Education"
+    ],
+    "formatting_flags": []
+  },
+  "expected_signals": {
+    "expected_titles": [
+      "Campus Reporting Dashboard",
+      "Data Support Assistant"
+    ],
+    "expected_skills": [
+      "SQL"
+    ],
+    "expected_bullets": [
+      "Built and deployed a SQL dashboard that improved weekly reporting accuracy by 28%.",
+      "Analyzed reporting data for 50 student-club users and reduced manual follow-up time."
+    ],
+    "findings": [
+      {
+        "criterion_id": "skill_1",
+        "page": 1,
+        "evidence_contains": "SQL"
+      },
+      {
+        "criterion_id": "relevant_project",
+        "page": 1,
+        "evidence_contains": "Campus Reporting Dashboard"
+      },
+      {
+        "criterion_id": "project_technology",
+        "page": 1,
+        "evidence_contains": "Built and deployed a SQL dashboard that improved weekly reporting accuracy by 28%."
+      },
+      {
+        "criterion_id": "project_outcome",
+        "page": 1,
+        "evidence_contains": "Built and deployed a SQL dashboard that improved weekly reporting accuracy by 28%."
+      },
+      {
+        "criterion_id": "relevant_experience",
+        "page": 1,
+        "evidence_contains": "Data Support Assistant"
+      },
+      {
+        "criterion_id": "education_entry",
+        "page": 1,
+        "evidence_contains": "BSc in Analytics, 2025."
+      },
+      {
+        "criterion_id": "standard_sections",
+        "page": 1,
+        "evidence_contains": "Skills"
+      },
+      {
+        "criterion_id": "date_consistency",
+        "page": 1,
+        "evidence_contains": "2024 - 2025"
+      },
+      {
+        "criterion_id": "bullet_readability",
+        "page": 1,
+        "evidence_contains": "Built and deployed a SQL dashboard that improved weekly reporting accuracy by 28%."
+      },
+      {
+        "criterion_id": "action_language",
+        "page": 1,
+        "evidence_contains": "Built and deployed a SQL dashboard that improved weekly reporting accuracy by 28%."
+      },
+      {
+        "criterion_id": "project_impact",
+        "page": 1,
+        "evidence_contains": "Built and deployed a SQL dashboard that improved weekly reporting accuracy by 28%."
+      }
+    ],
+    "minimum_score": 20
+  },
+  "must_not_appear": [
+    "claims_no_projects",
+    "claims_missing_sql",
+    "flags_valid_date_as_inconsistent",
+    "requests_metric_for_existing_metric"
+  ]
+}

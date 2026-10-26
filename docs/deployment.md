@@ -1,9 +1,9 @@
 # Deployment
 
 ## Current state
-**Deployment-ready for Render, not deployed, not pushed — deployment is postponed until Version 2 is complete** (owner decision, 2026-10-01). Version 2 = Milestones 1–4: accounts (done in code), roadmaps in PostgreSQL, Resume Analyzer, AI Coach (ROADMAP → 🎯 Version 2). Until then, don't recommend or start a deploy unless the owner explicitly asks. Supabase accounts (Milestone 1, ADR-018) are optional per environment (see "Supabase" below).
+**Version 1.0 release preparation is verified locally; the application is not deployed.** Render remains the production target. Supabase accounts are optional per environment; the Resume Analyzer additionally requires a paid Gemini project and `RESUME_ANALYSIS_ENABLED=true` before it accepts personal PDFs.
 
-### Keeping it deployable (every commit until Version 2 ships)
+### Keeping the release deployable
 The deploy waits, but the project must stay shippable at every commit:
 - Backend tests pass (`cd backend && python -m pytest -q`); `npm run lint` at or below its baseline; `npm run build` passes with `VITE_API_URL` set.
 - The guest flow works with the Supabase variables unset (guest-only build) and set.
@@ -11,12 +11,13 @@ The deploy waits, but the project must stay shippable at every commit:
 - Every schema change is a Supabase CLI migration in `supabase/migrations/`, applied to the project, security advisors clean.
 - Nothing here assumes a single long-lived process beyond what's documented (in-memory rate limits, YouTube cache); new features that need shared state or background work say so in their ADR, with the Render piece they'd need.
 
-### Launch sequence (parked until Version 2 — ROADMAP → ⏸️ Deployment)
-1. **D-1** Push `main` to the private repo (54 commits ahead on 2026-10-01) (check `git check-ignore backend/.env` first).
-2. **D-2** Choose the Render plan for `pathwayai-api` (free sleeps; Starter is always on).
-3. **D-3** Apply the Blueprint (steps below), including any variables Milestones 2–4 add.
-4. **D-4** Verify production: `/health`, the full flow Landing → Quiz → Results → Dashboard → Regenerate, the 404 page, CORS, request-ID logs, no console errors; add the live URL to the README; then `og:url` / `og:image` (N-22).
-5. Before **sharing the URL publicly**: Gemini billing + budget alert (D-6) and `YOUTUBE_API_KEY` (D-5, otherwise every step shows a "No video found yet" placeholder); ideally also the presentation fixes P-1–P-6 (built-by footer, About, How it works, sorted matches, AI-estimate labels, fewer "Coming soon").
+### Deployment sequence
+1. Run the release checks in this document and confirm `backend/.env`, `frontend/.env.local` and `frontend/.env.e2e` remain ignored.
+2. Create the approved release commit and tag, then push the private repository so GitHub Actions runs.
+3. Choose the Render plan for `pathwayai-api` (free sleeps; Starter is always on) and apply the Blueprint.
+4. Set `sync: false` values in Render, including Gemini, database, origin and frontend API URL settings. Enable résumé analysis only with a paid Gemini project.
+5. Verify `/health`, the guest flow, signed-in persistence, résumé analysis, grounded coaching fallback behavior, CORS, request-ID logs and browser console output. Add the production URL to the README after it is live.
+6. Before public sharing, configure Gemini billing and a budget alert, production Supabase redirect URLs and custom SMTP. Set `YOUTUBE_API_KEY` if embedded video results are required instead of search links.
 
 Done (ADR-014):
 - No hard-coded URLs: the frontend reads `VITE_API_URL` (the build fails without it); the backend reads `ALLOWED_ORIGINS`.
@@ -25,8 +26,8 @@ Done (ADR-014):
 - Request validation, a 16 KB body limit, in-memory rate limiting (per IP and global), generic error messages, no quiz answers or AI output in logs.
 - `render.yaml` Blueprint, validated against Render's JSON schema.
 
-Still missing before a public launch (not blockers for a first deploy):
-- No frontend tests and no CI (F-2–F-4; the backend has 100 pytest tests run locally); no error tracking (F-11).
+Still required before a public launch:
+- Production error monitoring is not configured.
 - **Gemini free-tier quota: 20 requests per day** for `gemini-2.5-flash-lite` (measured 2026-09-27). That's about 7–10 quiz runs a day in total (a run uses 2–3 requests, plus any retry); after that, users see "PathwayAI has reached its AI usage limit for now" until the daily reset. Before sharing the URL widely, enable billing on the Google AI Studio / Cloud project (paid tier) and set `GLOBAL_AI_LIMIT_PER_DAY` to the spend you accept. (AI output is validated and retried since ADR-015.)
 - No Gemini budget alert. The global daily cap (`GLOBAL_AI_LIMIT_PER_DAY`) is the only spend guard.
 
@@ -69,6 +70,10 @@ Both have `buildFilter` paths, so a frontend-only change doesn't redeploy the AP
 | `DATABASE_URL` | api | `sync: false` | Optional **secret** (ADR-019, Milestone 2): `postgresql://pathwayai_api.<project-ref>:<password>@<pooler-host>:6543/postgres?sslmode=require` — Supabase transaction pooler, least-privilege `pathwayai_api` role (never `postgres`/service_role). Unset → `/api/roadmaps*` 503 (signed-in users can't save roadmaps); guests unchanged |
 | `DB_POOL_MAX` | api | optional, Dashboard | Max pooled connections per instance (default 5) |
 | `RESUME_ANALYSIS_ENABLED` | api | `"false"` in the Blueprint | Résumé analysis (ADR-020, Milestone 3). Set `true` **only** with a `GEMINI_API_KEY` from a paid (billing-enabled) Google project: the unpaid tier's terms forbid personal information. `false` → `POST /api/resume-analyses` returns 503 before reading the upload. Needs `SUPABASE_URL` and `DATABASE_URL`. Invalid values stop startup |
+| `RAG_RETRIEVER` | api | `"langchain"` in the Blueprint | Selects the résumé-guidance retriever: `langchain` is the production default; `native` remains an equivalent provider-neutral alternative. |
+| `RAG_COACHING_ENABLED` | api | `"true"` in the Blueprint | Enables additive, grounded résumé coaching. Disabling it never disables deterministic analysis. |
+| `RAG_COACHING_TIMEOUT_SECONDS` | api | default `5` | Per coaching model request budget. A timeout returns `ai_coaching.status: "unavailable"` while preserving the deterministic analysis. |
+| `RAG_EMBEDDING_PROVIDER`, `GEMINI_EMBEDDING_MODEL`, `GEMINI_EMBEDDING_DIMENSIONS` | api | defaults `gemini`, `gemini-embedding-001`, `768` | Embedding configuration for the curated in-memory résumé-guidance index. |
 | *(Supabase dashboard)* | auth | Authentication → URL Configuration | Add `<frontend origin>/reset-password` to **Redirect URLs** so password-reset links work (ADR-022). Recommended: Authentication → Providers → Email → **Secure password change** on, and leaked-password protection (paid plans) |
 | `LINK_CHECK_ENABLED` | api | `"true"` in the Blueprint | Check AI-suggested resource links with one HEAD request each before a roadmap is shown and drop clearly broken ones (404/410, no such host, non-HTTPS). Public HTTPS on port 443 only; hosts are vetted at connect time (no private/loopback/link-local/metadata addresses, no DNS rebinding); redirects re-checked. Needs outbound internet; `false` skips it |
 | `API_DOCS_ENABLED` | api | `"false"` in the Blueprint | Controls FastAPI's `/docs`, `/redoc` and `/openapi.json`. Keep disabled in production; set `true` only for local development |
@@ -90,7 +95,7 @@ Render mode is safe for this public web service because Render routes public req
 - **Database role for the API (ADR-019):** `pathwayai_api` is created by migration `20261004014249_create_roadmaps` without a password. To enable it (done for the dev project on 2026-10-03, M2-4), generate a strong password locally and run `alter role pathwayai_api with login password '<SCRAM-SHA-256 hash>'` in the SQL Editor — a hash, not the plain password, because the project logs DDL statements — then put the matching `DATABASE_URL` in the API's environment. Get the pooler host from **Connect → Transaction pooler**. Check: `supabase/tests/m2_4_api_role_connection.py`.
 - Verify after deploying: sign up with a real inbox → the link lands on `/home` signed in → header shows the email → `GET /api/me` with the session token returns 200 → sign out.
 
-### First deploy (after Version 2, when the owner approves)
+### First deploy (after Version 1.0 release approval)
 1. Push `main` to GitHub (the Blueprint is read from the repo).
 2. Render Dashboard → **New → Blueprint** → pick `YussafZarifi/pathway-ai` (grant Render access to the private repo).
 3. Enter the `sync: false` values. The URLs aren't known before the first deploy, so either:
@@ -106,14 +111,15 @@ Render mode is safe for this public web service because Render routes public req
 ## Later (🗺️)
 | Piece | Plan |
 |---|---|
-| Database | Supabase Postgres (ADR-018/019): `profiles` (Milestone 1); roadmap tables + `pathwayai_api` role (Milestone 2, F-8, in progress) |
+| Database | Supabase Postgres (ADR-018/019): profiles, roadmaps, progress, résumé analyses, coach data and the `pathwayai_api` role are implemented |
 | Shared rate limits / cache | Render Key Value (Redis-compatible) once there is more than one instance |
 | Errors | Sentry (F-11) |
 | Containers | Optional `backend/Dockerfile` + `docker-compose.yml` for local dev (F-5) |
 
 ### CI/CD (GitHub Actions, F-4)
-1. On PR: install → lint → unit tests (FE + BE) → build → Playwright E2E (mocked API).
-2. Render auto-deploys `main`; switch `autoDeployTrigger` to `checksPass` once CI exists.
+1. GitHub Actions currently runs backend pytest + pip-audit and frontend lint, Vitest, build and npm audit without secrets.
+2. Playwright remains a local release check. Enable it in CI only when its browser-install/runtime budget is accepted.
+3. Render auto-deploys only when the owner enables it for the private repository.
 
 ## Production checklist
 - [x] Env-based config, `.env.example` committed, real `.env` ignored
@@ -124,9 +130,9 @@ Render mode is safe for this public web service because Render routes public req
 - [ ] Sentry wired up
 - [ ] Gemini paid tier (free tier = 20 requests/day) + budget alert in Google Cloud; `GLOBAL_AI_LIMIT_PER_DAY` set to match
 - [x] AI output validated with one retry; failures logged with request IDs (ADR-015)
-- [x] Backend tests (100, pytest; run locally)
+- [x] Backend pytest, frontend lint/Vitest/build and local Playwright release checks
 - [ ] Supabase Site URL + Redirect URLs set for the live domain; custom SMTP before public launch
-- [ ] Frontend tests + CI
+- [x] Frontend tests + CI
 - [ ] `YOUTUBE_API_KEY` set (owner: required before public launch)
 - [ ] Production verified (D-4)
 - [ ] README has the live URL

@@ -271,8 +271,17 @@ Roadmap steps (use these numbers for related_step):
 """, len(step_list)
 
 
-def build_resume_evidence_prompt(career: str, rubric: dict, steps: list[dict], pages: list[str]) -> str:
+def build_resume_evidence_prompt(career: str, rubric: dict, steps: list[dict], pages: list[str],
+                                 *, target_level: str = "entry_level") -> str:
     """Build the evidence-only prompt; scoring always remains in Python."""
+    target_level = target_level if target_level in {"internship", "entry_level"} else "entry_level"
+    level_guidance = (
+        "Target level: internship. Calibrate strengths, gaps, skills, and project feedback for a student or early-career candidate. "
+        "Coursework, volunteer work, and well-explained projects can demonstrate readiness. Do not require professional work experience, deployed work, or mid-level ownership; still require source evidence for every positive finding."
+        if target_level == "internship" else
+        "Target level: entry-level. Calibrate strengths, gaps, skills, and project feedback for a new graduate or junior candidate. "
+        "Expect clear technical choices, project outcomes, and evidence of applied work from projects, coursework, internships, or employment. Do not apply a mid-level ownership or years-of-experience standard; still require source evidence for every positive finding."
+    )
     target_skills = next(category["criteria"] for category in rubric["categories"] if category["id"] == "skills")
     criteria = [
         {"id": criterion["id"], "label": criterion["label"]}
@@ -286,6 +295,7 @@ def build_resume_evidence_prompt(career: str, rubric: dict, steps: list[dict], p
 Target career: {json.dumps(_clean(career, 100), ensure_ascii=False)}
 Target skills (use these exact IDs and labels): {json.dumps(target_skills, ensure_ascii=False)}
 Checklist criteria: {json.dumps(criteria, ensure_ascii=False)}
+{level_guidance}
 
 Return this exact JSON shape:
 {{
@@ -302,7 +312,7 @@ Requirements:
 - Each quote must be a single uninterrupted, contiguous substring of the corresponding page's `resume_pages_json` text. Do not skip text, join separate headings/lines, or stitch excerpts together, even when they occur on the same page. Copy from the text block, not visual PDF layout.
 - Evidence is conditional: `found:true` requires at least one verified quote; `found:false` requires exactly `evidence:[]`. Do not return a quote showing that something is absent, such as “no Docker” or “not deployed”; those are not evidence objects.
 - Include every criterion ID exactly once. `found` is boolean. A found evaluation has 1–5 independently verifiable evidence excerpts with source `resume_text`; only heading/section criteria may use the fifth. A missing evaluation has an empty evidence list. `note` must be short and factual.
-- Treat related criteria independently: project technology needs named tools in project context; complexity needs scope or a non-trivial problem; deployment needs explicit deployed/usable status; impact needs a demonstrated result. Do not infer one from another.
+- Treat related criteria independently: project technology needs an explicitly named tool, platform, or technology category in project context. Spreadsheets, dashboards, databases, reporting, analytics, or automation tooling count when named in that project's source text; do not infer an unstated product, skill, or stack. Complexity needs scope or a non-trivial problem; deployment needs explicit deployed/usable status; impact needs a demonstrated result. Do not infer one criterion from another.
 - For experience, require source text for career relevance, responsibility scope, specific bullet quality, and results; generic participation or teamwork alone only supports transferable experience.
 - Keyword findings require relevant terms in context. If terms are repeated without examples or do not fit the target career, do not mark keyword coverage or balance as found.
 - For evaluation criteria only, when separate noncontiguous source spans are needed (for example, multiple section headings), put each span in a separate evidence entry. Never join separate spans into one quote.

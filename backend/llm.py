@@ -49,12 +49,14 @@ _PHONE = re.compile(r"(?<!\w)(?:\+\d{1,3}[\s.-]?)?\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?
 class AIServiceError(Exception):
     """Generation failed. `kind` picks the status and message shown to users:
     "unavailable" (no key), "quota" (daily quota used up), "busy" (rate
-    limited by Gemini) or "failed" (anything else)."""
+    limited by Gemini), "invalid_output" (the model reply failed validation),
+    or "failed" (anything else)."""
 
-    def __init__(self, kind: str, retry_after: int | None = None):
+    def __init__(self, kind: str, retry_after: int | None = None, detail: str | None = None):
         super().__init__(kind)
         self.kind = kind
         self.retry_after = retry_after
+        self.detail = detail
 
 
 client = (
@@ -181,6 +183,7 @@ def generate(
     temperature: float | None = None,
     max_output_tokens: int | None = None,
     retry_on_validation_error: bool = True,
+    validation_error_kind: str = "failed",
     validation_retry_contents: Callable[[AIOutputError], object | None] | None = None,
     on_response: Callable[[str, int], None] | None = None,
     on_attempt: Callable[[dict], None] | None = None,
@@ -259,6 +262,7 @@ def generate(
             "output_tokens": meta["out_tokens"],
             "response_chars": len(text),
             "response_bytes": len(text.encode("utf-8")),
+            "response_sha256": _fingerprint(text),
         }
         try:
             result, diag = parse(text)
@@ -280,7 +284,7 @@ def generate(
                         continue
                 elif retry_on_validation_error:
                     continue
-            raise AIServiceError("failed") from None
+            raise AIServiceError(validation_error_kind, detail=f"{e.kind}:{e.detail}") from None
 
         if on_attempt is not None:
             on_attempt({**attempt_meta, "validation": "passed", "items": diag["items"],

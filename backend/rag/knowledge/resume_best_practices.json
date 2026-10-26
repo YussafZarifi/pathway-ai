@@ -1,0 +1,14 @@
+{
+  "collection": "resume_best_practices",
+  "source": "PathwayAI editorial guidance",
+  "title": "Evidence-led resume writing",
+  "version": "v2",
+  "role": "all",
+  "level": "all",
+  "sections": [
+    {"title": "Technical skills with proof", "topic": "technical skills", "criterion_ids": ["skill_1", "skill_2", "skill_3", "skill_4", "skill_5", "skill_6", "skill_7", "skill_8"], "text": "List each target skill only when it is truthful, then reinforce the most important ones in a project or experience bullet. A reviewer should be able to see what you used the skill for, not just find it in a keyword list. For a missing target skill, add evidence only after you have genuinely used it."},
+    {"title": "Project outcome bullets", "topic": "project outcomes", "criterion_ids": ["relevant_project", "project_outcome", "project_impact", "project_complexity"], "text": "Write a project bullet as action plus problem or user plus implementation choice plus observed result. If no metric exists, name a verifiable outcome such as a workflow completed, a decision enabled, or a user who could use the result. Do not invent percentages, users, or performance claims."},
+    {"title": "Project technology and delivery", "topic": "project implementation", "criterion_ids": ["project_technology", "project_deployment", "project_demo"], "text": "Name the tools actually used and connect each important tool to a decision or capability. State a deployment, demo, or repository only when it exists. A concise link or delivery context helps a reviewer verify the work without turning the skills section into a stack dump."},
+    {"title": "Experience bullets with ownership", "topic": "experience evidence", "criterion_ids": ["relevant_experience", "experience_scope", "experience_achievement", "experience_bullet_quality", "transferable_experience"], "text": "Lead with the action you personally owned, then add scope and an outcome. Replace duty-only phrasing such as responsible for with the work performed, the people or process affected, and the result when known. For transferable work, state the concrete coordination, analysis, or delivery task rather than claiming technical experience that did not occur."}
+  ]
+}

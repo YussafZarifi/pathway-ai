@@ -384,7 +384,7 @@ export default function Dashboard() {
               regenerating={regenerating}
               onRegenerate={() => setConfirmRegenerate(true)}
               onRetakeQuiz={() => navigate("/quiz")}
-              onOpenResume={() => navigate("/resume")}
+              onOpenResume={() => navigate("/resume", { state: { autoAnalyze: true } })}
               onOpenCoach={() => navigate("/coach")}
               onOpenHistory={mode === "account" ? () => navigate("/roadmaps") : null}
             />

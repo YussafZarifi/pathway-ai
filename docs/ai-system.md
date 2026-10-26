@@ -58,7 +58,7 @@ The old backend turned the 429 into the same generic 502 as a parse failure. The
 | ~~No retries or timeouts~~ | Done 2026-09-27 (1 retry, 30 s timeout) |
 | Free-tier quota (20 requests/day) | About 10 quiz runs a day before users see "usage limit" |
 | No streaming | 3–8 s blank wait for roadmaps |
-| No grounding | Salaries and resource URLs are model-invented (URLs may 404) |
+| Career and roadmap grounding | Salaries and most learning-resource selections are still model-generated; only résumé coaching retrieves curated guidance |
 | No caching | Same answers → new paid call every time |
 | No evals | Prompt changes can't be checked for regressions |
 | Token/latency logged per call (2026-09-27), but no cost dashboard | Limited visibility into spend |
@@ -72,18 +72,20 @@ backend/resume_scoring.py selects one of eight career-family rubrics (software e
 
 The full PDF and extracted text are discarded after the request. analysis.score_report is additive within the existing analysis JSON and stores only structured findings and short verified excerpts. This deliberately changes the earlier M3 privacy description: no original file or full text is persisted, but excerpts are retained to make awarded points reviewable. Old rows without score_report continue to render as qualitative reports. See ADR-024 and docs/api.md for the persisted shape and limitations.
 
+### Grounded résumé coaching (Version 1.0)
+After deterministic analysis is saved, `backend/rag/production.py` selects the three highest-priority verified gaps and retrieves matching chunks from the curated résumé-writing knowledge base. `RAG_RETRIEVER=langchain` is the default production adapter; the native retriever implements the same contract. Gemini receives only the verified criterion IDs, bounded résumé citations, scores, target role/level and retrieved guidance — never the PDF or raw extracted text.
+
+The coaching engine validates the returned JSON, criterion IDs, résumé citations and guidance citation IDs. It rejects unsupported recommendations and invented technologies, experience, employers or metrics. Coaching is response-only: it cannot alter deterministic scores, findings or citations. Retrieval, embedding, timeout, provider or validation failure produces `ai_coaching.status: "unavailable"` while the saved deterministic analysis still succeeds.
+
 ## Planned improvements (🗺️) — in priority order
 
 1. ~~**Structured output.**~~ Done 2026-09-27 (ADR-015). Possible follow-ups: append the validation error to the retry prompt; use the output models as FastAPI `response_model`s.
 2. **Prompt hygiene.** Partly done: v2 sends a labelled profile, marks it as data, caps free text (≤100/≤300 chars) and dropped the "location" rule (2026-09-28). Still to do: move instructions to `system_instruction`; remove v1 prompts (N-19).
 3. **LLM service layer.** Partly done in `llm.py` (2026-09-27): model from config, timeout, one retry, tokens/latency logged per call; prompts in `prompts.py` with v1/v2. Still to do: a response cache keyed by `sha256(prompt_version + normalized answers)` and explicit prompt version ids.
 4. **Streaming.** SSE endpoint for roadmaps. Stream step objects as they complete (JSON Lines) and render progressively.
-5. **Grounding.**
-   - Resources: a curated `resources` table (title, url, type, skill tags, level) with embeddings. Retrieve the top-k per step and let the model *choose* rather than invent. Run a background link-health check.
-   - Salaries and demand: real data (Canada Job Bank / Adzuna / BLS) injected as context, with the source cited in the UI. Consider CAD.
-   - Alternative quick win: Gemini Google Search grounding for resources.
+5. **Career and roadmap grounding.** Résumé coaching already retrieves curated résumé-writing guidance. Future work can ground learning resources, salaries and demand in verified sources with citations.
 6. **Evaluation harness.** About 30 golden quiz profiles. Automated checks: schema-valid, exactly 3 careers, all tech, no duplicate careers, match scores in range, URLs resolve. LLM-as-judge rubric for relevance to profile. Runs in CI when files in `prompts/` change.
-7. **Resume understanding.** Upload a PDF → Gemini multimodal reads it directly → structured `{skills, experience, projects, gaps, suggestions}` → compare against the target career's skills → feed the gaps into roadmap generation.
+7. **Résumé-to-roadmap integration.** Deterministic résumé analysis and grounded coaching are complete; feeding verified gaps into roadmap generation remains intentionally out of scope.
 8. **AI coach.** A chat with conversation memory (DB) plus a profile/roadmap summary in context. Tool calling: `get_roadmap`, `update_step_status`, `find_resources`, `search_jobs`. Streaming responses.
 9. **Personalization.** Adapt pacing and difficulty from real completion timestamps. Offer "harder track" or "slower track" regeneration.
 10. **Extras:** embeddings-based career similarity, mock interviews (text → voice), provider abstraction (`LLMClient` interface) for model comparison. Remove the unused `openai` dependency unless it's adopted.

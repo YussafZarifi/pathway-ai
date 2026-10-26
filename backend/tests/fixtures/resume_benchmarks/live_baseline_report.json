@@ -1,0 +1,165 @@
+{
+  "suite": "resume_benchmarks_live_gemini_v2",
+  "synthetic_only": true,
+  "summary": {
+    "cases": 12,
+    "scored": {
+      "cases": 10,
+      "passed": 10,
+      "failed": 0
+    },
+    "intentional_insufficient_evidence": {
+      "cases": 2,
+      "abstained": 2,
+      "failed": 0
+    },
+    "comparator_mismatches": 0,
+    "critical_false_positives": 0
+  },
+  "cases": [
+    {
+      "id": "average_student",
+      "expected_outcome": "scored",
+      "result_type": "scored_pass",
+      "status": "passed",
+      "failures": [],
+      "comparator_mismatches": [],
+      "critical_false_positives": [],
+      "live_display_score": 61,
+      "deterministic_display_score": 48,
+      "score_difference": 13
+    },
+    {
+      "id": "formatting_problems",
+      "expected_outcome": "scored",
+      "result_type": "scored_pass",
+      "status": "passed",
+      "failures": [],
+      "comparator_mismatches": [],
+      "critical_false_positives": [],
+      "live_display_score": 68,
+      "deterministic_display_score": 50,
+      "score_difference": 18
+    },
+    {
+      "id": "inconsistent_experience",
+      "expected_outcome": "scored",
+      "result_type": "scored_pass",
+      "status": "passed",
+      "failures": [],
+      "comparator_mismatches": [],
+      "critical_false_positives": [],
+      "live_display_score": 63,
+      "deterministic_display_score": 50,
+      "score_difference": 13
+    },
+    {
+      "id": "minimal_resume",
+      "expected_outcome": "insufficient_evidence",
+      "result_type": "intentional_insufficient_evidence_abstention",
+      "status": "passed",
+      "failures": [],
+      "comparator_mismatches": [],
+      "critical_false_positives": [],
+      "live_display_score": 0,
+      "deterministic_display_score": 0,
+      "score_difference": 0
+    },
+    {
+      "id": "missing_skills",
+      "expected_outcome": "scored",
+      "result_type": "scored_pass",
+      "status": "passed",
+      "failures": [],
+      "comparator_mismatches": [],
+      "critical_false_positives": [],
+      "live_display_score": 62,
+      "deterministic_display_score": 50,
+      "score_difference": 12
+    },
+    {
+      "id": "multi_page_resume",
+      "expected_outcome": "scored",
+      "result_type": "scored_pass",
+      "status": "passed",
+      "failures": [],
+      "comparator_mismatches": [],
+      "critical_false_positives": [],
+      "live_display_score": 71,
+      "deterministic_display_score": 50,
+      "score_difference": 21
+    },
+    {
+      "id": "strong_entry_level",
+      "expected_outcome": "scored",
+      "result_type": "scored_pass",
+      "status": "passed",
+      "failures": [],
+      "comparator_mismatches": [],
+      "critical_false_positives": [],
+      "live_display_score": 76,
+      "deterministic_display_score": 50,
+      "score_difference": 26
+    },
+    {
+      "id": "strong_measurable_impact",
+      "expected_outcome": "scored",
+      "result_type": "scored_pass",
+      "status": "passed",
+      "failures": [],
+      "comparator_mismatches": [],
+      "critical_false_positives": [],
+      "live_display_score": 73,
+      "deterministic_display_score": 50,
+      "score_difference": 23
+    },
+    {
+      "id": "strong_projects",
+      "expected_outcome": "scored",
+      "result_type": "scored_pass",
+      "status": "passed",
+      "failures": [],
+      "comparator_mismatches": [],
+      "critical_false_positives": [],
+      "live_display_score": 65,
+      "deterministic_display_score": 50,
+      "score_difference": 15
+    },
+    {
+      "id": "unclear_impact",
+      "expected_outcome": "scored",
+      "result_type": "scored_pass",
+      "status": "passed",
+      "failures": [],
+      "comparator_mismatches": [],
+      "critical_false_positives": [],
+      "live_display_score": 67,
+      "deterministic_display_score": 48,
+      "score_difference": 19
+    },
+    {
+      "id": "weak_projects",
+      "expected_outcome": "scored",
+      "result_type": "scored_pass",
+      "status": "passed",
+      "failures": [],
+      "comparator_mismatches": [],
+      "critical_false_positives": [],
+      "live_display_score": 61,
+      "deterministic_display_score": 48,
+      "score_difference": 13
+    },
+    {
+      "id": "weak_resume",
+      "expected_outcome": "insufficient_evidence",
+      "result_type": "intentional_insufficient_evidence_abstention",
+      "status": "passed",
+      "failures": [],
+      "comparator_mismatches": [],
+      "critical_false_positives": [],
+      "live_display_score": 0,
+      "deterministic_display_score": 0,
+      "score_difference": 0
+    }
+  ]
+}

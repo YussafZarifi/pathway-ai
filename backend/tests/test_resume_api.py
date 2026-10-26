@@ -75,6 +75,7 @@ def user_box():
 @pytest.fixture
 def client(monkeypatch, repo, user_box):
     monkeypatch.setattr(config, "RESUME_ANALYSIS_ENABLED", True)
+    monkeypatch.setattr(config, "RAG_COACHING_ENABLED", False, raising=False)
     monkeypatch.setattr(rate_limit, "resume_limiter", rate_limit.RateLimiter(
         1000, 1000, 1000, short_scope="hour", short_period=rate_limit.HOUR))
     main.app.dependency_overrides[current_user] = lambda: user_box["user"]
@@ -132,18 +133,77 @@ def test_analysis_is_saved_and_returned(client, repo, fake_gemini):
     r = post(client)
     assert r.status_code == 201
     data = r.json()
-    assert set(data) == {"id", "roadmap_id", "career", "analysis", "prompt_version", "model", "created_at"}
+    assert set(data) == {"id", "roadmap_id", "career", "analysis", "prompt_version", "model", "created_at",
+                         "ai_coaching"}
     assert data["roadmap_id"] == ROADMAP_ID and data["career"] == "Data Analyst"
     assert set(data["analysis"]) == ANALYSIS_FIELDS
     assert data["prompt_version"] == resume_ai.PROMPT_VERSION and data["model"] == config.GEMINI_MODEL
     saved = repo.analyses[data["id"]]
     assert saved["user_id"] == USER.id and saved["roadmap_id"] == ROADMAP_ID
     assert saved["analysis"] == data["analysis"]
+    assert data["ai_coaching"] == {"status": "unavailable"}
     assert models.calls == 1
     pdf_part, text = models.prompts[0]
     assert pdf_part.inline_data.data == make_pdf()  # the upload, unchanged, sent inline
     assert "Data Analyst" in text and "target career" in text
     assert "SQL" in text and "Tableau" in text
+
+
+def test_validated_ai_coaching_is_additive_and_not_persisted_with_deterministic_analysis(
+    client, repo, monkeypatch, fake_gemini
+):
+    expected = {"status": "available", "items": [{
+        "criterion_id": "project_impact", "title": "Add a result", "problem": "No result is shown.",
+        "why_it_matters": "Results clarify the outcome.", "improve_by": "Add a truthful result.",
+        "suggested_rewrite": None, "resume_citations": [{"page": 1, "quote": "Built a dashboard."}],
+        "guidance_citations": [{"id": "guidance-id", "source": "PathwayAI editorial guidance"}],
+        "confidence": "high",
+    }]}
+    monkeypatch.setattr(config, "RAG_COACHING_ENABLED", True, raising=False)
+    monkeypatch.setattr(resume_router, "build_ai_coaching", lambda *args, **kwargs: expected,
+                        raising=False)
+    fake_gemini(reply())
+
+    response = post(client)
+
+    assert response.status_code == 201
+    data = response.json()
+    assert data["ai_coaching"] == expected
+    assert "ai_coaching" not in repo.analyses[data["id"]]["analysis"]
+
+
+def test_deterministic_analysis_is_saved_before_optional_coaching(client, repo, monkeypatch, fake_gemini):
+    def coaching(*_args, **_kwargs):
+        assert len(repo.analyses) == 1
+        return {"status": "unavailable"}
+
+    monkeypatch.setattr(config, "RAG_COACHING_ENABLED", True, raising=False)
+    monkeypatch.setattr(resume_router, "build_ai_coaching", coaching, raising=False)
+    fake_gemini(reply())
+
+    response = post(client)
+
+    assert response.status_code == 201
+    assert len(repo.analyses) == 1
+
+
+def test_internship_target_level_reaches_the_resume_prompt(client, fake_gemini):
+    models = fake_gemini(reply())
+
+    response = post(client, headers=pdf_headers(**{"X-Resume-Target-Level": "internship"}))
+
+    assert response.status_code == 201
+    assert "Target level: internship" in models.prompts[0][1]
+    assert "Do not require professional work experience" in models.prompts[0][1]
+
+
+def test_resume_target_level_defaults_to_entry_level(client, fake_gemini):
+    models = fake_gemini(reply())
+
+    response = post(client)
+
+    assert response.status_code == 201
+    assert "Target level: entry-level" in models.prompts[0][1]
 
 
 def test_verified_project_and_experience_reviews_are_saved(client, repo, fake_gemini):
@@ -453,18 +513,23 @@ def test_a_pdf_that_is_not_a_resume_is_422_and_not_saved(client, repo, fake_gemi
     ([gemini_error(400, "INVALID_ARGUMENT")], 502, resume_router.ANALYSIS_FAILED),
     ([gemini_error(503, "UNAVAILABLE")] * 2, 502, resume_router.ANALYSIS_FAILED),
     ([httpx.ReadTimeout("t"), httpx.ReadTimeout("t")], 502, resume_router.ANALYSIS_FAILED),
-    (["not json", reply(score=80)], 502, resume_router.ANALYSIS_FAILED),
-    ([reply(summary=""), reply(evaluations=[])], 502, resume_router.ANALYSIS_FAILED),
-    ([reply(summary="Mail me at x@example.com")] * 2, 502, resume_router.ANALYSIS_FAILED),
+    ([reply(summary="Mail me at x@example.com")] * 2, 502, resume_router.ANALYSIS_INVALID_OUTPUT),
     ([gemini_error(429, "RESOURCE_EXHAUSTED", [
         {"violations": [{"quotaId": "GenerateRequestsPerDayPerProjectPerModel-FreeTier"}]}])], 503, AI_QUOTA),
     ([gemini_error(429, "RESOURCE_EXHAUSTED", [{"retryDelay": "40s"}])], 503, AI_BUSY),
-], ids=["rejected", "server errors", "timeouts", "malformed", "schema", "personal data", "quota", "busy"])
+], ids=["rejected", "server errors", "timeouts", "personal data", "quota", "busy"])
 def test_generation_failures_are_honest_and_save_nothing(client, repo, fake_gemini, script, status, detail):
     fake_gemini(*script)
     r = post(client)
     assert (r.status_code, r.json()["detail"]) == (status, detail)
     assert repo.analyses == {}
+
+
+def test_transient_invalid_resume_reply_is_retried_and_saved(client, repo, fake_gemini):
+    fake_gemini("not json", reply())
+    response = post(client)
+    assert response.status_code == 201
+    assert len(repo.analyses) == 1
 
 
 def test_busy_includes_retry_after(client, fake_gemini):
@@ -488,7 +553,7 @@ def test_final_report_size_error_is_a_safe_502_not_an_unhandled_exception(client
 
     response = post(client)
 
-    assert (response.status_code, response.json()["detail"]) == (502, resume_router.ANALYSIS_FAILED)
+    assert (response.status_code, response.json()["detail"]) == (502, resume_router.ANALYSIS_INVALID_OUTPUT)
     assert repo.analyses == {}
     assert "Resume report rejected: too_large" in caplog.text
     assert "Unhandled AIOutputError" not in caplog.text

@@ -1,0 +1,41 @@
+{
+  "id": "weak_resume",
+  "synthetic": true,
+  "target_role": "Data Analyst",
+  "category": "weak_resume",
+  "target_skills": [
+    "SQL"
+  ],
+  "expected_outcome": "insufficient_evidence",
+  "resume_profile": {
+    "pages": 1,
+    "expected_sections": [
+      "Skills",
+      "Projects",
+      "Experience",
+      "Education"
+    ],
+    "formatting_flags": [
+      "vague_bullets"
+    ]
+  },
+  "expected_signals": {
+    "expected_titles": [
+      "Class Dashboard",
+      "Data Support Assistant"
+    ],
+    "expected_skills": [
+      "SQL"
+    ],
+    "expected_bullets": [
+      "Created a SQL dashboard for a class assignment.",
+      "Helped with reporting tasks for a campus group."
+    ],
+    "findings": [],
+    "minimum_score": 0
+  },
+  "must_not_appear": [
+    "invented_project",
+    "invented_metric"
+  ]
+}

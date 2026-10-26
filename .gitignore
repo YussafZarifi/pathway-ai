@@ -42,3 +42,20 @@ Thumbs.db
 
 # Local Claude Code settings
 .claude/settings.local.json
+
+# Generated release/audit output
+frontend/output/
+graphify-out/
+
+# Local AI tooling and machine-specific configuration
+.agents/
+.claude/
+.codex/
+.mcp.json
+skills-lock.json
+CODEX_HANDOFF.md
+
+# Optional AI-assistant bundles; CI remains in .github/workflows/
+.github/agents/
+.github/hooks/
+.github/skills/

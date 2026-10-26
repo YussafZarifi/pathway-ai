@@ -55,6 +55,8 @@ flowchart TB
 | Supabase | Auth users + `public.profiles` (RLS, sign-up trigger) + roadmap tables (`quiz_submissions`, `roadmaps`, `roadmap_steps`, `step_progress`; RLS; role `pathwayai_api` via the transaction pooler) | Project `pczczkmkavmxibxureck`; migrations in `supabase/migrations/` |
 | Gemini | Generates careers and roadmaps | JSON mode + `response_schema` (ADR-015) |
 | YouTube Data API | Real videos per roadmap step | Optional `YOUTUBE_API_KEY`; search-link fallback (ADR-012) |
+| Resume Analyzer | Extracts bounded PDF text, verifies page evidence and computes rubric scores | Deterministic scores and citations remain the source of truth; PDFs and full extracted text are not persisted |
+| RAG coaching | Retrieves curated résumé guidance and validates Gemini coaching | `backend/rag/`; LangChain is the configured default, with a native retriever alternative; coaching is additive and fail-open |
 
 ### Request lifecycle — career matches
 1. `Quiz` collects answers → `navigate("/results", { state: { answers } })`.
@@ -67,6 +69,13 @@ flowchart TB
 2. Response `roadmap[]` normalized (adds `step`, defaults `time/resources/tasks`).
 3. `saveCurrentRoadmap(...)` writes `pathwayai_roadmap`, then `navigate("/dashboard", { state: { career, roadmap } })`.
 4. `Dashboard` loads the stored roadmap and derives everything in `lib/dashboardData.js`; marking a step done writes `progress["roadmap_step_<roadmapId>_<index>"]` and a `roadmap_step_completed` event.
+
+### Request lifecycle — résumé analysis and grounded coaching
+1. A signed-in user uploads a text-based PDF to `POST /api/resume-analyses` with an optional target-level header. Authentication, database availability, feature switch, content type, rate limit and active-roadmap checks run before the body is read.
+2. `resume_ai.py` bounds PDF extraction and asks Gemini only for structured findings and page citations. The verifier checks every positive excerpt against the extracted page and rejects unsupported model output.
+3. The backend deterministically calculates rubric, ATS and readiness scores from those verified findings. It saves this analysis before attempting coaching.
+4. `rag.production` selects the highest-priority verified gaps, retrieves up to three curated guidance chunks through the configured retriever, and builds a citation-constrained coaching payload.
+5. The coaching engine accepts Gemini output only when its criterion IDs, résumé citations and guidance citations resolve to that payload. Any retrieval, provider, timeout or validation failure yields `ai_coaching.status: "unavailable"`; it never changes the saved analysis, scores or verified findings.
 
 ## Known architectural problems
 - ~~The roadmap exists only in router state; progress keys collide across careers~~ — resolved 2026-09-26 (ADR-013). Guests: still one roadmap per browser. Signed-in users: roadmaps in Postgres since 2026-10-03 (Milestone 2, ADR-019).

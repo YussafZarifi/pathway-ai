@@ -5,6 +5,22 @@ import { ApiError } from "../../lib/api";
 
 const auth = { enabled: true, loading: false, session: null, user: null };
 vi.mock("../../lib/authContext", () => ({ useAuth: () => auth }));
+vi.mock("pdfjs-dist/build/pdf.worker.min.mjs?url", () => ({ default: "worker.js" }));
+vi.mock("pdfjs-dist", () => ({
+  GlobalWorkerOptions: {},
+  Util: { transform: (_viewport, transform) => [1, 0, 0, 1, transform[4] || 30, transform[5] || 30] },
+  getDocument: () => ({
+    promise: Promise.resolve({
+      numPages: 3,
+      getPage: async (pageNumber) => ({
+        pageNumber,
+        getViewport: () => ({ width: 600, height: 800, transform: [1, 0, 0, 1, 0, 800] }),
+        render: () => ({ promise: Promise.resolve() }),
+        getTextContent: async () => ({ items: [{ str: "Built an AI app", transform: [1, 0, 0, 1, 30, 30], width: 160 }] }),
+      }),
+    }),
+  }),
+}));
 
 const api = {
   checkAvailability: vi.fn(),
@@ -24,6 +40,7 @@ vi.mock("../../lib/resume", async (importOriginal) => {
 });
 
 const { default: Resume } = await import("../Resume");
+const { persistResumeFile, persistResumeSession, resetResumeSession, restoreResumeSession, resumeDemoSource, resumeSession } = await import("../../lib/resume/session");
 const { normalizeAnalysis } = await import("../../lib/resume");
 
 const AVAILABLE = { available: true, reason: null, career: "Data Analyst", roadmap_id: "r1" };
@@ -48,9 +65,9 @@ function pdf(size = 4096, name = "jane-doe-cv.pdf", type = "application/pdf") {
   return f;
 }
 
-function renderPage() {
+function renderPage(initialEntry = "/resume") {
   return render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={[initialEntry]}>
       <Resume />
     </MemoryRouter>
   );
@@ -69,10 +86,12 @@ async function chooseAndAnalyze(file = pdf()) {
     return el;
   });
   fireEvent.change(input, { target: { files: [file] } });
-  fireEvent.click(screen.getByRole("button", { name: /Analyze resume/ }));
+  await screen.findByText("Preview ready");
+  fireEvent.click(screen.getByRole("button", { name: /Analyze/ }));
 }
 
 beforeEach(() => {
+  resetResumeSession();
   Object.values(api).forEach((fn) => fn.mockReset());
   api.listAnalyses.mockResolvedValue([]);
   api.checkAvailability.mockResolvedValue(AVAILABLE);
@@ -80,6 +99,8 @@ beforeEach(() => {
   auth.loading = false;
   auth.user = null;
   localStorage.clear();
+  HTMLCanvasElement.prototype.getContext = vi.fn(() => ({}));
+  HTMLCanvasElement.prototype.toDataURL = vi.fn(() => "data:image/png;base64,preview");
 });
 
 afterEach(() => {
@@ -87,6 +108,39 @@ afterEach(() => {
 });
 
 describe("/resume access", () => {
+  it("enables a demo PDF only with an explicit development flag", () => {
+    expect(resumeDemoSource(false, "true", "/__resume-demo")).toBe("");
+    expect(resumeDemoSource(true, "false", "/__resume-demo")).toBe("");
+    expect(resumeDemoSource(true, "true", "")).toBe("");
+    expect(resumeDemoSource(true, "true", "/__resume-demo")).toBe("/__resume-demo");
+  });
+
+  it("restores the PDF and analyzer position from this tab's session", async () => {
+    signIn();
+    const file = new File(["resume fixture"], "jane-doe-cv.pdf", { type: "application/pdf" });
+    resumeSession.userId = auth.user.id;
+    resumeSession.file = file;
+    resumeSession.openId = "a1";
+    resumeSession.analysis = normalizeAnalysis(ROW);
+    resumeSession.selectedId = "rewrite-0";
+    resumeSession.page = 2;
+    resumeSession.scrollTop = 80;
+    resumeSession.targetLevel = "internship";
+    await persistResumeFile(file);
+    persistResumeSession();
+
+    const restored = restoreResumeSession();
+    expect(restored.file.name).toBe("resume.pdf");
+    expect(restored.file.size).toBe(file.size);
+    expect(restored.userId).toBe(auth.user.id);
+    expect(restored.openId).toBe("a1");
+    expect(restored.analysis.summary).toBe("Solid SQL.");
+    expect(restored.selectedId).toBe("rewrite-0");
+    expect(restored.page).toBe(2);
+    expect(restored.scrollTop).toBe(80);
+    expect(restored.targetLevel).toBe("internship");
+  });
+
   it("accounts off: honest state, nothing requested", () => {
     auth.enabled = false;
     renderPage();
@@ -105,6 +159,27 @@ describe("/resume access", () => {
 });
 
 describe("/resume availability", () => {
+  it("sends the selected target level when analyzing a preview", async () => {
+    signIn();
+    api.analyze.mockResolvedValue(ROW);
+    renderPage();
+
+    const input = await waitFor(() => {
+      const element = document.querySelector("input[type=file]");
+      if (!element) throw new Error("Upload input is not ready");
+      return element;
+    });
+    fireEvent.change(input, { target: { files: [pdf()] } });
+    await screen.findByText("Preview ready");
+    const targetLevel = await screen.findByLabelText("Target level");
+    fireEvent.change(targetLevel, { target: { value: "internship" } });
+    fireEvent.click(screen.getByRole("button", { name: /Analyze/ }));
+
+    await waitFor(() => expect(api.analyze).toHaveBeenCalledWith(
+      expect.any(File), expect.objectContaining({ targetLevel: "internship" })
+    ));
+  });
+
   it("feature disabled: no upload, history still shown", async () => {
     signIn();
     api.checkAvailability.mockResolvedValue({ available: false, reason: "feature_disabled", career: null, roadmap_id: null });
@@ -199,7 +274,7 @@ describe("/resume availability", () => {
     signIn();
     renderPage();
     expect(await screen.findByText("Data Analyst")).toBeTruthy();
-    expect(screen.getByText(/does not store the original PDF, its full text or its name/)).toBeTruthy();
+    expect(screen.getByText(/Your original PDF stays in this browser tab's session, not on PathwayAI's servers/)).toBeTruthy();
     fireEvent.click(screen.getByText("Privacy and data use"));
     expect(screen.getByText(/Scores use verified evidence and your selected career rubric/)).toBeTruthy();
     expect(await screen.findByText(/No reviews yet/)).toBeTruthy();
@@ -208,12 +283,26 @@ describe("/resume availability", () => {
 });
 
 describe("/resume upload", () => {
+  it("auto-starts analysis from the dashboard action after restoring and rendering the existing PDF", async () => {
+    signIn();
+    api.analyze.mockResolvedValue(ROW);
+    const file = pdf();
+    resumeSession.userId = auth.user.id;
+    resumeSession.file = file;
+    renderPage({ pathname: "/resume", state: { autoAnalyze: true } });
+
+    expect(await screen.findByText("Preview ready")).toBeTruthy();
+    expect(await screen.findByText("Edit what matters")).toBeTruthy();
+    expect(api.analyze).toHaveBeenCalledTimes(1);
+    expect(api.analyze.mock.calls[0][0]).toBe(file);
+  });
+
   it("rejects a non-PDF and an oversized file without uploading", async () => {
     signIn();
     renderPage();
     await screen.findByText("Data Analyst");
     const input = document.querySelector("input[type=file]");
-    const message = () => document.getElementById("resumeUploadMessage").textContent;
+    const message = () => document.getElementById("resumeUploadMessage")?.textContent || document.body.textContent;
     fireEvent.change(input, { target: { files: [pdf(4096, "notes.txt", "text/plain")] } });
     expect(message()).toContain("Please choose a PDF");
     expect(screen.getByRole("button", { name: /Analyze resume/ }).disabled).toBe(true);
@@ -226,15 +315,26 @@ describe("/resume upload", () => {
     signIn();
     renderPage();
     await screen.findByText("Data Analyst");
-    const analyzeButton = document.querySelector(".resumeSubmit");
-    expect(analyzeButton.disabled).toBe(true);
+    const analyzeButton = () => screen.getByRole("button", { name: /Analyze/ });
+    expect(screen.getByRole("button", { name: /Analyze/ }).disabled).toBe(true);
     fireEvent.change(document.querySelector("input[type=file]"), { target: { files: [pdf(4096, "jane-doe-cv.pdf")] } });
     expect(screen.getByText("jane-doe-cv.pdf")).toBeTruthy();
-    expect(screen.getByText(/4 KB/)).toBeTruthy();
-    expect(analyzeButton.disabled).toBe(false);
-    fireEvent.click(screen.getByRole("button", { name: "Remove" }));
-    expect(screen.queryByText("jane-doe-cv.pdf")).toBeNull();
-    expect(analyzeButton.disabled).toBe(true);
+    await screen.findByText("Preview ready");
+    expect(analyzeButton().disabled).toBe(false);
+    fireEvent.click(screen.getByRole("button", { name: "Choose another PDF" }));
+    expect(screen.getByText("jane-doe-cv.pdf")).toBeTruthy();
+  });
+
+  it("renders one PDF page at a time with compact navigation", async () => {
+    signIn();
+    renderPage();
+    await screen.findByText("Data Analyst");
+    fireEvent.change(document.querySelector("input[type=file]"), { target: { files: [pdf()] } });
+    expect(await screen.findByText("Page 1 of 3")).toBeTruthy();
+    expect(document.querySelectorAll(".resumePdfPage")).toHaveLength(1);
+    fireEvent.click(screen.getByRole("button", { name: "Next page" }));
+    expect(await screen.findByText("Page 2 of 3")).toBeTruthy();
+    expect(document.querySelectorAll(".resumePdfPage")).toHaveLength(1);
   });
 
   it("opens the native file picker from the prominent upload button", async () => {
@@ -254,10 +354,131 @@ describe("/resume upload", () => {
     await screen.findByText("Data Analyst");
     const file = pdf();
     await chooseAndAnalyze(file);
-    expect(await screen.findByText("Solid SQL.")).toBeTruthy();
+    expect(await screen.findByText("AI Resume Coach")).toBeTruthy();
+    const workspaceInput = document.querySelector(".resumeReviewWorkspace input[type=file]");
+    expect(workspaceInput.classList.contains("resumeWorkspaceFileInput")).toBe(true);
+    expect(workspaceInput.classList.contains("resumeFileInput")).toBe(false);
     expect(api.analyze.mock.calls[0][0]).toBe(file);
-    expect(screen.getByRole("link", { name: "Roadmap step 2" }).getAttribute("href")).toBe("/dashboard#step-2");
     expect(screen.getByText("1 saved")).toBeTruthy();
+  });
+
+  it("shows three coach priorities and keeps supporting evidence collapsed", async () => {
+    signIn();
+    api.analyze.mockResolvedValue({
+      ...ROW,
+      analysis: {
+        ...ROW.analysis,
+        project_reviews: ["One", "Two", "Three", "Four"].map((title, index) => ({
+          title: `Project ${title}`,
+          summary: `Improve project ${title}.`,
+          missing_checks: ["project_impact"],
+          bullet_rewrite: { before: "Built an AI app", after: "Built and deployed an AI app", page: index + 1 },
+        })),
+      },
+    });
+    renderPage();
+    await chooseAndAnalyze();
+
+    expect(await screen.findByText("Top improvements")).toBeTruthy();
+    expect(within(document.querySelector(".resumeTopIssueList")).getAllByRole("listitem")).toHaveLength(3);
+    const priorityButtons = within(document.querySelector(".resumeTopIssueList")).getAllByRole("button");
+    expect(priorityButtons[0].className).toContain("is-rank-1");
+    expect(priorityButtons[1].className).toContain("is-rank-2");
+    expect(priorityButtons[2].className).toContain("is-rank-3");
+    expect(document.querySelector(".resumeCoachDetails").open).toBe(false);
+    expect(document.querySelectorAll(".resumeTopIssueItem.is-selected")).toHaveLength(1);
+    const activeIssue = document.querySelector(".resumeTopIssueItem.is-selected");
+    expect(within(activeIssue).getByText("Problem")).toBeTruthy();
+    expect(within(activeIssue).getByText("Why it matters")).toBeTruthy();
+    expect(within(activeIssue).getByText("How to improve")).toBeTruthy();
+    expect(within(activeIssue).getByText("Expected impact")).toBeTruthy();
+    expect(screen.queryByText(/Next:/)).toBeNull();
+
+    fireEvent.click(await screen.findByText("Supporting evidence and actions"));
+    expect(screen.getByText("Current text")).toBeTruthy();
+    fireEvent.click(priorityButtons[1]);
+    expect(await screen.findByText("Page 2 of 3")).toBeTruthy();
+  });
+
+  it("gives the Resume Score visual priority over ATS and confidence", async () => {
+    signIn();
+    api.analyze.mockResolvedValue({
+      ...ROW,
+      analysis: {
+        ...ROW.analysis,
+        score_report: { display_overall: 78, ats: { display_score: 82 }, confidence: { level: "high", score: 90 }, categories: [] },
+      },
+    });
+    renderPage();
+    await chooseAndAnalyze();
+
+    expect(await screen.findByLabelText("Resume score 78")).toBeTruthy();
+    expect(screen.getByLabelText("Strong resume, score 78 out of 100")).toBeTruthy();
+    expect(screen.getByLabelText("ATS score 82")).toBeTruthy();
+    expect(screen.getByLabelText("high confidence, 90%")).toBeTruthy();
+  });
+
+  it("shows the curated guidance source behind grounded coaching", async () => {
+    signIn();
+    api.analyze.mockResolvedValue({
+      ...ROW,
+      analysis: { ...ROW.analysis, score_report: { overall: 70, categories: [] } },
+      ai_coaching: { status: "available", items: [{
+        criterion_id: "project_impact", title: "Show the project outcome", problem: "No result is shown.",
+        why_it_matters: "Reviewers need an outcome.", improve_by: "Add the observed result.",
+        expected_impact: "Makes the project easier to assess.", suggested_rewrite: null,
+        resume_citations: [{ page: 1, quote: "Built an AI app" }],
+        guidance_citations: [{ id: "guide", title: "Project outcome bullets" }], confidence: "high",
+      }] },
+    });
+    renderPage();
+    await chooseAndAnalyze();
+
+    fireEvent.click(await screen.findByText("Supporting evidence and actions"));
+    expect(screen.getByText(/PathwayAI searched its resume-writing guidance/)).toBeTruthy();
+    expect(screen.getByText(/Project outcome bullets/)).toBeTruthy();
+    expect(screen.getByText("Makes the project easier to assess.")).toBeTruthy();
+  });
+
+  it("restores the analyzed PDF, feedback, highlight, page, and scroll after auth bootstrap remount", async () => {
+    signIn();
+    api.analyze.mockResolvedValue({
+      ...ROW,
+      analysis: {
+        ...ROW.analysis,
+        project_reviews: [{
+          title: "Portfolio app",
+          summary: "Show the project outcome.",
+          missing_checks: ["project_impact"],
+          bullet_rewrite: { before: "Built an AI app", after: "Built and deployed an AI app", page: 2 },
+        }],
+      },
+    });
+    const first = renderPage();
+    await screen.findByText("Data Analyst");
+    await chooseAndAnalyze();
+    expect((await screen.findAllByText("A measurable project outcome is missing.")).length).toBeGreaterThan(0);
+    expect(await screen.findByText("Page 2 of 3")).toBeTruthy();
+    await waitFor(() => expect(document.querySelector(".resumePdfHighlight")).toBeTruthy());
+    const viewport = document.querySelector(".resumePdfPageViewport");
+    viewport.scrollTop = 80;
+    fireEvent.scroll(viewport);
+    first.unmount();
+
+    auth.user = null;
+    auth.loading = true;
+    const second = renderPage();
+    expect(await screen.findByText(/Loading/)).toBeTruthy();
+    auth.user = { id: "u1", email: "u1@example.test" };
+    auth.loading = false;
+    second.rerender(<MemoryRouter><Resume /></MemoryRouter>);
+
+    expect((await screen.findAllByText("A measurable project outcome is missing.")).length).toBeGreaterThan(0);
+    expect(await screen.findByText("Page 2 of 3")).toBeTruthy();
+    await waitFor(() => expect(document.querySelector(".resumePdfHighlight")).toBeTruthy());
+    await waitFor(() => expect(document.querySelector(".resumePdfPageViewport").scrollTop).toBe(80));
+    expect(screen.getByRole("button", { name: "Upload New Resume" })).toBeTruthy();
+    expect(api.analyze).toHaveBeenCalledTimes(1);
   });
 
   it("accepts a dropped PDF and displays upload progress", async () => {
@@ -271,11 +492,11 @@ describe("/resume upload", () => {
     await screen.findByText("Data Analyst");
     const file = pdf();
     fireEvent.drop(document.querySelector(".resumeDrop"), { dataTransfer: { files: [file] } });
-    expect(screen.getByText("PDF ready to review")).toBeTruthy();
+    await screen.findByText("Preview ready");
     fireEvent.click(screen.getByRole("button", { name: /Analyze/ }));
     expect(await screen.findByText("47%")).toBeTruthy();
     completeUpload(ROW);
-    expect(await screen.findByText("Solid SQL.")).toBeTruthy();
+    expect(await screen.findByText("AI Resume Coach")).toBeTruthy();
   });
 
   it("shows the selected file name locally but never stores or logs it", async () => {
@@ -307,13 +528,13 @@ describe("/resume upload", () => {
     expect(api.checkAvailability).toHaveBeenCalledTimes(1);
   });
 
-  it("502 (Gemini failure) shows the page's own message", async () => {
+  it("502 (invalid AI output) shows the backend's safe message", async () => {
     signIn();
-    api.analyze.mockRejectedValue(new ApiError("internal detail", 502));
+    api.analyze.mockRejectedValue(new ApiError("The AI couldn't format your résumé review. Please try again.", 502));
     renderPage();
     await screen.findByText("Data Analyst");
     await chooseAndAnalyze();
-    expect(await screen.findByText("We couldn't analyze your résumé right now. Please try again.")).toBeTruthy();
+    expect(await screen.findByText("The AI couldn't format your résumé review. Please try again.")).toBeTruthy();
     expect(screen.queryByText("internal detail")).toBeNull();
   });
 

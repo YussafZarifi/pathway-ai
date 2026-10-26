@@ -94,7 +94,7 @@ app.add_middleware(
     allow_methods=["GET", "POST", "DELETE"],
     # Authorization carries the Supabase access token (Bearer, not a cookie,
     # so allow_credentials stays off).
-    allow_headers=["Content-Type", "Authorization"],
+    allow_headers=["Content-Type", "Authorization", "X-Resume-Target-Level"],
 )
 
 

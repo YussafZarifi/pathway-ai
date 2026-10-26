@@ -1,0 +1,96 @@
+{
+  "id": "strong_measurable_impact",
+  "synthetic": true,
+  "target_role": "Data Analyst",
+  "category": "strong_measurable_impact",
+  "target_skills": [
+    "SQL"
+  ],
+  "expected_outcome": "scored",
+  "resume_profile": {
+    "pages": 1,
+    "expected_sections": [
+      "Skills",
+      "Projects",
+      "Experience",
+      "Education"
+    ],
+    "formatting_flags": []
+  },
+  "expected_signals": {
+    "expected_titles": [
+      "Inventory Accuracy Dashboard",
+      "Data Support Assistant"
+    ],
+    "expected_skills": [
+      "SQL"
+    ],
+    "expected_bullets": [
+      "Built a SQL dashboard that reduced inventory-report preparation time by 35%.",
+      "Analyzed inventory data for 60 users and improved weekly reporting accuracy by 18%."
+    ],
+    "findings": [
+      {
+        "criterion_id": "skill_1",
+        "page": 1,
+        "evidence_contains": "SQL"
+      },
+      {
+        "criterion_id": "relevant_project",
+        "page": 1,
+        "evidence_contains": "Inventory Accuracy Dashboard"
+      },
+      {
+        "criterion_id": "project_technology",
+        "page": 1,
+        "evidence_contains": "Built a SQL dashboard that reduced inventory-report preparation time by 35%."
+      },
+      {
+        "criterion_id": "project_outcome",
+        "page": 1,
+        "evidence_contains": "Built a SQL dashboard that reduced inventory-report preparation time by 35%."
+      },
+      {
+        "criterion_id": "relevant_experience",
+        "page": 1,
+        "evidence_contains": "Data Support Assistant"
+      },
+      {
+        "criterion_id": "education_entry",
+        "page": 1,
+        "evidence_contains": "BSc in Analytics, 2025."
+      },
+      {
+        "criterion_id": "standard_sections",
+        "page": 1,
+        "evidence_contains": "Skills"
+      },
+      {
+        "criterion_id": "date_consistency",
+        "page": 1,
+        "evidence_contains": "2024 - 2025"
+      },
+      {
+        "criterion_id": "bullet_readability",
+        "page": 1,
+        "evidence_contains": "Built a SQL dashboard that reduced inventory-report preparation time by 35%."
+      },
+      {
+        "criterion_id": "action_language",
+        "page": 1,
+        "evidence_contains": "Built a SQL dashboard that reduced inventory-report preparation time by 35%."
+      },
+      {
+        "criterion_id": "project_impact",
+        "page": 1,
+        "evidence_contains": "Built a SQL dashboard that reduced inventory-report preparation time by 35%."
+      }
+    ],
+    "minimum_score": 20
+  },
+  "must_not_appear": [
+    "claims_no_projects",
+    "claims_missing_sql",
+    "requests_metric_for_existing_metric"
+  ]
+}

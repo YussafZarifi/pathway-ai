@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
   BadgeCheck,
   ChevronDown,
@@ -17,7 +17,6 @@ import {
 } from "lucide-react";
 import AppHeader from "../components/AppHeader";
 import Dialog from "../components/Dialog";
-import AnalysisView from "../components/resume/AnalysisView";
 import ResumeReviewWorkspace from "../components/resume/ResumeReviewWorkspace";
 import { errorMessage } from "../lib/api";
 import { withTimeout } from "../lib/withTimeout";
@@ -30,6 +29,7 @@ import {
   listAnalyses,
   normalizeAnalysis,
 } from "../lib/resume";
+import { DEFAULT_RESUME_TARGET_LEVEL, persistResumeFile, persistResumeSession, resetResumeSession, resumeDemoSource, resumeSession } from "../lib/resume/session";
 
 const ANALYZE_FAILED = "We couldn't analyze your résumé right now. Please try again.";
 const AVAILABILITY_FAILED = "We couldn't check whether résumé analysis is available. Please try again.";
@@ -38,6 +38,7 @@ const AVAILABILITY_TIMEOUT = "The availability check took too long. Check your c
 const AVAILABILITY_ABORTED = "The availability check was interrupted. Please try again.";
 const AVAILABILITY_TIMEOUT_MS = 8_000;
 const HISTORY_TIMEOUT = "Loading your saved reviews took too long. Check your connection and try again.";
+const demoResumeUrl = resumeDemoSource(import.meta.env.DEV, import.meta.env.VITE_RESUME_DEMO_ENABLED, import.meta.env.VITE_RESUME_DEMO_URL);
 
 function withAbort(promise, signal) {
   if (!signal) return promise;
@@ -79,7 +80,7 @@ function PrivacyCard() {
       <summary><ShieldCheck size={16} aria-hidden="true" /> Privacy and data use <ChevronDown size={15} aria-hidden="true" /></summary>
       <ul className="resumePrivacyList">
         <li><Shield size={15} aria-hidden="true" /><span>Your PDF is sent to Google Gemini once for this review.</span></li>
-        <li><Lock size={15} aria-hidden="true" /><span>PathwayAI does not store the original PDF, its full text or its name.</span></li>
+        <li><Lock size={15} aria-hidden="true" /><span>Your original PDF stays in this browser tab's session, not on PathwayAI's servers.</span></li>
         <li><BadgeCheck size={15} aria-hidden="true" /><span>Your report and short, verified evidence excerpts are saved. Delete them whenever you like.</span></li>
       </ul>
       <p className="resumeNoScore"><CircleHelp size={14} aria-hidden="true" /> Scores use verified evidence and your selected career rubric.</p>
@@ -88,15 +89,15 @@ function PrivacyCard() {
 }
 
 // The upload form: shown only when the API says analysis is available.
-function UploadCard({ career, analyzing, error, progress, onAnalyze }) {
+function UploadCard({ career, file, analyzing, error, progress, onFileChange, onAnalyze }) {
   const inputRef = useRef(null);
-  const [file, setFile] = useState(null);
   const [problem, setProblem] = useState("");
   const [dragging, setDragging] = useState(false);
 
   function choose(next) {
-    setFile(next);
-    setProblem(next ? fileProblem(next) : "");
+    const issue = next ? fileProblem(next) : "";
+    setProblem(issue);
+    onFileChange(issue ? null : next);
   }
 
   function handleDrop(event) {
@@ -113,11 +114,7 @@ function UploadCard({ career, analyzing, error, progress, onAnalyze }) {
       return;
     }
     const ok = await onAnalyze(file);
-    if (ok) {
-      // Drop the page's reference to the file once it has been analyzed.
-      setFile(null);
-      if (inputRef.current) inputRef.current.value = "";
-    }
+    if (ok && inputRef.current) inputRef.current.value = "";
   }
 
   const message = problem || error;
@@ -204,7 +201,7 @@ function UploadCard({ career, analyzing, error, progress, onAnalyze }) {
       <p id="resumeUploadMessage" className="dashError" role="alert">
         {message}
       </p>
-      <p className="resumeUploadFootnote"><Lock size={13} aria-hidden="true" /> Your original PDF is not stored.</p>
+      <p className="resumeUploadFootnote"><Lock size={13} aria-hidden="true" /> Your original PDF is not stored on PathwayAI&apos;s servers.</p>
     </form>
   );
 }
@@ -245,6 +242,7 @@ function HistoryItem({ item, open, onToggle, onDelete, deleting }) {
 
 export default function Resume() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { enabled: accountsEnabled, loading: authLoading, user } = useAuth();
   const userId = user?.id || null;
 
@@ -263,6 +261,7 @@ export default function Resume() {
   const [authTimedOut, setAuthTimedOut] = useState(false);
   const [activeDataUser, setActiveDataUser] = useState(null);
   const [activeFile, setActiveFile] = useState(null);
+  const [targetLevel, setTargetLevel] = useState(resumeSession.targetLevel || DEFAULT_RESUME_TARGET_LEVEL);
 
   const refreshAvailability = useCallback(async (signal) => {
     const requestId = ++availabilityRequest.current;
@@ -312,14 +311,25 @@ export default function Resume() {
   }, []);
 
   useEffect(() => {
+    if (authLoading) return undefined;
     if (!userId) {
+      resetResumeSession();
       availabilityRequest.current += 1;
       historyRequest.current += 1;
       setAvailability({ status: "loading", data: null });
       setHistory({ status: "loading", items: [], error: "" });
       setActiveDataUser(null);
+      setActiveFile(null);
+      setOpenId(null);
+      setTargetLevel(DEFAULT_RESUME_TARGET_LEVEL);
       return undefined;
     }
+    if (resumeSession.userId && resumeSession.userId !== userId) resetResumeSession();
+    resumeSession.userId = userId;
+    persistResumeSession();
+    setActiveFile(resumeSession.file);
+    setOpenId(resumeSession.openId);
+    setTargetLevel(resumeSession.targetLevel || DEFAULT_RESUME_TARGET_LEVEL);
     setActiveDataUser(userId);
     setAvailability({ status: "loading", data: null });
     setHistory({ status: "loading", items: [], error: "" });
@@ -327,7 +337,23 @@ export default function Resume() {
     refreshAvailability(controller.signal);
     loadHistory();
     return () => controller.abort();
-  }, [userId, refreshAvailability, loadHistory]);
+  }, [authLoading, userId, refreshAvailability, loadHistory]);
+
+  useEffect(() => {
+    if (!demoResumeUrl || !userId || authLoading || !availability.data?.available || activeFile || resumeSession.file) return undefined;
+    let cancelled = false;
+    fetch(demoResumeUrl).then((response) => {
+      if (!response.ok) throw new Error("Demo résumé unavailable");
+      return response.blob();
+    }).then((blob) => {
+      if (cancelled) return;
+      const file = new File([blob], "demo-resume.pdf", { type: "application/pdf", lastModified: Date.now() });
+      resumeSession.file = file;
+      persistResumeFile(file);
+      setActiveFile(file);
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [activeFile, authLoading, availability.data?.available, userId]);
 
   useEffect(() => {
     if (!authLoading) {
@@ -344,19 +370,25 @@ export default function Resume() {
   async function runAnalysis(file, onUploadProgress) {
     setAnalyzing(true);
     setActiveFile(file);
+    resumeSession.userId = userId;
+    resumeSession.file = file;
+    persistResumeFile(file);
     setUploadProgress({ phase: "uploading", percent: 0 });
     setUploadError("");
     const controller = new AbortController();
     analyzeAbort.current = controller;
     try {
-      const row = await analyze(file, { signal: controller.signal, onUploadProgress });
+      const row = await analyze(file, { signal: controller.signal, onUploadProgress, targetLevel });
       const item = normalizeAnalysis(row);
       setHistory((prev) => ({ ...prev, items: [item, ...prev.items.filter((i) => i.id !== item.id)] }));
       setOpenId(item.id);
+      resumeSession.openId = item.id;
+      resumeSession.analysis = item;
+      persistResumeSession();
       return true;
     } catch (e) {
       if (controller.signal.aborted) return false;
-      setUploadError(errorMessage(e, ANALYZE_FAILED));
+      setUploadError(errorMessage(e, ANALYZE_FAILED, true));
       // The situation may have changed since the page loaded (feature
       // switched off, roadmap gone, signed out): re-check what's possible.
       if ([401, 409, 503].includes(e?.status)) refreshAvailability();
@@ -377,7 +409,12 @@ export default function Resume() {
     try {
       await deleteAnalysis(item.id);
       setHistory((prev) => ({ ...prev, items: prev.items.filter((i) => i.id !== item.id) }));
-      if (openId === item.id) setOpenId(null);
+      if (openId === item.id) {
+        setOpenId(null);
+        resumeSession.openId = null;
+        resumeSession.analysis = null;
+        persistResumeSession();
+      }
     } catch (e) {
       setHistoryError(errorMessage(e, "We couldn't delete that review. Please try again."));
     } finally {
@@ -385,7 +422,8 @@ export default function Resume() {
     }
   }
 
-  const selectedAnalysis = history.items.find((item) => item.id === openId) || null;
+  const selectedAnalysis = history.items.find((item) => item.id === openId)
+    || (resumeSession.userId === userId && resumeSession.openId === openId ? resumeSession.analysis : null);
 
   function renderStatus() {
     if (availability.status === "loading") {
@@ -426,9 +464,11 @@ export default function Resume() {
       return (
         <UploadCard
           career={career}
+          file={activeFile}
           analyzing={analyzing}
           error={uploadError}
           progress={uploadProgress}
+          onFileChange={(file) => { setActiveFile(file); resumeSession.userId = userId; resumeSession.file = file; resumeSession.openId = null; resumeSession.analysis = null; persistResumeFile(file); setUploadError(""); }}
           onAnalyze={(file) => runAnalysis(file, setUploadProgress)}
         />
       );
@@ -499,16 +539,28 @@ export default function Resume() {
     content = (
       <>
         <div className="resumeWorkspace">
-          {renderStatus()}
-          {availability.data?.available && <PrivacyCard />}
+          {availability.data?.available && (activeFile || selectedAnalysis) ? (
+            <ResumeReviewWorkspace
+              analysis={selectedAnalysis}
+              file={activeFile}
+              autoAnalyze={location.state?.autoAnalyze === true}
+              analyzing={analyzing}
+              progress={uploadProgress}
+              error={uploadError}
+              initialPage={resumeSession.page}
+              initialScrollTop={resumeSession.scrollTop}
+              initialSelectedId={resumeSession.selectedId}
+              targetLevel={targetLevel}
+              onAnalyze={(file) => runAnalysis(file, setUploadProgress)}
+              onTargetLevelChange={(level) => { setTargetLevel(level); resumeSession.targetLevel = level; persistResumeSession(); }}
+              onPageChange={(page) => { resumeSession.page = page; persistResumeSession(); }}
+              onScrollChange={(scrollTop) => { resumeSession.scrollTop = scrollTop; persistResumeSession(); }}
+              onSelectedChange={(selectedId) => { resumeSession.selectedId = selectedId; persistResumeSession(); }}
+              onFileChange={(file) => { setActiveFile(file); resumeSession.file = file; setOpenId(null); resumeSession.openId = null; resumeSession.analysis = null; resumeSession.selectedId = null; resumeSession.page = 1; resumeSession.scrollTop = 0; persistResumeFile(file); setUploadError(""); }}
+            />
+          ) : renderStatus()}
+          {availability.data?.available && !activeFile && <PrivacyCard />}
         </div>
-
-        {selectedAnalysis && <section id="resume-current-report" className="resumeCurrentReport" aria-labelledby="resumeCurrentReportTitle">
-          <div className="resumeCurrentReportHead"><div><p>YOUR REVIEW</p><h2 id="resumeCurrentReportTitle">{selectedAnalysis.career}</h2></div>
-            <span>{formatDate(selectedAnalysis.createdAt)}</span></div>
-          <ResumeReviewWorkspace analysis={selectedAnalysis} file={selectedAnalysis.id === openId ? activeFile : null} />
-          <AnalysisView analysis={selectedAnalysis} currentRoadmapId={availability.data?.roadmap_id || null} />
-        </section>}
 
         <section className="resumeHistory" aria-labelledby="resumeHistoryTitle">
           <div className="dashSectionHead">
@@ -554,7 +606,13 @@ export default function Resume() {
                   key={item.id}
                   item={item}
                   open={openId === item.id}
-                  onToggle={() => setOpenId(openId === item.id ? null : item.id)}
+                  onToggle={() => {
+                    const next = openId === item.id ? null : item.id;
+                    setOpenId(next);
+                    resumeSession.openId = next;
+                    resumeSession.analysis = next ? item : null;
+                    persistResumeSession();
+                  }}
                   onDelete={() => setConfirmDelete(item)}
                   deleting={deletingId === item.id}
                 />

@@ -130,7 +130,7 @@ export default function Home() {
             <button
               type="button"
               className="homeFeatureCard homeFeatureCard--resume"
-              onClick={() => navigate("/resume")}
+              onClick={() => navigate("/resume", { state: { autoAnalyze: true } })}
             >
               <div className="homeFeatureIcon homeFeatureIcon--resume">
                 <FileText size={22} aria-hidden="true" />

@@ -236,7 +236,7 @@ Whether the signed-in user can analyze a résumé right now; the `/resume` page 
 ## ✅ `POST /api/resume-analyses` (since 2026-10-05, M3-4, ADR-020)
 Analyze a résumé PDF against the signed-in user's **current roadmap** (its career, the career card's skills and the step titles) and save the structured result. **Off by default** (`RESUME_ANALYSIS_ENABLED=false`: only with a paid Gemini key).
 
-- **Request:** `Authorization: Bearer <access token>`, `Content-Type: application/pdf`, body = the raw PDF (not multipart), 1 KB–2 MB.
+- **Request:** `Authorization: Bearer <access token>`, `Content-Type: application/pdf`, optional `X-Resume-Target-Level: internship | entry_level` (defaults to `entry_level`), body = the raw PDF (not multipart), 1 KB–2 MB.
 - **Check order** (all before any of the body is read; an upload declared over 2 MB is refused even earlier, by the body-limit middleware): token → database configured → feature switch → Content-Type → per-user rate limit → active roadmap. Then the body is read (counted while it arrives), checked (`%PDF-` signature, `%%EOF` at the end), sent to Gemini inline and the strictly validated analysis is saved in one insert.
 - **Privacy:** the PDF and extracted full text exist only in request memory. Neither the file, its full text, its file name (a `Content-Disposition` header is ignored) nor a hash is stored or logged. The saved report contains short, page-verified excerpts so each awarded criterion can be audited; contact values are never copied into the report. Logs record outcome, size and time.
 
@@ -266,10 +266,20 @@ Analyze a résumé PDF against the signed-in user's **current roadmap** (its car
         "skills": [{"skill": "SQL", "found": true, "evidence": [], "roadmap_steps": [1]}]}
     }
   },
-  "prompt_version": "r2", "model": "gemini-2.5-flash-lite", "created_at": "2026-10-09T23:35:20Z"
+  "prompt_version": "r2", "model": "gemini-2.5-flash-lite", "created_at": "2026-10-09T23:35:20Z",
+  "ai_coaching": {
+    "status": "available",
+    "items": [{"criterion_id": "skill_2", "title": "…", "problem": "…", "why_it_matters": "…",
+      "improve_by": "…", "expected_impact": "…", "suggested_rewrite": null,
+      "resume_citations": [{"page": 1, "quote": "…"}],
+      "guidance_citations": [{"id": "…", "source": "…", "title": "…", "section": "…", "topic": "…", "criterion_ids": ["skill_2"], "version": "…"}],
+      "confidence": "high"}]
+  }
 }
 ```
-`related_step` is the 1-based step number in the roadmap or null; `section` is one of summary, experience, projects, skills, education, formatting, other. The additive `score_report` is calculated by the backend from binary findings and fixed career-family rubric weights. Positive findings include a short excerpt verified against its PDF page; missing findings include a reason and earn zero points. Recommendation gains equal the points available for their linked missing criteria; they are not hiring predictions and may overlap. Previous saved analyses without this field remain valid and render as qualitative reviews. The browser lists and deletes analyses directly through Supabase (RLS); there is no GET or DELETE route.
+`related_step` is the 1-based step number in the roadmap or null; `section` is one of summary, experience, projects, skills, education, formatting, other. The additive `score_report` is calculated by the backend from binary findings and fixed career-family rubric weights. Positive findings include a short excerpt verified against its PDF page; missing findings include a reason and earn zero points. Recommendation gains equal the points available for their linked missing criteria; they are not hiring predictions and may overlap.
+
+`ai_coaching` is response-only enrichment: it is never persisted and never changes the deterministic analysis. It is built after the report is saved by selecting up to three verified gaps, retrieving curated guidance through the configured retriever (LangChain by default), and validating Gemini's coaching against known criteria, résumé citations and guidance citations. If retrieval, the embedding provider, Gemini, schema validation or the five-second coaching budget fails, the response remains **201** with `{"status": "unavailable"}`. Previous saved analyses without `score_report` remain valid and render as qualitative reviews. The browser lists and deletes analyses directly through Supabase (RLS); there is no GET or DELETE route.
 
 | Status | When |
 |---|---|

@@ -33,7 +33,7 @@ from resume_scoring import build_score_report, build_skill_roadmap, rubric_for
 from strict_ai import contains_contact_details, error_summary, load_strict_json
 from strict_ai import text as _text
 
-PROMPT_VERSION = "r8"
+PROMPT_VERSION = "r9"
 
 MIN_PDF_BYTES = 1024
 MAX_PDF_BYTES = 2 * 1024 * 1024
@@ -41,6 +41,10 @@ MAX_PDF_PAGES = 10
 MIN_EXTRACTED_TEXT_CHARS = 0
 MIN_SCORE_TEXT_CHARS = 300
 MIN_SCORE_TEXT_WORDS = 50
+_PROJECT_TECHNOLOGY_CATEGORY = re.compile(
+    r"\b(?:spreadsheet(?:s)?|dashboard(?:s)?|database(?:s)?|reporting\s+(?:tool|platform|system|dashboard)|analytics\s+(?:tool|platform|system)|automation\s+(?:tool|script|workflow))\b",
+    re.IGNORECASE,
+)
 MAX_EXTRACTED_TEXT_CHARS = 30_000
 MAX_PAGE_CONTENT_BYTES = 600_000
 
@@ -413,12 +417,6 @@ def _citation_mismatch_diagnostic(quote: str, page: str, page_number: int) -> di
     longest = SequenceMatcher(None, quote_tokens, page_tokens, autojunk=False).find_longest_match(
         0, len(quote_tokens), 0, len(page_tokens)
     )
-    source_start = longest.b
-    normalized_page = _normalized(page)
-    source_position = normalized_page.find(" ".join(page_tokens[source_start:source_start + longest.size]))
-    if source_position < 0:
-        source_position = 0
-    surrounding = normalized_page[max(0, source_position - 500):source_position + 500]
     return {
         "page": page_number,
         "quote_chars": len(quote),
@@ -428,7 +426,14 @@ def _citation_mismatch_diagnostic(quote: str, page: str, page_number: int) -> di
         "quote_normalized_sha256": hashlib.sha256(quote_normalized.encode()).hexdigest()[:12],
         "page_normalized_sha256": hashlib.sha256(page_normalized.encode()).hexdigest()[:12],
         "contiguous_word_match": _quote_matches_source(quote, page),
-        "first_mismatch": mismatch,
+        "first_mismatch": (
+            {
+                "quote_token_index": mismatch["quote_token_index"],
+                "source_window_start_token": mismatch["source_window_start_token"],
+                "matched_prefix_tokens": mismatch["matched_prefix_tokens"],
+            }
+            if mismatch else None
+        ),
         "first_mismatch_normalized_quote_char": (
             len(" ".join(quote_tokens[:mismatch["quote_token_index"]]))
             + (1 if mismatch and mismatch["quote_token_index"] else 0)
@@ -438,9 +443,7 @@ def _citation_mismatch_diagnostic(quote: str, page: str, page_number: int) -> di
             "quote_start_token": longest.a,
             "source_start_token": longest.b,
             "token_count": longest.size,
-            "tokens": list(quote_tokens[longest.a:longest.a + longest.size]),
         },
-        "surrounding_page_text": surrounding,
         "why_contiguous_matching_failed": (
             "The normalized quote is not a contiguous source span. The shared run ends before the quote ends, so accepting it would allow a paraphrase, reordered text, or omitted source words."
             if longest.size and longest.size < len(quote_tokens)
@@ -471,6 +474,23 @@ def _static_evaluations(pages: list[str]) -> dict:
                      else "No selectable résumé text could be extracted from this PDF."),
         },
     }
+
+
+def _backfill_project_technology(evaluations: dict) -> None:
+    """Credit an explicit technology category already verified in project evidence."""
+    technology = evaluations.get("project_technology")
+    if not technology or technology["found"]:
+        return
+    for criterion_id in ("relevant_project", "project_outcome"):
+        for evidence in evaluations.get(criterion_id, {}).get("evidence", []):
+            quote = evidence.get("quote", "")
+            if _PROJECT_TECHNOLOGY_CATEGORY.search(quote):
+                technology.update(
+                    found=True,
+                    evidence=[dict(evidence)],
+                    note="Verified project evidence explicitly names a technology category.",
+                )
+                return
 
 
 def _capture_contract_failure(
@@ -766,6 +786,8 @@ def parse_resume_reply(text: str, rubric: dict, pages: list[str], step_positions
             "evidence": [citation.model_dump() for citation in item.evidence],
             "note": item.note,
         }
+
+    _backfill_project_technology(evaluation_map)
 
     project_reviews, project_dropped = _validate_work_samples(
         reply.project_reviews, "project", pages, debug_capture, tolerant=tolerant
@@ -1409,7 +1431,7 @@ def _insufficient_analysis(career: str, skills, steps: list[dict], pages: list[s
             "prompt_version": PROMPT_VERSION, "model": config.GEMINI_MODEL}
 
 
-def analyze_resume(pdf: bytes, career: str, skills, steps) -> dict:
+def analyze_resume(pdf: bytes, career: str, skills, steps, *, target_level: str = "entry_level") -> dict:
     """Analyze, cite, and score a résumé against the current PathwayAI roadmap."""
     check_pdf(pdf)
     pages = extract_resume_pages(pdf)
@@ -1433,7 +1455,7 @@ def analyze_resume(pdf: bytes, career: str, skills, steps) -> dict:
         {"position": index, "title": title, "description": "", "tasks": [], "completed": False}
         for index, title in enumerate(steps or [], start=1)
     ]
-    prompt = build_resume_evidence_prompt(career, rubric, roadmap_steps, pages)
+    prompt = build_resume_evidence_prompt(career, rubric, roadmap_steps, pages, target_level=target_level)
     if debug_capture is not None:
         debug_capture.save_request({
             "pdf_bytes": len(pdf),
@@ -1448,7 +1470,20 @@ def analyze_resume(pdf: bytes, career: str, skills, steps) -> dict:
                 category["criteria"] for category in rubric["categories"] if category["id"] == "skills"
             )),
         })
-    contents = [genai_types.Part.from_bytes(data=bytes(pdf), mime_type="application/pdf"), prompt]
+    pdf_part = genai_types.Part.from_bytes(data=bytes(pdf), mime_type="application/pdf")
+
+    def repair_contents(error: AIOutputError):
+        """Ask Gemini once for a complete schema-valid replacement reply."""
+        repair_prompt = (
+            f"{prompt}\n\n"
+            "REPAIR REQUEST: Your previous response was not valid for the supplied JSON schema. "
+            f"The validation category was {error.kind!r}. Return a complete replacement JSON object "
+            "that matches the schema exactly. Return JSON only; do not use Markdown fences, commentary, "
+            "unknown fields, duplicate keys, or invented evidence."
+        )
+        return [pdf_part, repair_prompt]
+
+    contents = [pdf_part, prompt]
 
     reply = llm.generate(
         contents,
@@ -1464,7 +1499,8 @@ def analyze_resume(pdf: bytes, career: str, skills, steps) -> dict:
         system_instruction=RESUME_SYSTEM_INSTRUCTION,
         temperature=0,
         max_output_tokens=MAX_OUTPUT_TOKENS,
-        retry_on_validation_error=False,
+        validation_error_kind="invalid_output",
+        validation_retry_contents=repair_contents,
         on_response=debug_capture.save_response if debug_capture is not None else None,
         on_attempt=debug_capture.save_attempt if debug_capture is not None else None,
     )

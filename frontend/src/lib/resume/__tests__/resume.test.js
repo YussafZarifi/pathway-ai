@@ -97,6 +97,25 @@ describe("normalizeAnalysis", () => {
     expect(item.projectReviews).toEqual([]);
     expect(item.experienceReviews).toEqual([]);
   });
+
+  it("keeps validated coaching and its readable guidance source from a fresh analysis response", () => {
+    const item = normalizeAnalysis({
+      id: "3", analysis: { score_report: { categories: [] } },
+      ai_coaching: { status: "available", items: [{
+        criterion_id: "project_impact", title: "Show the project outcome", problem: "No result is shown.",
+        why_it_matters: "Reviewers need a concrete outcome.", improve_by: "Add the observed result.",
+        expected_impact: "Makes the project easier to assess.", suggested_rewrite: null,
+        resume_citations: [{ page: 1, quote: "Built a reporting dashboard." }],
+        guidance_citations: [{ id: "guide", source: "PathwayAI editorial guidance", title: "Project outcomes" }],
+        confidence: "high",
+      }] },
+    });
+
+    expect(item.aiCoaching.items[0]).toMatchObject({
+      title: "Show the project outcome", expectedImpact: "Makes the project easier to assess.",
+      guidanceTitles: ["Project outcomes"],
+    });
+  });
 });
 
 describe("history", () => {

@@ -21,16 +21,15 @@ export class ApiError extends Error {
 }
 
 /**
- * The message to show for a failed request. Client errors (bad answers,
- * rate limits), 503s (AI quota used up or busy) and timeouts carry a
- * specific, user-safe message from ApiError; everything else gets the
- * page's own fallback copy.
+ * The message to show for a failed request. Most 5xx responses use page-level
+ * fallback copy; callers may opt into a backend message when it is sanitized.
  */
-export function errorMessage(error, fallback) {
+export function errorMessage(error, fallback, preserve502 = false) {
   const specific =
     error instanceof ApiError &&
     (error.status === 0 ||
       error.status === 503 ||
+      (preserve502 && error.status === 502) ||
       (error.status >= 400 && error.status < 500));
   return specific && error.message ? error.message : fallback;
 }
@@ -49,7 +48,7 @@ function parseApiResponse(status, text) {
   return data;
 }
 
-function requestWithUploadProgress(path, raw, { signal, token, contentType, onUploadProgress }) {
+function requestWithUploadProgress(path, raw, { signal, token, contentType, onUploadProgress, targetLevel }) {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     let settled = false;
@@ -74,6 +73,7 @@ function requestWithUploadProgress(path, raw, { signal, token, contentType, onUp
     xhr.timeout = TIMEOUT_MS;
     xhr.setRequestHeader("Content-Type", contentType);
     if (token) xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+    if (targetLevel) xhr.setRequestHeader("X-Resume-Target-Level", targetLevel);
     xhr.upload.addEventListener("progress", (event) => {
       if (event.lengthComputable) {
         onUploadProgress({ phase: "uploading", percent: Math.round((event.loaded / event.total) * 100) });
@@ -99,14 +99,14 @@ function requestWithUploadProgress(path, raw, { signal, token, contentType, onUp
  * unchanged with its own Content-Type (the résumé PDF, ADR-020), and
  * `method: "GET"` sends no body.
  */
-async function request(path, body, { signal, token, method = "POST", raw = null, contentType, onUploadProgress } = {}) {
+async function request(path, body, { signal, token, method = "POST", raw = null, contentType, onUploadProgress, targetLevel } = {}) {
   if (!API_URL) {
     console.error("VITE_API_URL is not set; see frontend/.env.example");
     throw new ApiError("PathwayAI isn't configured correctly. Please try again later.", 500);
   }
 
   if (raw && onUploadProgress) {
-    return requestWithUploadProgress(path, raw, { signal, token, contentType, onUploadProgress });
+    return requestWithUploadProgress(path, raw, { signal, token, contentType, onUploadProgress, targetLevel });
   }
 
   // Abort on the caller's signal (e.g. unmount) or on our own timeout.
@@ -125,6 +125,7 @@ async function request(path, body, { signal, token, method = "POST", raw = null,
         ...(hasBody ? { "Content-Type": raw ? contentType : "application/json" } : {}),
         // Supabase access token for account routes (ADR-018/019); guests send none.
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(targetLevel ? { "X-Resume-Target-Level": targetLevel } : {}),
       },
       body: hasBody ? (raw ?? JSON.stringify(body)) : undefined,
       signal: controller.signal,
@@ -233,13 +234,14 @@ export function getResumeAvailability(token, { signal } = {}) {
  * no file name, form fields or other metadata are sent.
  * @returns {Promise<object>} the saved analysis row
  */
-export function analyzeResume(token, file, { signal, onUploadProgress } = {}) {
+export function analyzeResume(token, file, { signal, onUploadProgress, targetLevel } = {}) {
   return request("/api/resume-analyses", null, {
     signal,
     token,
     raw: file,
     contentType: "application/pdf",
     onUploadProgress,
+    targetLevel,
   });
 }
 

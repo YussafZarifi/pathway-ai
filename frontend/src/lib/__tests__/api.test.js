@@ -70,6 +70,22 @@ describe("résumé calls", () => {
     expect(JSON.stringify(init.headers)).not.toContain("jane-doe");
   });
 
+  it("sends the selected resume target level without changing the raw PDF body", async () => {
+    const fetch = respond(201, { id: "1" });
+    vi.stubGlobal("fetch", fetch);
+    const file = new File(["%PDF-1.4"], "jane-doe-cv.pdf", { type: "application/pdf" });
+
+    await analyzeResume("tok", file, { targetLevel: "internship" });
+
+    const [, init] = fetch.mock.calls[0];
+    expect(init.body).toBe(file);
+    expect(init.headers).toEqual({
+      "Content-Type": "application/pdf",
+      Authorization: "Bearer tok",
+      "X-Resume-Target-Level": "internship",
+    });
+  });
+
   it("reports real upload progress while keeping the raw PDF request", async () => {
     let lastRequest;
     class ProgressRequest {
@@ -114,8 +130,9 @@ describe("errorMessage", () => {
     expect(errorMessage(new ApiError("Offline", 0), "fallback")).toBe("Offline");
   });
 
-  it("uses the page's fallback for server errors and unknown errors", () => {
-    expect(errorMessage(new ApiError("trace…", 502), "fallback")).toBe("fallback");
+  it("uses fallback for 502 unless the caller opts into safe details", () => {
+    expect(errorMessage(new ApiError("AI output failed", 502), "fallback")).toBe("fallback");
+    expect(errorMessage(new ApiError("AI output failed", 502), "fallback", true)).toBe("AI output failed");
     expect(errorMessage(new Error("boom"), "fallback")).toBe("fallback");
   });
 });

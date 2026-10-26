@@ -4,7 +4,24 @@
 
 ---
 
-## Current session - 2026-10-11 - Resume Analyzer end-to-end reliability
+## Current session - 2026-10-26 - Version 1.0 release preparation
+
+### Summary
+- Synchronized release documentation with the production Resume Analyzer: deterministic PDF evidence verification and scoring are authoritative; LangChain is the default retriever; curated guidance and Gemini coaching are validated, response-only enrichment.
+- Updated environment, deployment, API, architecture, testing and repository-memory documentation. Local agent bundles, generated output and local MCP configuration are now ignored without affecting `.github/workflows/ci.yml`.
+- Release verification passed: 674 backend pytest tests, 182 frontend Vitest tests, lint, production build, and 3 Playwright checks; one browser check was skipped by the suite. Vite reports a non-blocking large-chunk warning for PDF/HTML-to-PDF bundles.
+- Security audit reconfirmed that `backend/.env`, `frontend/.env.local` and `frontend/.env.e2e` are ignored. No API keys, database credentials or tokens were found in tracked source or templates.
+
+### Remaining work
+- Review the staged release diff, create the approved commit and annotated `v1.0.0` tag. Push or deploy only with owner approval.
+
+### Previous session - 2026-10-11 - Resume Analyzer response-contract regression
+
+### Summary
+- Traced the reported `recommendations.1.criterion_ids:too_long` path: strict Pydantic allows 1–4 IDs; the provider schema now enforces that cardinality while strict local validation remains authoritative.
+- Expanded privacy-safe diagnostics and regression coverage around malformed structured output. No résumé content or raw model output was added to logs.
+
+### Previous session - 2026-10-11 - Resume Analyzer end-to-end reliability
 
 ### Summary
 - Reproduced the production failure through a signed-in browser upload using a wholly fictional, local-only PDF (`backend/.resume-debug/fictional-riley-chen-resume.pdf`). Gemini returned HTTP 200; strict reply validation then rejected several model-output contract mismatches, which the API surfaced as 502 before saving anything.
@@ -69,14 +86,14 @@
 - **Future enhancements (not defects):** ROADMAP *Future* — F-3 committed E2E tests, F-6 streaming, F-11 Sentry, F-14 skill-gap, F-15 shareable roadmaps, B-16 email reminders (SMTP), OAuth, N-19 drop v1 answers, N-22 og:image, PDF parsing before AI.
 
 ### Next Session (exact order)
-1. **Owner review** of the Version 1 commits (`git log origin/main..main`) and this audit.
-2. **Owner actions before any public launch:** Gemini billing + budget alert, then `RESUME_ANALYSIS_ENABLED=true` (D-6); `YOUTUBE_API_KEY` (D-5); add `<origin>/reset-password` to Supabase Auth Redirect URLs; enable leaked-password protection; optionally a shorter JWT expiry; restart the dev backend on 8000 (it runs older code).
-3. **Owner decides** push to the private repo (CI then runs) and deployment (D-1–D-4). Nothing is pushed or deployed until then.
+1. Review the Version 1.0 release diff and create the approved commit/tag.
+2. The owner decides whether to push the private release branch and whether to deploy through Render.
+3. Before public résumé analysis, configure paid Gemini billing, a budget alert, `RESUME_ANALYSIS_ENABLED=true`, production Supabase redirects/custom SMTP and any desired YouTube key.
 
 ### Open questions (for the owner)
-1. Push `main` (95 commits ahead) to the private GitHub repo now, so CI runs and there is an off-machine backup?
-2. Render plan for the API (free sleeps, Starter always on), and when to deploy?
-3. Enable Gemini billing (needed for real résumés and more than ~7 quiz runs a day)?
+1. Approve the `v1.0.0` release commit and tag?
+2. Select the Render plan and authorize deployment timing?
+3. Enable Gemini billing before allowing real résumé uploads?
 
 ---
 
@@ -84,7 +101,6 @@
 - 2026-10-03 — Milestone 2 complete (M2-2 → M2-11), see ROADMAP 🗄️ Milestone 2 and ADR-019.
 - 2026-10-03 — Milestone 2 (M2-2 → M2-11): roadmap tables + `pathwayai_api` role, pooled login, backend pool/repository/endpoints, frontend repositories, account mode, import banner, QA; ADR-019 amended (`private.request_user_id()`).
 - 2026-10-02 — Milestone 2 design reviewed (six changes adopted) and accepted as ADR-019; ROADMAP step table M2-1 → M2-11 (M2-1, commit `bfaf1b8`).
-- 2026-10-01 — Planning: deployment postponed until Version 2 (M1–M4) is complete; Milestone 1 verified with the owner's real account (M1-8); first Milestone 2 draft written (conversation only).
 - 2026-09-30 — Supabase Milestone 1 in 7 commits (ADR-018 accepted): `profiles` table (RLS, sign-up trigger), `lib/supabase.js` + `AuthProvider`, `/login`, header sign-in/out, FastAPI token verification + `GET /api/me`, 20 new tests (100). Optional per environment; guest flow unchanged. Real sign-up test pending (owner's inbox).
 - 2026-09-29 — Pre-deploy fix batch (C-27, ADR-017: compare independence, scroll reset, honest copy, 404, metadata), full QA pass, recruiter-style review (P-1–P-11), ADR-018 proposed, ROADMAP restructured for deploy.
 - 2026-09-28 (evening) — Pre-flight: docs synced with the code; live `gemini-2.5-flash-lite` check (7/7 ok, v1 + v2); manual desktop / 360 px / keyboard QA; readiness report; findings TD-50–TD-58 → N-20 (fixed 2026-09-29) and N-21.

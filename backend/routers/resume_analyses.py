@@ -44,6 +44,7 @@ from session_check import live_user
 from body_limit import TOO_LARGE
 from generation import ai_http_error
 from rate_limit import limit_resume_requests
+from rag.production import build_ai_coaching
 from repositories.resume_analyses import PostgresResumeAnalysisRepository, ResumeAnalysisRepository
 
 logger = logging.getLogger("pathwayai.resume")
@@ -57,6 +58,7 @@ NO_ROADMAP = "Create a roadmap first: your résumé is reviewed against your cur
 DB_UNAVAILABLE = "We couldn't reach your account right now. Please try again."
 SAVE_FAILED = "Your résumé was analyzed but the result couldn't be saved. Please try again."
 ANALYSIS_FAILED = "We couldn't analyze your résumé right now. Please try again."
+ANALYSIS_INVALID_OUTPUT = "The AI couldn't format your résumé review. Please try again."
 INPUT_ERRORS = {
     "too_large": (413, "Your PDF is larger than 2 MB. Please upload a smaller file."),
     "too_small": (422, "This file is too small to be a résumé PDF."),
@@ -65,6 +67,8 @@ INPUT_ERRORS = {
                         "Please upload a text-based résumé PDF."),
     "unreadable": (422, "We couldn't extract enough readable text from this PDF. Please upload a text-based résumé PDF."),
 }
+DEFAULT_TARGET_LEVEL = "entry_level"
+TARGET_LEVELS = {"internship", "entry_level"}
 
 
 def get_repository() -> ResumeAnalysisRepository:
@@ -84,6 +88,13 @@ def require_pdf(content_type: str | None = Header(default=None)) -> None:
     media_type = (content_type or "").split(";")[0].strip().lower()
     if media_type != "application/pdf":
         raise HTTPException(status_code=415, detail=WRONG_TYPE)
+
+
+def requested_target_level(x_resume_target_level: str | None = Header(default=None)) -> str:
+    level = (x_resume_target_level or DEFAULT_TARGET_LEVEL).strip().lower()
+    if level not in TARGET_LEVELS:
+        raise HTTPException(status_code=422, detail="Choose Internship or Entry-level for the rÃ©sumÃ© review.")
+    return level
 
 
 def limit_requests(user: AuthUser = Depends(current_user)) -> None:
@@ -156,13 +167,15 @@ def create_analysis(
     _pdf_type: None = Depends(require_pdf),
     _limit: None = Depends(limit_requests),
     target: dict = Depends(active_target),
+    target_level: str = Depends(requested_target_level),
     pdf: bytes = Depends(read_pdf),
 ):
     started = time.perf_counter()
     size = len(pdf)
     try:
         result = resume_ai.analyze_resume(
-            pdf, target["career"], target["skills"], target.get("roadmap_steps") or target["steps"]
+            pdf, target["career"], target["skills"], target.get("roadmap_steps") or target["steps"],
+            target_level=target_level,
         )
     except resume_ai.ResumeInputError as e:
         logger.info("Résumé rejected: %s (%d bytes)", e.kind, size)
@@ -175,11 +188,14 @@ def create_analysis(
     except llm.AIServiceError as e:
         logger.warning("Résumé analysis failed: %s (%d bytes, %.1fs)", e.kind, size,
                        time.perf_counter() - started)
-        raise ai_http_error(e, ANALYSIS_FAILED) from None
+        logger.warning("Resume AI diagnostic: %s", e.detail)
+        detail = ANALYSIS_INVALID_OUTPUT if e.kind == "invalid_output" else ANALYSIS_FAILED
+        raise ai_http_error(e, detail) from None
     except AIOutputError as e:
         logger.warning("Resume report rejected: %s (%d bytes, %.1fs)", e.kind, size,
                        time.perf_counter() - started)
-        raise ai_http_error(llm.AIServiceError("failed"), ANALYSIS_FAILED) from None
+        logger.warning("Resume report diagnostic: %s", e.detail)
+        raise ai_http_error(llm.AIServiceError("invalid_output"), ANALYSIS_INVALID_OUTPUT) from None
 
     try:
         saved = repo.create(user.id, roadmap_id=target["roadmap_id"], **result)
@@ -188,5 +204,13 @@ def create_analysis(
         logger.error("Saving the résumé analysis failed: %s", type(e).__name__)
         raise HTTPException(status_code=503, detail=SAVE_FAILED) from None
 
+    coaching = (
+        build_ai_coaching(result["analysis"], target_role=target["career"], target_level=target_level)
+        if config.RAG_COACHING_ENABLED else {"status": "unavailable"}
+    )
+
     logger.info("Résumé analysis saved (%d bytes, %.1fs)", size, time.perf_counter() - started)
+    # Keep the bounded, deterministic analysis in storage. Coaching is
+    # response-only enrichment and cannot make its database write fail.
+    saved["ai_coaching"] = coaching
     return saved

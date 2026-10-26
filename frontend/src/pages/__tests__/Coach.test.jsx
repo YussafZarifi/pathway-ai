@@ -1,5 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { ApiError } from "../../lib/api";
 
@@ -87,6 +87,8 @@ beforeEach(() => {
   auth.user = null;
 });
 
+afterEach(() => vi.useRealTimers());
+
 describe("/coach access", () => {
   it("accounts off", () => {
     auth.enabled = false;
@@ -101,6 +103,18 @@ describe("/coach access", () => {
     expect(screen.queryByLabelText("Message the coach")).toBeNull();
   });
 
+  it("clears one account's workspace when signing out, then loads after signing back in", async () => {
+    signIn();
+    const view = renderPage();
+    expect(await screen.findByLabelText("Message the coach")).toBeTruthy();
+    auth.user = null;
+    view.rerender(<MemoryRouter><Coach /></MemoryRouter>);
+    expect(screen.getByText("Sign in to talk to your coach")).toBeTruthy();
+    signIn();
+    view.rerender(<MemoryRouter><Coach /></MemoryRouter>);
+    expect(await screen.findByLabelText("Message the coach")).toBeTruthy();
+  });
+
   it("feature off", async () => {
     signIn();
     api.checkAvailability.mockResolvedValue({ available: false, reason: "feature_disabled" });
@@ -113,9 +127,30 @@ describe("/coach access", () => {
     signIn();
     api.checkAvailability.mockRejectedValueOnce(new ApiError("Please sign in again.", 401));
     renderPage();
-    expect(await screen.findByText("Please sign in again.")).toBeTruthy();
+    expect(await screen.findByText("Sign in again to continue")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Sign in again" })).toBeTruthy();
+  });
+
+  it("times out a stalled availability check and retries", async () => {
+    signIn();
+    vi.useFakeTimers();
+    api.checkAvailability.mockImplementationOnce(() => new Promise(() => {}));
+    renderPage();
+    await act(async () => { await vi.advanceTimersByTimeAsync(8_000); });
+    expect(screen.getByText("Checking coach availability took too long. Check your connection and try again.")).toBeTruthy();
+    api.checkAvailability.mockResolvedValueOnce({ available: true });
     fireEvent.click(screen.getByRole("button", { name: "Try again" }));
-    expect(await screen.findByLabelText("Message the coach")).toBeTruthy();
+    await act(async () => { await Promise.resolve(); });
+    expect(screen.getByLabelText("Message the coach")).toBeTruthy();
+  });
+
+  it("ends a sign-in check that never resolves", async () => {
+    auth.loading = true;
+    vi.useFakeTimers();
+    renderPage();
+    await act(async () => { await vi.advanceTimersByTimeAsync(8_000); });
+    expect(screen.getByText("Sign-in check is taking too long")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Retry sign in" })).toBeTruthy();
   });
 });
 
@@ -247,6 +282,32 @@ describe("/coach actions", () => {
 });
 
 describe("/coach history", () => {
+  it("times out a stalled conversation list and offers retry", async () => {
+    signIn();
+    vi.useFakeTimers();
+    api.listThreads.mockImplementationOnce(() => new Promise(() => {}));
+    renderPage();
+    await act(async () => { await vi.advanceTimersByTimeAsync(8_000); });
+    expect(screen.getByText("Loading your conversations took too long. Check your connection and try again.")).toBeTruthy();
+    api.listThreads.mockResolvedValueOnce([]);
+    fireEvent.click(screen.getByRole("button", { name: "Retry conversations" }));
+    await act(async () => { await Promise.resolve(); });
+    expect(screen.getByText("No conversations yet.")).toBeTruthy();
+  });
+
+  it("times out a conversation load and offers a retry", async () => {
+    signIn();
+    api.listThreads.mockResolvedValue([{ id: "t9", title: "Portfolio ideas", updatedAt: Date.now() }]);
+    vi.useFakeTimers();
+    api.loadMessages.mockImplementationOnce(() => new Promise(() => {}));
+    renderPage();
+    await act(async () => { await Promise.resolve(); });
+    fireEvent.click(screen.getByRole("button", { name: /^Portfolio ideas/ }));
+    await act(async () => { await vi.advanceTimersByTimeAsync(8_000); });
+    expect(screen.getByText("Loading this conversation took too long. Check your connection and try again.")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Retry" })).toBeTruthy();
+  });
+
   it("opens a saved conversation", async () => {
     signIn();
     api.listThreads.mockResolvedValue([{ id: "t9", title: "Portfolio ideas", updatedAt: Date.now() }]);

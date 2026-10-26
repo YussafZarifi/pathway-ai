@@ -1,0 +1,104 @@
+{
+  "id": "multi_page_resume",
+  "synthetic": true,
+  "target_role": "Data Analyst",
+  "category": "multi_page_resume",
+  "target_skills": [
+    "SQL"
+  ],
+  "expected_outcome": "scored",
+  "resume_profile": {
+    "pages": 2,
+    "expected_sections": [
+      "Skills",
+      "Experience",
+      "Projects",
+      "Education"
+    ],
+    "formatting_flags": [
+      "multi_page"
+    ]
+  },
+  "expected_signals": {
+    "expected_titles": [
+      "Second Page Data Dashboard",
+      "Data Support Assistant"
+    ],
+    "expected_skills": [
+      "SQL"
+    ],
+    "expected_bullets": [
+      "Built a SQL dashboard that improved weekly reporting accuracy by 20%.",
+      "Analyzed reporting data for 40 volunteer-program users and documented trends."
+    ],
+    "findings": [
+      {
+        "criterion_id": "skill_1",
+        "page": 1,
+        "evidence_contains": "SQL"
+      },
+      {
+        "criterion_id": "relevant_project",
+        "page": 2,
+        "evidence_contains": "Second Page Data Dashboard"
+      },
+      {
+        "criterion_id": "project_technology",
+        "page": 2,
+        "evidence_contains": "Built a SQL dashboard that improved weekly reporting accuracy by 20%."
+      },
+      {
+        "criterion_id": "project_outcome",
+        "page": 2,
+        "evidence_contains": "Built a SQL dashboard that improved weekly reporting accuracy by 20%."
+      },
+      {
+        "criterion_id": "relevant_experience",
+        "page": 1,
+        "evidence_contains": "Data Support Assistant"
+      },
+      {
+        "criterion_id": "education_entry",
+        "page": 1,
+        "evidence_contains": "BSc in Analytics, 2025."
+      },
+      {
+        "criterion_id": "standard_sections",
+        "page": 2,
+        "evidence_contains": "Projects"
+      },
+      {
+        "criterion_id": "date_consistency",
+        "page": 1,
+        "evidence_contains": "2024 - 2025"
+      },
+      {
+        "criterion_id": "bullet_readability",
+        "page": 2,
+        "evidence_contains": "Built a SQL dashboard that improved weekly reporting accuracy by 20%.",
+        "alternative_pages": [
+          1
+        ]
+      },
+      {
+        "criterion_id": "action_language",
+        "page": 2,
+        "evidence_contains": "Built a SQL dashboard that improved weekly reporting accuracy by 20%.",
+        "alternative_pages": [
+          1
+        ]
+      },
+      {
+        "criterion_id": "project_impact",
+        "page": 2,
+        "evidence_contains": "Built a SQL dashboard that improved weekly reporting accuracy by 20%."
+      }
+    ],
+    "minimum_score": 20
+  },
+  "must_not_appear": [
+    "claims_no_projects",
+    "claims_missing_sql",
+    "requests_metric_for_existing_metric"
+  ]
+}

@@ -6,6 +6,7 @@ import Dialog from "../components/Dialog";
 import FeatureHeading from "../components/FeatureHeading";
 import CoachMessage from "../components/coach/CoachMessage";
 import { errorMessage } from "../lib/api";
+import { withTimeout } from "../lib/withTimeout";
 import { useAuth } from "../lib/authContext";
 import { useCurrentRoadmap } from "../lib/roadmaps/useCurrentRoadmap";
 import {
@@ -20,6 +21,11 @@ import {
 } from "../lib/coach";
 
 const SEND_FAILED = "The coach couldn't reply right now. Please try again.";
+const INIT_TIMEOUT_MS = 8_000;
+const AVAILABILITY_TIMEOUT = "Checking coach availability took too long. Check your connection and try again.";
+const THREADS_TIMEOUT = "Loading your conversations took too long. Check your connection and try again.";
+const MESSAGES_TIMEOUT = "Loading this conversation took too long. Check your connection and try again.";
+const AUTH_TIMEOUT = "We couldn't confirm your session. Please sign in again to continue.";
 const STARTERS = [
   "What should I focus on this week?",
   "How can I turn my current step into a portfolio project?",
@@ -64,35 +70,93 @@ export default function Coach() {
   const listEnd = useRef(null);
   const inputRef = useRef(null);
   const sendAbort = useRef(null);
+  const availabilityRequest = useRef(0);
+  const threadsRequest = useRef(0);
+  const messagesRequest = useRef(0);
+  const messagesAbort = useRef(null);
+  const [authTimedOut, setAuthTimedOut] = useState(false);
+  const [activeDataUser, setActiveDataUser] = useState(null);
 
   const refreshAvailability = useCallback(async (signal) => {
+    const requestId = ++availabilityRequest.current;
+    const controller = new AbortController();
+    let timedOut = false;
+    const abortFromCaller = () => controller.abort();
+    if (signal?.aborted) abortFromCaller();
+    signal?.addEventListener("abort", abortFromCaller, { once: true });
+    const timeout = setTimeout(() => { timedOut = true; controller.abort(); }, INIT_TIMEOUT_MS);
+    setAvailability({ status: "loading", data: null });
     try {
-      const data = await checkAvailability({ signal });
-      setAvailability({ status: "ready", data });
+      const data = await withTimeout(checkAvailability({ signal: controller.signal }), INIT_TIMEOUT_MS, AVAILABILITY_TIMEOUT, controller.signal);
+      if (requestId === availabilityRequest.current) setAvailability({ status: "ready", data });
     } catch (e) {
-      if (signal?.aborted) return;
-      setAvailability({ status: "error", data: null, error: errorMessage(e, "We couldn't check whether the coach is available. Please try again.") });
+      if (requestId !== availabilityRequest.current || signal?.aborted) return;
+      setAvailability({
+        status: e?.status === 401 ? "signed_out" : "error",
+        data: null,
+        error: timedOut ? AVAILABILITY_TIMEOUT : errorMessage(e, "We couldn't check whether the coach is available. Please try again."),
+      });
+    } finally {
+      clearTimeout(timeout);
+      signal?.removeEventListener("abort", abortFromCaller);
     }
   }, []);
 
   const refreshThreads = useCallback(async () => {
+    const requestId = ++threadsRequest.current;
     try {
-      const items = await listThreads();
-      setThreads({ status: "ready", items, error: "" });
+      setThreads((prev) => ({ ...prev, status: "loading", error: "" }));
+      const items = await withTimeout(listThreads(), INIT_TIMEOUT_MS, THREADS_TIMEOUT);
+      if (requestId === threadsRequest.current) setThreads({ status: "ready", items, error: "" });
     } catch (e) {
-      setThreads({ status: "error", items: [], error: errorMessage(e, "We couldn't load your conversations.") });
+      if (requestId === threadsRequest.current) {
+        const message = e?.message === THREADS_TIMEOUT ? THREADS_TIMEOUT : errorMessage(e, "We couldn't load your conversations.");
+        setThreads({ status: "error", items: [], error: message });
+      }
     }
   }, []);
 
   useEffect(() => {
-    if (!userId) return undefined;
+    if (!userId) {
+      availabilityRequest.current += 1;
+      threadsRequest.current += 1;
+      messagesRequest.current += 1;
+      messagesAbort.current?.abort();
+      setAvailability({ status: "loading", data: null });
+      setThreads({ status: "loading", items: [], error: "" });
+      setMessages({ status: "idle", items: [], error: "" });
+      setActiveId(null);
+      setActiveDataUser(null);
+      return undefined;
+    }
+    setActiveDataUser(userId);
+    setAvailability({ status: "loading", data: null });
+    setThreads({ status: "loading", items: [], error: "" });
+    setMessages({ status: "idle", items: [], error: "" });
+    setActiveId(null);
     const controller = new AbortController();
     refreshAvailability(controller.signal);
     refreshThreads();
-    return () => controller.abort();
+    return () => {
+      controller.abort();
+      availabilityRequest.current += 1;
+      threadsRequest.current += 1;
+    };
   }, [userId, refreshAvailability, refreshThreads]);
 
-  useEffect(() => () => sendAbort.current?.abort(), []);
+  useEffect(() => {
+    if (!authLoading) {
+      setAuthTimedOut(false);
+      return undefined;
+    }
+    const timeout = setTimeout(() => setAuthTimedOut(true), INIT_TIMEOUT_MS);
+    return () => clearTimeout(timeout);
+  }, [authLoading]);
+
+  useEffect(() => () => {
+    sendAbort.current?.abort();
+    messagesAbort.current?.abort();
+  }, []);
 
   // Keep the newest message in view.
   useEffect(() => {
@@ -100,20 +164,32 @@ export default function Coach() {
   }, [messages.items.length]);
 
   async function openThread(id) {
+    const requestId = ++messagesRequest.current;
+    messagesAbort.current?.abort();
+    const controller = new AbortController();
+    messagesAbort.current = controller;
     setActiveId(id);
     setSendError("");
     setThreadFull(false);
     setActionNote("");
     setMessages({ status: "loading", items: [], error: "" });
     try {
-      const items = await loadMessages(id);
-      setMessages({ status: "ready", items, error: "" });
+      const items = await withTimeout(loadMessages(id), INIT_TIMEOUT_MS, MESSAGES_TIMEOUT, controller.signal);
+      if (requestId === messagesRequest.current) setMessages({ status: "ready", items, error: "" });
     } catch (e) {
-      setMessages({ status: "error", items: [], error: errorMessage(e, "We couldn't load this conversation.") });
+      if (requestId === messagesRequest.current) {
+        const message = e?.message === MESSAGES_TIMEOUT ? MESSAGES_TIMEOUT : errorMessage(e, "We couldn't load this conversation.");
+        setMessages({ status: "error", items: [], error: message });
+      }
+    } finally {
+      if (messagesAbort.current === controller) messagesAbort.current = null;
     }
   }
 
   function newConversation() {
+    messagesRequest.current += 1;
+    messagesAbort.current?.abort();
+    messagesAbort.current = null;
     setActiveId(null);
     setMessages({ status: "idle", items: [], error: "" });
     setSendError("");
@@ -219,24 +295,28 @@ export default function Coach() {
         <p>Conversations are saved to your account, and accounts aren&apos;t available in this version of PathwayAI.</p>
       </StateCard>
     );
-  } else if (authLoading) {
-    body = <p className="dashMuted" role="status">Loading…</p>;
-  } else if (!user) {
+  } else if (authLoading && !authTimedOut) {
+    body = <section className="dashCard featureInitLoading" aria-busy="true"><span className="resumeSkeleton resumeSkeleton--title" /><span className="resumeSkeleton resumeSkeleton--body" /><p className="srOnly" role="status">Checking your sign-in…</p></section>;
+  } else if (!user || authTimedOut) {
     body = (
       <StateCard
         icon={<UserRound size={26} />}
-        title="Sign in to talk to your coach"
+        title={authTimedOut ? "Sign-in check is taking too long" : "Sign in to talk to your coach"}
         action={
           <button type="button" className="homePrimaryBtn" onClick={() => navigate("/login", { state: { from: "/coach" } })}>
-            Sign in
+            {authTimedOut ? "Retry sign in" : "Sign in"}
           </button>
         }
       >
-        <p>The coach knows your roadmap and progress, and your conversations are saved to your account.</p>
+        <p>{authTimedOut ? AUTH_TIMEOUT : "The coach knows your roadmap and progress, and your conversations are saved to your account."}</p>
       </StateCard>
     );
+  } else if (availability.status === "signed_out") {
+    body = <StateCard icon={<UserRound size={26} />} title="Sign in again to continue" action={<button type="button" className="homePrimaryBtn" onClick={() => navigate("/login", { state: { from: "/coach" } })}>Sign in again</button>}><p role="alert">Please sign in again to continue.</p></StateCard>;
+  } else if (activeDataUser !== userId) {
+    body = <section className="dashCard featureInitLoading" aria-busy="true"><span className="resumeSkeleton resumeSkeleton--title" /><span className="resumeSkeleton resumeSkeleton--body" /><p className="srOnly" role="status">Loading your coach workspace…</p></section>;
   } else if (availability.status === "loading") {
-    body = <p className="dashMuted" role="status">Checking the coach…</p>;
+    body = <section className="dashCard featureInitLoading" aria-busy="true"><span className="resumeSkeleton resumeSkeleton--title" /><span className="resumeSkeleton resumeSkeleton--body" /><span className="resumeSkeleton resumeSkeleton--drop" /><p className="srOnly" role="status">Checking the coach…</p></section>;
   } else if (availability.status === "error") {
     body = (
       <StateCard
@@ -269,9 +349,10 @@ export default function Coach() {
             </button>
           </div>
           <p className="coachThreadsHint">Pick up where you left off, or start fresh.</p>
-          {threads.error && <p className="dashError" role="alert">{threads.error}</p>}
           {threads.status === "loading" ? (
-            <p className="dashMuted" role="status">Loading…</p>
+            <div className="coachThreadLoading" aria-busy="true"><span className="resumeSkeleton resumeSkeleton--body" /><span className="srOnly" role="status">Loading conversations…</span></div>
+          ) : threads.status === "error" ? (
+            <div className="coachThreadLoadError"><p className="dashError" role="alert">{threads.error}</p><button type="button" className="dashBtn" onClick={refreshThreads}>Retry conversations</button></div>
           ) : threads.items.length === 0 ? (
             <div className="coachThreadsEmpty">
               <MessageSquare size={17} aria-hidden="true" />
@@ -315,7 +396,7 @@ export default function Coach() {
             <span className="coachGrounding"><Map size={14} aria-hidden="true" /> Roadmap context</span>
           </header>
           {messages.status === "loading" && <p className="dashMuted coachLoading" role="status"><span className="resumeSkeleton resumeSkeleton--body" />Loading conversation…</p>}
-          {messages.status === "error" && <p className="dashError" role="alert">{messages.error}</p>}
+          {messages.status === "error" && <p className="dashError" role="alert">{messages.error} {activeId && <button type="button" className="authLink" onClick={() => openThread(activeId)}>Retry</button>}</p>}
           {messages.items.length === 0 && messages.status !== "loading" ? (
             <div className="coachWelcome">
               <span className="coachWelcomeIcon"><Bot size={19} aria-hidden="true" /></span>

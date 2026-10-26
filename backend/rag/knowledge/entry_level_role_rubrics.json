@@ -1,0 +1,12 @@
+{
+  "collection": "entry_level_role_rubrics",
+  "source": "PathwayAI editorial guidance",
+  "title": "Entry-level evidence expectations",
+  "version": "v2",
+  "role": "all",
+  "level": "entry_level",
+  "sections": [
+    {"title": "Applied project readiness", "topic": "entry-level projects", "criterion_ids": ["relevant_project", "project_technology", "project_complexity", "project_outcome"], "text": "For an entry-level role, one well-explained project can demonstrate readiness. Show the problem, your implementation choices, and what the work produced. Depth is clearer when a tool is connected to a task than when technologies are listed without a decision or outcome."},
+    {"title": "Ownership and validation", "topic": "entry-level delivery", "criterion_ids": ["project_deployment", "project_demo", "experience_scope", "experience_achievement"], "text": "Show the portion of the work you delivered and how it was checked, shared, or used when applicable. A repository, demo, test, stakeholder review, or documented handoff can be useful evidence. Do not imply production deployment, testing, or impact that did not occur."}
+  ]
+}

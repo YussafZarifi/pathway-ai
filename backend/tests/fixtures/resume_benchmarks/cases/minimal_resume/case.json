@@ -1,0 +1,33 @@
+{
+  "id": "minimal_resume",
+  "synthetic": true,
+  "target_role": "Data Analyst",
+  "category": "minimal_resume",
+  "target_skills": [
+    "SQL"
+  ],
+  "expected_outcome": "insufficient_evidence",
+  "resume_profile": {
+    "pages": 1,
+    "expected_sections": [
+      "Skills",
+      "Education"
+    ],
+    "formatting_flags": [
+      "sparse_content"
+    ]
+  },
+  "expected_signals": {
+    "expected_titles": [],
+    "expected_skills": [
+      "SQL"
+    ],
+    "expected_bullets": [],
+    "findings": [],
+    "minimum_score": 0
+  },
+  "must_not_appear": [
+    "invented_project",
+    "invented_metric"
+  ]
+}

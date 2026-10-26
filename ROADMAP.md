@@ -1,7 +1,7 @@
 # ROADMAP.md — Living roadmap
 
-> Sections: ✅ Completed · 🎯 Version 2 (current focus) · 🔐 Milestone 1 · 🗄️ Milestone 2 · 📄 Milestone 3 · ⏸️ Deployment (postponed) · 🌱 Post-Launch Improvements · 🔮 Future Features · 📦 Backlog · 🌟 Stretch. Update at the end of every coding session. Move items between sections, set dates when completed.
-> **Status (2026-10-09): Version 2 = Milestones 1–4 is complete, plus the Version 1 extras** (account management, roadmap history, step notes and reminders, P-1–P-11, N-10/N-14/N-21, F-4 CI, B-18), final security audit, API docs disabled by default, premium Resume Analyzer/AI Coach UI and M3-X evidence-based Resume Analyzer scoring (ADR-024). **Next:** owner review and owner-side launch actions; push/deploy (D-1–D-6) only on explicit go-ahead. Everything still open below is an enhancement, not a defect.
+> Sections: ✅ Completed · 🚀 Version 1.0 release preparation · 🔐 Milestone 1 · 🗄️ Milestone 2 · 📄 Milestone 3 · 🌱 Post-Launch Improvements · 🔮 Future Features · 📦 Backlog · 🌟 Stretch. Update at the end of every coding session. Move items between sections, set dates when completed.
+> **Status (2026-10-26): Version 1.0 is release-ready locally.** It includes accounts, roadmap persistence, the deterministic evidence-based Résumé Analyzer, LangChain-default grounded coaching, AI Coach, CI and the production UI. The remaining release action is the approved commit/tag and optional deployment; open work below is an enhancement, not a defect.
 > **Priority:** P0 = blocker/critical · P1 = high · P2 = medium · P3 = nice-to-have
 > **Effort:** XS < 1h · S 1–2h · M ~half day · L 1–3 days · XL multiple days
 > **Recruiter impact:** ★★★ high · ★★ medium · ★ low
@@ -47,26 +47,26 @@
 | C-13 | Landing header: Log in / Sign up buttons open an accessible "Accounts are coming soon" dialog (native `<dialog>`: focus trap, Esc, focus return); no auth built (F-7 still planned) | 2026-09-26 |
 | C-12 | (was N-2) Pushed full history to the **private** GitHub repo `YussafZarifi/pathway-ai`; `main` tracks `origin/main` (placeholder README commits from repo creation replaced with `--force-with-lease`) | 2026-09-25 |
 
-## 🎯 Version 2 — current focus (owner decision, 2026-10-01)
+## 🚀 Version 1.0 release preparation
 
-Version 2 = Milestones 1–4, built and verified locally **before** any deployment. Order is fixed:
+Milestones 1–4 and the Version 1.0 résumé coaching work are built and verified locally:
 
 | Milestone | Scope | Status |
 |---|---|---|
 | **M1** Accounts + profiles (F-7, ADR-018) | Supabase email + password, `profiles` with RLS, token check in FastAPI | ✅ Complete 2026-10-01 (verified with a real account, M1-8) |
 | **M2** Roadmaps in PostgreSQL (F-8, ADR-019) | FastAPI writes AI content (`quiz_submissions`, `roadmaps`, `roadmap_steps`) as the `pathwayai_api` role; the browser reads its own rows and writes `step_progress` through RLS; guest import with a confirmation banner; guests keep localStorage | ✅ **Complete 2026-10-03** (M2-1 → M2-11, ADR-019); owner's real-account cross-device check pending Steps: 🗄️ Milestone 2 below |
-| **M3** Resume Analyzer (F-13) | PDF upload → evidence extraction → server-calculated career score and roadmap report | ✅ **Complete 2026-10-09** (M3-1 → M3-6 + M3-X; ADR-020/024) — feature remains off by default until Gemini billing. M3-X adds bounded text extraction, verified citations, weighted career rubrics, ATS/readiness coverage and premium report UI without changing the endpoint or database schema. |
+| **M3** Resume Analyzer (F-13) | PDF upload → evidence extraction → server-calculated career score and grounded coaching | ✅ **Complete** (ADR-020/024) — feature remains off by default until Gemini billing. It includes bounded text extraction, verified citations, weighted career rubrics, ATS/readiness coverage and LangChain-default, citation-validated coaching that cannot alter deterministic analysis. |
 | **M4** AI Coach (F-18) | Chat grounded in the user's roadmap, progress and résumé gaps; history; suggested actions the user confirms (ADR-021: no tool writes) | ✅ **Complete 2026-10-07** (M4-1 → M4-4, ADR-021). Steps: 🤖 Milestone 4 |
 
-Rules for every Version 2 commit (keep it deployable): backend tests pass; lint at or below baseline; `npm run build` passes; guest flow works with Supabase variables unset and set; new env vars land in `.env.example`, `render.yaml` and `docs/deployment.md` in the same commit; schema changes are migrations in `supabase/migrations/` with advisors clean. Each milestone gets its own step table (like Milestone 1 below) written and approved before coding starts.
+Rules for every release commit (keep it deployable): backend tests pass; lint and `npm run build` pass; guest flow works with Supabase variables unset and set; new env vars land in `.env.example`, `render.yaml` and `docs/deployment.md` in the same commit; schema changes are migrations in `supabase/migrations/` with advisors clean.
 
-## ⏸️ Deployment — postponed until Version 2 is complete
+## 🚀 Deployment after release approval
 
-**Status (2026-10-01):** the code has been deployable since 2026-09-29 and `render.yaml` stays current, but the owner has postponed the deploy until Version 2 (M1–M4) is finished. Don't recommend these steps before then unless the owner asks. Parked steps, in order, for when Version 2 is done:
+**Status (2026-10-26):** the application is verified locally and `render.yaml` includes LangChain-default coaching. Deployment remains an owner-authorized action; follow `docs/deployment.md` after the release commit and tag exist.
 
 | ID | Step | Who | Priority | Notes |
 |---|---|---|---|---|
-| D-1 | Push `main` to the **private** GitHub repo (54 unpushed commits on 2026-10-01) | Owner approves | P0 | Render builds from GitHub. Run `git check-ignore backend/.env` first; never change repo visibility |
+| D-1 | Push the approved Version 1.0 release commit and tag to the **private** GitHub repo | Owner approves | P0 | Render builds from GitHub. Run `git check-ignore backend/.env` first; never change repo visibility |
 | D-2 | Choose the Render plan for `pathwayai-api` | Owner | P0 | Free sleeps (first request ~1 min); Starter is always on |
 | D-3 | Deploy with the Blueprint (was F-1) | Claude, after D-1/D-2 | P0 | Steps in `docs/deployment.md`; set `GEMINI_API_KEY`, `ALLOWED_ORIGINS`, `VITE_API_URL`, the Supabase variables and any added by Milestones 2–4 (+ `YOUTUBE_API_KEY` if D-5 is done); add the live domain to Supabase's URL Configuration |
 | D-4 | Verify production | Claude | P0 | `/health`, full flow Landing → Quiz → Results → Dashboard → Regenerate, 404 page, CORS, logs with request IDs, no console errors; add the live URL to README; then N-22 (`og:url` + `og:image`) |
@@ -172,7 +172,7 @@ Design: ADR-021. Same rules as Milestones 2–3 (one logical change per commit; 
 
 ## 🔮 Future Features
 
-F-8, F-13 and F-18 are Version 2 Milestones 2–4 (see 🎯 Version 2); the rest follow Version 2 unless the owner reorders them:
+F-8, F-13 and F-18 are complete Version 1.0 milestones; the remaining items are future enhancements unless the owner reorders them:
 
 | ID | Task | Priority | Effort | Impact |
 |---|---|---|---|---|

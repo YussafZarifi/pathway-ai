@@ -8,7 +8,7 @@ A small FastAPI app in `backend/`. Run locally with `uvicorn main:app --reload -
 | `body_limit.py` | `BodySizeLimitMiddleware` (ASGI, innermost): 16 KB per request, 64 KB for `/api/roadmaps/import`, 2 MB for `/api/resume-analyses`; rejects a declared `Content-Length` over the limit at once and **counts the bytes actually read**, so chunked bodies without a length are limited too (since 2026-10-04, audit finding; before that only `Content-Length` was checked) |
 | `generation.py` | Shared by guest and saved-roadmap routes: `generate()` (maps LLM errors to HTTP errors), `generate_roadmap()`, `add_videos()`, `prompt_version()` (moved out of `main.py` 2026-10-03) |
 | `routers/roadmaps.py` | Saved roadmaps (ADR-019): `POST /api/roadmaps`, `POST /api/roadmaps/{id}/regenerate`, `POST /api/roadmaps/import` (M2-7); `get_repository` dependency (503 without `DATABASE_URL`) (added 2026-10-03, M2-6) |
-| `routers/resume_analyses.py` | `POST /api/resume-analyses` (ADR-020, M3-4, 2026-10-05): dependency chain token → database → feature switch → Content-Type → per-user limit → active roadmap, all before the body is read; `read_pdf` reads at most 2 MB; maps résumé/AI/database errors to honest statuses |
+| `routers/resume_analyses.py` | `POST /api/resume-analyses`: dependency chain token → database → feature switch → Content-Type → per-user limit → active roadmap, all before the body is read; saves the deterministic analysis, then returns optional grounded coaching without allowing it to affect the saved report |
 | `link_check.py` | SSRF-safe check of AI-suggested resource links (P-7, 2026-10-08): HEAD only, https + port 443, the host resolved and vetted inside the connection step (public addresses only; connects to the vetted IP, TLS still checks the name), ≤ 3 redirects each re-checked, 3 s timeouts, 8 workers; drops only clearly broken links (404/410, no such host, non-HTTPS); logs counts only |
 | `strict_ai.py` | Shared strict-reply helpers (2026-10-07): `load_strict_json` (no repair, duplicate keys refused), `text()` (trimmed, capped, no control characters), `error_summary` (field paths only), `contains_contact_details` (email/phone guard) |
 | `routers/account.py` | `GET /api/me/export`, `DELETE /api/me` (ADR-022): per-user limits (separate budgets), recent-password check from the token's `amr`, `{"confirm": "DELETE"}` |
@@ -18,8 +18,9 @@ A small FastAPI app in `backend/`. Run locally with `uvicorn main:app --reload -
 | `routers/coach.py` | `GET /api/coach/availability`, `POST /api/coach/messages` (token → database → switch → per-user limit → body/personal-data guard → thread 404/409 → Gemini → one-transaction save) |
 | `repositories/coach.py` | `load` (thread, last 12 messages, active roadmap with done flags, skills, latest review's gaps; one transaction) and `save_exchange` (thread + both messages, one transaction); Postgres + in-memory |
 | `resume_ai.py` | Résumé analysis (M3-3): PDF checks, strict reply validation (reject, never repair), `analyze_resume` |
+| `rag/` | Curated guidance loading, provider-neutral embeddings, native/LangChain retrievers, prompt builder and citation-validating coaching engine; the production composition is fail-open for coaching only |
 | `repositories/resume_analyses.py` | `active_target` (active roadmap's career, skills, ordered step titles) and `create` (one insert), Postgres + in-memory |
-| `config.py` | Settings read once from environment variables (added 2026-09-27); `RESUME_ANALYSIS_ENABLED` (strict true/false, default false) and `RESUME_LIMIT_*` since 2026-10-05 |
+| `config.py` | Settings read once from environment variables, including résumé feature/limit settings and LangChain-default RAG coaching configuration |
 | `schemas.py` | Pydantic request models: `QuizAnswersV2` (5-question quiz) and `QuizAnswersV1` (8-question quiz, temporary) behind one discriminated `QuizAnswers` (added 2026-09-27; v2 2026-09-28) |
 | `prompts.py` | Prompt builders: v2 prompts for the 5-question quiz, v1 prompts unchanged (added 2026-09-28, ADR-016) |
 | `rate_limit.py` | In-memory rate limiters used as FastAPI dependencies: `limit_ai_requests` (added 2026-09-27) and `limit_import_requests` (10/min, 100/day per IP, 5,000/day global; 2026-10-03); `limit_resume_requests` per **user** (3/hour, 10/day, 100/day global; 2026-10-05); `limit_coach_requests` per user (20/hour, 60/day, 300/day global; 2026-10-07) |
@@ -30,7 +31,7 @@ A small FastAPI app in `backend/`. Run locally with `uvicorn main:app --reload -
 | `auth.py` | Supabase access-token verification: `current_user` dependency, `verify_token` (PyJWT + cached JWKS, ES256/RS256 only, no shared secret, 30 s clock-skew leeway `CLOCK_SKEW_SECONDS` since 2026-10-04; never logs tokens or claims) (added 2026-09-30, ADR-018) |
 | `db.py` | Postgres access for saved roadmaps (ADR-019): lazy `psycopg_pool` pool as `pathwayai_api` through the transaction pooler (prepared statements off), `transaction(user_id)` sets the verified user's claims transaction-locally so RLS applies; connection problems → `DatabaseUnavailable` (added 2026-10-03, M2-5) |
 | `repositories/roadmaps.py` | `RoadmapRepository` Protocol: `create`, `get_source`, `add_regenerated`, `import_local`; `PostgresRoadmapRepository` (every method takes the user id; a per-user transaction-scoped advisory lock serializes one user's writes) and `InMemoryRoadmapRepository` for tests; `roadmap_out` / `step_out` map rows to the API shape (`time_estimate` → `time`) (added 2026-10-03, M2-5) |
-| `tests/` | 551 pytest tests (`requirements-dev.txt`); see `docs/testing.md` |
+| `tests/` | 674 pytest tests (`requirements-dev.txt`); see `docs/testing.md` |
 
 ## Configuration (`config.py`)
 `load_dotenv()` reads `backend/.env` locally; on Render the service environment is used. Template: `backend/.env.example`.
@@ -51,6 +52,12 @@ A small FastAPI app in `backend/`. Run locally with `uvicorn main:app --reload -
 | `SUPABASE_URL` | empty | Optional (ADR-018). `https://<ref>.supabase.co`; issuer + JWKS for token checks. Empty: `/api/me` returns 503, AI routes unaffected. Not a secret |
 | `DATABASE_URL` | empty | Optional **secret** (ADR-019): transaction-pooler URL for the `pathwayai_api` role. Empty: the app starts normally, `/api/roadmaps*` return 503, guests unaffected. Tests force it empty |
 | `DB_POOL_MAX` | 5 | Max pooled database connections |
+| `RAG_RETRIEVER` | `langchain` | `langchain` or `native`; selects the curated résumé-guidance retriever |
+| `RAG_COACHING_ENABLED` | `true` | Enables optional coaching enrichment after deterministic analysis is saved |
+| `RAG_COACHING_TIMEOUT_SECONDS` | 5 | Coaching request budget in seconds |
+| `RAG_EMBEDDING_PROVIDER` | `gemini` | Provider-neutral embedding selector; Gemini is the configured implementation |
+| `GEMINI_EMBEDDING_MODEL` | `gemini-embedding-001` | Embedding model for curated guidance retrieval |
+| `GEMINI_EMBEDDING_DIMENSIONS` | 768 | Embedding vector dimensions |
 | `LOG_LEVEL` | `INFO` | |
 
 ## Endpoints (✅)
@@ -70,7 +77,7 @@ A small FastAPI app in `backend/`. Run locally with `uvicorn main:app --reload -
 | GET | `/api/coach/availability` | `availability` | Signed-in: `{available, reason}` (since 2026-10-07) |
 | POST | `/api/coach/messages` | `post_message` | Signed-in: one coach reply with suggested actions; both messages saved in one transaction (since 2026-10-07) |
 | GET | `/api/resume-analyses/availability` | `availability` | Signed-in: `{available, reason, career, roadmap_id}` for the `/resume` page; feature switch first, then the active roadmap (since 2026-10-07) |
-| POST | `/api/resume-analyses` | `create_analysis` | Signed-in, feature switch on: raw PDF (≤ 2 MB) → strict AI review against the active roadmap → saved; 201 (since 2026-10-05) |
+| POST | `/api/resume-analyses` | `create_analysis` | Signed-in, feature switch on: raw PDF (≤ 2 MB) → verified deterministic analysis and save → optional grounded coaching; 201 |
 
 Full contracts: `docs/api.md`.
 

@@ -51,7 +51,7 @@ def test_success_returns_legacy_fields_plus_server_computed_score_report(fake_ge
     assert analysis["score_report"]["ats"]["score"] == 67
     assert analysis["matched_skills"] == ["SQL"] and analysis["missing_skills"] == ["Tableau"]
     assert analysis["score_report"]["recommendations"][0]["potential_points"] == 14.0
-    assert result["career"] == CAREER and result["prompt_version"] == "r8"
+    assert result["career"] == CAREER and result["prompt_version"] == "r9"
     assert result["model"] == resume_ai.config.GEMINI_MODEL
     assert models.calls == 1
 
@@ -260,9 +260,10 @@ def test_citation_diagnostic_explains_a_noncontiguous_quote():
     )
 
     assert diagnostic["contiguous_word_match"] is False
-    assert diagnostic["first_mismatch"]["expected"] == "with"
+    assert diagnostic["first_mismatch"]["quote_token_index"] >= 0
     assert diagnostic["longest_matching_subsequence"]["token_count"] >= 3
-    assert len(diagnostic["surrounding_page_text"]) <= 1000
+    assert "tokens" not in diagnostic["longest_matching_subsequence"]
+    assert "surrounding_page_text" not in diagnostic
     assert "not a contiguous source span" in diagnostic["why_contiguous_matching_failed"]
 
 
@@ -434,6 +435,15 @@ def test_resume_prompt_states_every_free_text_limit():
     assert "Never concatenate a list of headings into a single quote" in prompt
     assert "Each evaluation has at most 5 evidence entries" in prompt
     assert "Each project/job check may contain at most one evidence entry" in prompt
+    assert "spreadsheets, dashboards, databases, reporting, analytics, or automation tooling" in prompt.casefold()
+
+
+def test_internship_prompt_relaxes_experience_expectations_without_weakening_evidence():
+    prompt = build_resume_evidence_prompt(CAREER, rubric(), [], RESUME_PAGES, target_level="internship")
+
+    assert "Target level: internship" in prompt
+    assert "Do not require professional work experience" in prompt
+    assert "`found:true` requires at least one verified quote" in prompt
 
 
 @pytest.mark.parametrize("career,skills", [
@@ -611,10 +621,10 @@ def test_heading_split_does_not_accept_invented_text_between_real_headings():
 def test_out_of_range_skill_position_is_rejected_against_saved_position_enum(fake_gemini):
     bad = reply()
     bad["skill_roadmap"][0]["step_positions"] = [0]
-    models = fake_gemini(bad)
+    models = fake_gemini(bad, bad)
     with pytest.raises(llm.AIServiceError):
         run()
-    assert models.calls == 1
+    assert models.calls == 2
     positions = models.configs[0].response_schema["$defs"]["SkillRoadmapSchema"]["properties"]["step_positions"]["items"]
     assert positions["minimum"] == 1 and positions["maximum"] == 3
 
@@ -737,6 +747,32 @@ def test_citation_accepts_real_pdf_extraction_formatting_and_truncation(quote):
     assert parsed["evaluations_by_id"]["project_technology"]["found"]
 
 
+def test_verified_spreadsheet_project_evidence_backfills_project_technology_when_model_misses_it():
+    data = reply()
+    original = "Built a SQL dashboard that improved weekly reporting accuracy by 20%."
+    replacement = "Built a spreadsheet reporting project that improved weekly report accuracy by 15%."
+    for evaluation in data["evaluations"]:
+        for citation in evaluation["evidence"]:
+            if citation["quote"] == original:
+                citation["quote"] = replacement
+    target = next(item for item in data["evaluations"] if item["criterion_id"] == "project_technology")
+    target.update(found=False, evidence=[], note="No named technology identified.")
+    outcome = next(item for item in data["evaluations"] if item["criterion_id"] == "project_outcome")
+    outcome["evidence"] = [{
+        "source": "resume_text", "page": 1,
+        "quote": replacement,
+    }]
+    pages = [RESUME_PAGES[0].replace(
+        original, replacement,
+    ), RESUME_PAGES[1]]
+
+    parsed, _ = parse_resume_reply(json.dumps(data), rubric(), pages, len(STEPS), tolerant=True)
+
+    technology = parsed["evaluations_by_id"]["project_technology"]
+    assert technology["found"] is True
+    assert technology["evidence"] == outcome["evidence"]
+
+
 def test_citation_accepts_pdf_line_wrap_hyphenation():
     page = "Projects\nBuilt a data-driven dash-\nboard for weekly reporting.\n" * 8
     extracted = extract_resume_pages(make_pdf(pages=[page]))[0]
@@ -756,6 +792,7 @@ def test_citation_rejects_unrelated_words_and_logs_no_resume_text(caplog):
     with pytest.raises(AIOutputError, match="not_in_source"):
         parse_resume_reply(json.dumps(data), rubric(), [extracted], len(STEPS))
     assert "quote_chars" in caplog.text and "page_tokens" in caplog.text
+    assert "surrounding_page_text" not in caplog.text
     assert "Kubernetes" not in caplog.text and "Python dashboard" not in caplog.text
 
 
@@ -915,16 +952,19 @@ def test_result_size_limit_prevents_oversized_persisted_report(monkeypatch, fake
     assert error.value.kind == "too_large"
 
 
-@pytest.mark.parametrize("bad", ["not json", reply(evaluations=[]), reply(score=90)])
-def test_malformed_resume_replies_are_handled_without_prompt_retry(bad, fake_gemini):
-    models = fake_gemini(bad)
-    if bad == "not json":
-        with pytest.raises(llm.AIServiceError) as error:
-            run()
-        assert error.value.kind == "failed"
-    else:
-        assert run()["analysis"]["score_report"]["overall"] >= 0
-    assert models.calls == 1
+def test_malformed_resume_reply_is_retried_once(fake_gemini):
+    models = fake_gemini("not json", reply())
+    assert run()["analysis"]["score_report"]["overall"] >= 0
+    assert models.calls == 2
+    assert "REPAIR REQUEST" in models.prompts[1][1]
+
+
+def test_persistently_malformed_resume_reply_has_a_typed_error(fake_gemini):
+    models = fake_gemini("not json", "not json")
+    with pytest.raises(llm.AIServiceError) as error:
+        run()
+    assert error.value.kind == "invalid_output"
+    assert models.calls == 2
 
 
 def test_gemini_errors_timeouts_and_no_key_keep_existing_error_behavior(fake_gemini, monkeypatch):

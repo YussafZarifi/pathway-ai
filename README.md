@@ -2,7 +2,7 @@
 
 **AI-powered tech career guidance.** Answer a short quiz, get three personalized tech-career matches, and turn the one you pick into a step-by-step learning roadmap you can track.
 
-> **Project status: Version 1, feature-complete and tested locally; not deployed yet.** Guests get the full flow (quiz → AI career matches → AI roadmap → progress dashboard) in the browser. With an optional account (Supabase), roadmaps, progress, notes and history are saved to Postgres, and the AI Résumé Analyzer and AI Coach become available. See [`ROADMAP.md`](ROADMAP.md).
+> **Project status: Version 1.0 release preparation; verified locally and not deployed.** Guests get the full flow (quiz → AI career matches → AI roadmap → progress dashboard) in the browser. With an optional account (Supabase), roadmaps, progress, notes and history are saved to Postgres, and the AI Résumé Analyzer and AI Coach become available. See [`ROADMAP.md`](ROADMAP.md).
 
 ---
 
@@ -26,13 +26,13 @@ Real output from a guest run (Gemini, 2026-10-08).
 - **Progress dashboard** — progress ring, today's focus task, stat tiles, a visual roadmap (mark done/undo, personal notes and target dates), due/overdue reminders, dated achievements, rule-based insights and quick actions. Every number comes from your own stored data.
 - **Accounts (optional)** — email + password with confirmation (Supabase Auth), password reset, settings (name, password, sign out everywhere), **data export** and **self-service account deletion**.
 - **Saved roadmaps** — signed-in users' roadmaps, progress and notes live in Postgres behind row-level security and follow them across devices; full history with "Make current"; a guest roadmap can be saved to the account once, after sign-in.
-- **Résumé Analyzer** — upload a text-based PDF for a strict, evidence-cited review against your roadmap's career. Career-specific weighted rubrics produce explainable scores, ATS and roadmap coverage, and point-ranked improvements. The original PDF and full text are not stored; short verified excerpts are saved with the report. Off by default until a paid Gemini key is configured.
+- **Résumé Analyzer** — upload a text-based PDF for a strict, evidence-cited review against your roadmap's career. Deterministic career rubrics produce the overall, ATS and readiness scores from verified page evidence. LangChain retrieval supplies curated résumé-writing guidance only for the highest-priority verified gaps; Gemini coaching is validated against both the evidence and retrieved guidance. The original PDF and full text are not stored. Off by default until a paid Gemini key is configured.
 - **AI Coach** — chat grounded in your roadmap, progress and résumé gaps; it suggests actions (open a step, mark one done, retake the quiz) that only run when you click them.
 - **Export** results as PDF or print · branded 404 page · accessible dialogs, keyboard focus management and reduced-motion support.
 
 ### 🗺️ Planned
 - Shareable public roadmap pages, OAuth sign-in, email reminders
-- Streaming generation, grounded resources and real salary data (RAG / job-market APIs)
+- Streaming generation, grounded career resources and real salary data (job-market APIs)
 - Committed end-to-end tests, error tracking (Sentry), live deployment
 
 ---
@@ -88,7 +88,7 @@ More: [`docs/architecture.md`](docs/architecture.md).
 2. **Roadmap generation** — the profile plus the chosen career produce ≤5 steps with `title, description, time, resources[{name,url}], tasks[]` and a video search phrase, paced to the weekly hours and ending at the goal. The backend turns the phrase into real videos with the YouTube Data API.
 3. **Output handling** — Gemini JSON mode with a `response_schema`, then per-item Pydantic validation (defaults for missing fields, invalid items dropped) and at most one retry. Users get distinct messages for "busy", "usage limit" and failures; raw model output is never returned or logged.
 
-4. **Résumé review and coach** — strict JSON replies validated field by field and rejected (never repaired) when malformed; résumé text and messages are never logged. Resume score points are computed by the backend from fixed rubrics and verified PDF-page excerpts, never supplied by Gemini.
+4. **Résumé review and coaching** — pypdf extracts bounded text from the uploaded PDF. Gemini returns a strict evidence checklist; the backend verifies each positive excerpt against its claimed page and deterministically computes every score from fixed career-family rubrics. The saved analysis is then used to select up to three verified gaps. The configured retriever (LangChain by default) fetches curated résumé guidance, and Gemini coaching is accepted only when every criterion, résumé citation and guidance citation validates. Coaching cannot alter scores, findings or citations; failures return the deterministic analysis with `ai_coaching.status: "unavailable"`.
 
 Current limitations: no streaming, no caching, and salary figures are generated by the model, not retrieved from a verified source (resource links are checked, their content isn't). See [`docs/ai-system.md`](docs/ai-system.md).
 
@@ -103,7 +103,7 @@ Current limitations: no streaming, no caching, and salary figures are generated 
 | AI | Google Gemini (`google-genai` SDK, `gemini-2.5-flash-lite`) |
 | Auth + DB | Supabase Auth (email + password), Supabase Postgres (9 tables, RLS, SQL-tested policies), PyJWT token verification, psycopg 3 |
 | Storage | Browser `localStorage` for guests; Supabase Postgres for signed-in users |
-| Quality | pytest (526 backend tests), Vitest + Testing Library (149 frontend tests), 151 SQL policy checks, ESLint, GitHub Actions CI, pip-audit + npm audit |
+| Quality | 674 pytest tests, 182 Vitest tests, 3 passing Playwright checks (1 intentionally skipped), 151 SQL policy checks, ESLint, production build, GitHub Actions CI, pip-audit + npm audit |
 
 ---
 
@@ -149,6 +149,8 @@ Nothing is hard-coded: every URL and key comes from these (full list and default
 | `SUPABASE_URL` | `backend/.env` | No | Same project URL; lets the API verify sign-in tokens |
 | `DATABASE_URL` | `backend/.env` | No | Postgres (transaction pooler) as the `pathwayai_api` role; needed for saved roadmaps, résumé reviews and the coach |
 | `RESUME_ANALYSIS_ENABLED`, `COACH_ENABLED`, `LINK_CHECK_ENABLED` | `backend/.env` | No | Feature switches (defaults false / true / true) |
+| `RAG_RETRIEVER`, `RAG_COACHING_ENABLED`, `RAG_COACHING_TIMEOUT_SECONDS` | `backend/.env` | No | Production résumé coaching: `langchain` is the default retriever; coaching is bounded and additive to deterministic analysis |
+| `RAG_EMBEDDING_PROVIDER`, `GEMINI_EMBEDDING_MODEL`, `GEMINI_EMBEDDING_DIMENSIONS` | `backend/.env` | No | Semantic embedding configuration for the curated résumé-guidance index |
 
 
 ### Scripts
@@ -226,7 +228,7 @@ Short version (full, estimated and prioritized: [`ROADMAP.md`](ROADMAP.md)):
 2. ✅ **Accounts and persistence:** Supabase Auth, Postgres with RLS, saved roadmaps and history
 3. ✅ **AI depth, part 1:** résumé analysis, AI coach, link checks
 4. **Launch:** deployment, error tracking, committed E2E tests
-5. **Next:** streaming, grounded resources and salaries (RAG, job-market data), shareable roadmaps, EN/FR
+5. **Next:** streaming, grounded career resources and salaries, shareable roadmaps, EN/FR
 
 ---
 

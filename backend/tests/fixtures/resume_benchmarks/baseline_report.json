@@ -1,0 +1,213 @@
+{
+  "suite": "resume_benchmarks_deterministic_v2",
+  "live_model": false,
+  "summary": {
+    "cases": 12,
+    "scored": {
+      "cases": 10,
+      "passed": 10,
+      "failed": 0
+    },
+    "intentional_insufficient_evidence": {
+      "cases": 2,
+      "abstained": 2,
+      "failed": 0
+    },
+    "comparator_mismatches": 0,
+    "critical_false_positives": 0
+  },
+  "cases": [
+    {
+      "id": "average_student",
+      "passed": true,
+      "expected_outcome": "scored",
+      "result_type": "scored_pass",
+      "status": "scored",
+      "display_score": 48,
+      "rubric": {
+        "extraction": 25,
+        "evidence_grounding": 25,
+        "recommendation_quality": 20,
+        "trustworthiness": 15,
+        "false_positives": 15
+      },
+      "critical_false_positives": []
+    },
+    {
+      "id": "formatting_problems",
+      "passed": true,
+      "expected_outcome": "scored",
+      "result_type": "scored_pass",
+      "status": "scored",
+      "display_score": 50,
+      "rubric": {
+        "extraction": 25,
+        "evidence_grounding": 25,
+        "recommendation_quality": 20,
+        "trustworthiness": 15,
+        "false_positives": 15
+      },
+      "critical_false_positives": []
+    },
+    {
+      "id": "inconsistent_experience",
+      "passed": true,
+      "expected_outcome": "scored",
+      "result_type": "scored_pass",
+      "status": "scored",
+      "display_score": 50,
+      "rubric": {
+        "extraction": 25,
+        "evidence_grounding": 25,
+        "recommendation_quality": 20,
+        "trustworthiness": 15,
+        "false_positives": 15
+      },
+      "critical_false_positives": []
+    },
+    {
+      "id": "minimal_resume",
+      "passed": true,
+      "expected_outcome": "insufficient_evidence",
+      "result_type": "intentional_insufficient_evidence_abstention",
+      "status": "insufficient_evidence",
+      "display_score": 0,
+      "rubric": {
+        "extraction": 25,
+        "evidence_grounding": 25,
+        "recommendation_quality": 20,
+        "trustworthiness": 15,
+        "false_positives": 15
+      },
+      "critical_false_positives": []
+    },
+    {
+      "id": "missing_skills",
+      "passed": true,
+      "expected_outcome": "scored",
+      "result_type": "scored_pass",
+      "status": "scored",
+      "display_score": 50,
+      "rubric": {
+        "extraction": 25,
+        "evidence_grounding": 25,
+        "recommendation_quality": 20,
+        "trustworthiness": 15,
+        "false_positives": 15
+      },
+      "critical_false_positives": []
+    },
+    {
+      "id": "multi_page_resume",
+      "passed": true,
+      "expected_outcome": "scored",
+      "result_type": "scored_pass",
+      "status": "scored",
+      "display_score": 50,
+      "rubric": {
+        "extraction": 25,
+        "evidence_grounding": 25,
+        "recommendation_quality": 20,
+        "trustworthiness": 15,
+        "false_positives": 15
+      },
+      "critical_false_positives": []
+    },
+    {
+      "id": "strong_entry_level",
+      "passed": true,
+      "expected_outcome": "scored",
+      "result_type": "scored_pass",
+      "status": "scored",
+      "display_score": 50,
+      "rubric": {
+        "extraction": 25,
+        "evidence_grounding": 25,
+        "recommendation_quality": 20,
+        "trustworthiness": 15,
+        "false_positives": 15
+      },
+      "critical_false_positives": []
+    },
+    {
+      "id": "strong_measurable_impact",
+      "passed": true,
+      "expected_outcome": "scored",
+      "result_type": "scored_pass",
+      "status": "scored",
+      "display_score": 50,
+      "rubric": {
+        "extraction": 25,
+        "evidence_grounding": 25,
+        "recommendation_quality": 20,
+        "trustworthiness": 15,
+        "false_positives": 15
+      },
+      "critical_false_positives": []
+    },
+    {
+      "id": "strong_projects",
+      "passed": true,
+      "expected_outcome": "scored",
+      "result_type": "scored_pass",
+      "status": "scored",
+      "display_score": 50,
+      "rubric": {
+        "extraction": 25,
+        "evidence_grounding": 25,
+        "recommendation_quality": 20,
+        "trustworthiness": 15,
+        "false_positives": 15
+      },
+      "critical_false_positives": []
+    },
+    {
+      "id": "unclear_impact",
+      "passed": true,
+      "expected_outcome": "scored",
+      "result_type": "scored_pass",
+      "status": "scored",
+      "display_score": 48,
+      "rubric": {
+        "extraction": 25,
+        "evidence_grounding": 25,
+        "recommendation_quality": 20,
+        "trustworthiness": 15,
+        "false_positives": 15
+      },
+      "critical_false_positives": []
+    },
+    {
+      "id": "weak_projects",
+      "passed": true,
+      "expected_outcome": "scored",
+      "result_type": "scored_pass",
+      "status": "scored",
+      "display_score": 48,
+      "rubric": {
+        "extraction": 25,
+        "evidence_grounding": 25,
+        "recommendation_quality": 20,
+        "trustworthiness": 15,
+        "false_positives": 15
+      },
+      "critical_false_positives": []
+    },
+    {
+      "id": "weak_resume",
+      "passed": true,
+      "expected_outcome": "insufficient_evidence",
+      "result_type": "intentional_insufficient_evidence_abstention",
+      "status": "insufficient_evidence",
+      "display_score": 0,
+      "rubric": {
+        "extraction": 25,
+        "evidence_grounding": 25,
+        "recommendation_quality": 20,
+        "trustworthiness": 15,
+        "false_positives": 15
+      },
+      "critical_false_positives": []
+    }
+  ]
+}

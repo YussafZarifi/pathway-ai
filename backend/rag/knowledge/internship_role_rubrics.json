@@ -1,0 +1,12 @@
+{
+  "collection": "internship_role_rubrics",
+  "source": "PathwayAI editorial guidance",
+  "title": "Internship evidence expectations",
+  "version": "v2",
+  "role": "all",
+  "level": "internship",
+  "sections": [
+    {"title": "Coursework and project evidence", "topic": "internship readiness", "criterion_ids": ["education_entry", "relevant_coursework", "relevant_project", "project_outcome"], "text": "For internships, coursework and class projects are valid evidence when the candidate states what they built or analyzed, the tools used, and the result. Label academic work honestly; do not present coursework as professional employment. Prioritize one concrete example over a broad list of class names."},
+    {"title": "Clear contribution and action", "topic": "internship contribution", "criterion_ids": ["transferable_experience", "teamwork_evidence", "leadership_evidence", "action_language"], "text": "Teams, campus roles, volunteer work, and student organizations can show readiness when the contribution is specific. Use an action verb and explain what you coordinated, analyzed, created, or improved. Describe your own responsibility without claiming ownership of work completed by others."}
+  ]
+}
