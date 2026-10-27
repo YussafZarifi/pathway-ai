@@ -1,7 +1,7 @@
 # Deployment
 
 ## Current state
-**Version 1.0 release preparation is verified locally; the application is not deployed.** Render remains the production target. Supabase accounts are optional per environment; the Resume Analyzer additionally requires a paid Gemini project and `RESUME_ANALYSIS_ENABLED=true` before it accepts personal PDFs.
+**Version 1.0 release preparation is verified locally; the application is not deployed.** Render remains the backend production target; the Vite frontend can deploy to either Render or Vercel. Supabase accounts are optional per environment; the Resume Analyzer additionally requires a paid Gemini project and `RESUME_ANALYSIS_ENABLED=true` before it accepts personal PDFs.
 
 ### Keeping the release deployable
 The deploy waits, but the project must stay shippable at every commit:
@@ -55,6 +55,20 @@ For local development, keep `TRUSTED_PROXY_MODE=none` and `TRUSTED_PROXY_CIDRS` 
 | `pathwayai-web` | Static site, Node 22 | `frontend/` | `npm ci && npm run build` | publishes `dist/`; rewrite `/*` → `/index.html` (BrowserRouter) |
 
 Both have `buildFilter` paths, so a frontend-only change doesn't redeploy the API and vice versa.
+
+## Vercel frontend setup
+
+Vercel hosts the Vite frontend only; the FastAPI API remains a separately deployed service. Import the repository, set the Vercel project's **Root Directory** to `frontend`, and allow Vercel to detect Vite. The existing `build` script produces `dist/`, which Vercel detects automatically. `frontend/vercel.json` contains only the SPA fallback required by `BrowserRouter`, so direct visits to routes such as `/resume` load the app instead of returning a 404.
+
+Set these Production and Preview environment variables in Vercel before deploying:
+
+| Name | Required | Value |
+|---|---|---|
+| `VITE_API_URL` | Yes | Public HTTPS URL of the deployed FastAPI API, without a trailing slash |
+| `VITE_SUPABASE_URL` | Optional | Supabase project URL; leave unset for a guest-only build |
+| `VITE_SUPABASE_PUBLISHABLE_KEY` | Optional | Supabase `sb_publishable_...` key; never a secret or service-role key |
+
+Use Node.js 22, `npm run build`, and output directory `dist` if Vercel does not auto-detect them. Vite embeds `VITE_*` values at build time: redeploy after changing one. Update the API's `ALLOWED_ORIGINS` to include the final `https://<project>.vercel.app` origin, and add the same frontend origin to Supabase's Site URL and Redirect URLs.
 
 ### Environment variables
 | Name | Service | Set how | Notes |
