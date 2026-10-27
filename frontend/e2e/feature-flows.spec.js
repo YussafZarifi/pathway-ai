@@ -88,3 +88,42 @@ test("synthetic multi-page resume stays in the focused review workspace", async 
   await expect(page.getByText(/PathwayAI searched its resume-writing guidance/)).toBeVisible();
   expect(browserErrors).toEqual([]);
 });
+
+test("coach improvements stay reachable in the fixed review workspace", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 720 });
+  await signedInPage(page);
+  const response = analysisResponse();
+  response.ai_coaching.items = Array.from({ length: 3 }, (_, index) => ({
+    ...response.ai_coaching.items[0],
+    criterion_id: `project_impact_${index}`,
+    title: `Priority improvement ${index + 1}`,
+    problem: "The project outcome is not explicit enough for a recruiter to verify the result.",
+    why_it_matters: "A concrete outcome helps a recruiter understand the value and scope of the work.",
+    improve_by: "Add the verified result, scale, and the action that produced it.",
+    expected_impact: "Makes the project easier to assess against the role rubric.",
+    suggested_rewrite: "Built a reporting workflow that reduced manual weekly updates and gave the team a reliable view of progress.",
+    resume_citations: [{ page: 1, quote: "Built a SQL dashboard that improved weekly reporting accuracy by 20%." }],
+  }));
+  await page.route("http://127.0.0.1:8003/api/resume-analyses", (route) => route.fulfill({
+    status: 201, contentType: "application/json", body: JSON.stringify(response),
+  }));
+
+  await page.goto("/resume");
+  await page.locator("input[type=file]").setInputFiles(syntheticResume);
+  await expect(page.getByText("Preview ready")).toBeVisible({ timeout: 15_000 });
+  await page.getByRole("button", { name: /Analyze/ }).click();
+
+  const sizing = await page.locator(".resumeSuggestionPane").evaluate((coach) => {
+    const workspace = coach.closest(".resumeReviewWorkspace");
+    return {
+      coachHeight: coach.getBoundingClientRect().height,
+      workspaceHeight: workspace.getBoundingClientRect().height,
+      clientHeight: coach.clientHeight,
+      scrollHeight: coach.scrollHeight,
+      scrollTop: (coach.scrollTop = coach.scrollHeight),
+    };
+  });
+  expect(sizing.coachHeight).toBeLessThanOrEqual(sizing.workspaceHeight);
+  expect(sizing.scrollHeight).toBeGreaterThan(sizing.clientHeight);
+  expect(sizing.scrollTop).toBeGreaterThan(0);
+});
